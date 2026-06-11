@@ -4,20 +4,23 @@ import { useRef, useState, useTransition, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Avatar } from "@/components/ui/Avatar";
+import { ParticipantesPicker } from "@/components/colaboradores/ParticipantesPicker";
+import type { ColaboradorOpt } from "@/lib/colaboradores";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { ClienteSelect } from "@/components/clientes/ClienteSelect";
 import {
-  TIPO_REUNIAO,
+  TIPO_REUNIAO_DESCRICAO,
   MODALIDADE_REUNIAO,
   STATUS_REUNIAO,
+  tipoReuniaoOptions,
+  type TipoReuniaoKey,
 } from "@/lib/constants";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import type { TipoReuniao } from "@/types/database";
 import { toDatetimeLocal } from "@/lib/format";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import { createReuniao, updateReuniao } from "@/app/(app)/reunioes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
-
-type PessoaOpt = { id: string; nome: string; avatar_url?: string | null };
 
 export function ReuniaoForm({
   open,
@@ -26,7 +29,7 @@ export function ReuniaoForm({
   reuniao,
   prefill,
   afterCreate,
-  pessoas,
+  colaboradores,
 }: {
   open: boolean;
   onClose: () => void;
@@ -34,7 +37,7 @@ export function ReuniaoForm({
   reuniao?: ReuniaoComRelacoes | null;
   prefill?: Partial<ReuniaoComRelacoes> | null;
   afterCreate?: (id: string) => Promise<void> | void;
-  pessoas: PessoaOpt[];
+  colaboradores: ColaboradorOpt[];
 }) {
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
@@ -45,9 +48,10 @@ export function ReuniaoForm({
     src?.modalidade ?? "PRESENCIAL_ESCRITORIO"
   );
   const [status, setStatus] = useState(src?.status ?? "AGENDADA");
+  const [tipo, setTipo] = useState<TipoReuniao>(src?.tipo ?? "CAPTACAO");
 
-  const participantesIniciais = new Set(
-    (src?.participantes ?? []).map((p) => p.pessoa_id)
+  const participantesIniciais = (src?.participantes ?? []).map(
+    (p) => p.colaborador_id
   );
 
   // Preenche a duração ao informar início + fim (sem sobrescrever valor manual).
@@ -96,28 +100,56 @@ export function ReuniaoForm({
       participantes: fd.getAll("participantes").map(String),
     };
 
-    const errs = validateFields(values, {
-      titulo: { required: "Informe o título da reunião." },
-      data_hora_inicio: { required: "Informe a data e hora de início." },
-      data_hora_fim: {
-        afterField: {
-          field: "data_hora_inicio",
-          message: "O fim deve ser depois do início.",
+    const errs = validateFields(
+      {
+        ...values,
+        duracao_minutos:
+          values.duracao_minutos != null ? String(values.duracao_minutos) : "",
+      },
+      {
+        titulo: { required: "Informe o título da reunião." },
+        data_hora_inicio: { required: "Informe a data e hora de início." },
+        data_hora_fim: {
+          required: "Informe a data e hora de fim.",
+          afterField: {
+            field: "data_hora_inicio",
+            message: "O fim deve ser depois do início.",
+          },
         },
-      },
-      duracao_minutos: {
-        min: { value: 1, message: "Duração deve ser maior que zero." },
-      },
-      link_online: { url: "Link inválido — use http(s)://..." },
-      gravacao_url: { url: "URL inválida — use http(s)://..." },
-      ...(status === "CANCELADA"
-        ? {
-            motivo_cancelamento: {
-              required: "Informe o motivo do cancelamento.",
-            },
-          }
-        : {}),
-    });
+        duracao_minutos: {
+          required: "Informe a duração em minutos.",
+          min: { value: 1, message: "Duração deve ser maior que zero." },
+        },
+        cliente_id: { required: "Selecione ou crie um cliente." },
+        tema: { required: "Informe o tema / pauta." },
+        link_online: { url: "Link inválido — use http(s)://..." },
+        gravacao_url: { url: "URL inválida — use http(s)://..." },
+        ...(modalidade === "PRESENCIAL_EXTERNO"
+          ? { local: { required: "Informe o local." } }
+          : {}),
+        ...(modalidade === "ONLINE"
+          ? { ata_texto: { required: "Informe a ata." } }
+          : {}),
+        ...(status === "REALIZADA"
+          ? {
+              resultado: { required: "Informe o resultado." },
+              proximos_passos: { required: "Informe os próximos passos." },
+            }
+          : {}),
+        ...(status === "CANCELADA"
+          ? {
+              motivo_cancelamento: {
+                required: "Informe o motivo do cancelamento.",
+              },
+            }
+          : {}),
+      }
+    );
+
+    if (values.participantes.length === 0) {
+      errs.participantes = "Selecione ao menos um participante.";
+    }
+
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -139,7 +171,8 @@ export function ReuniaoForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Editar reunião" : "Nova reunião externa"}
+      title={editing ? "Editar Reclassificação Reunião" : "Reclassificação Reunião"}
+      size="xl"
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <Input
@@ -151,16 +184,19 @@ export function ReuniaoForm({
           required
         />
 
-        <div className="grid grid-cols-2 gap-3">
-          <SelectMenu
-            name="tipo"
-            label="Tipo"
-            defaultValue={src?.tipo ?? "CAPTACAO"}
-            options={Object.entries(TIPO_REUNIAO).map(([v, l]) => ({
-              value: v,
-              label: l,
-            }))}
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              Tipo
+              <InfoTooltip text={TIPO_REUNIAO_DESCRICAO[tipo as TipoReuniaoKey]} />
+            </span>
+            <SelectMenu
+              name="tipo"
+              value={tipo}
+              onChange={(v) => setTipo(v as TipoReuniao)}
+              options={tipoReuniaoOptions()}
+            />
+          </div>
           <SelectMenu
             name="status"
             label="Status"
@@ -171,23 +207,30 @@ export function ReuniaoForm({
               label: l,
             }))}
           />
+          <SelectMenu
+            name="modalidade"
+            label="Modalidade"
+            value={modalidade}
+            onChange={(v) => setModalidade(v as typeof modalidade)}
+            options={Object.entries(MODALIDADE_REUNIAO).map(([v, l]) => ({
+              value: v,
+              label: l,
+            }))}
+          />
         </div>
-
-        <SelectMenu
-          name="modalidade"
-          label="Modalidade"
-          value={modalidade}
-          onChange={(v) => setModalidade(v as typeof modalidade)}
-          options={Object.entries(MODALIDADE_REUNIAO).map(([v, l]) => ({
-            value: v,
-            label: l,
-          }))}
-        />
 
         <ClienteSelect
           name="cliente_id"
+          required
+          allowCreateLead={tipo === "CAPTACAO"}
+          tooltip={
+            tipo === "CAPTACAO"
+              ? "Em Captação, vincule o contato da reunião. Se ainda não estiver na base, use + Captação — o nome será salvo em MAIÚSCULAS, categorizado como Captação e vinculado a você."
+              : "Vincule o cliente relacionado à reunião. O campo é obrigatório."
+          }
           defaultValue={src?.cliente_id ?? ""}
           defaultLabel={src?.cliente?.nome ?? ""}
+          error={fieldErrors.cliente_id}
         />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -205,20 +248,21 @@ export function ReuniaoForm({
             id="data_hora_fim"
             name="data_hora_fim"
             type="datetime-local"
-            label="Fim (opcional)"
+            label="Fim"
             defaultValue={toDatetimeLocal(src?.data_hora_fim)}
             error={fieldErrors.data_hora_fim}
             onChange={autoFillDuracao}
+            required
           />
           <Input
             id="duracao_minutos"
             name="duracao_minutos"
             type="number"
-            min={0}
+            min={1}
             label="Duração (min)"
-            placeholder="auto"
             defaultValue={src?.duracao_minutos ?? ""}
             error={fieldErrors.duracao_minutos}
+            required
           />
         </div>
 
@@ -228,7 +272,7 @@ export function ReuniaoForm({
             <Input
               id="link_online"
               name="link_online"
-              label="Link da reunião"
+              label="Link da reunião (opcional)"
               placeholder="https://teams.microsoft.com/..."
               defaultValue={src?.link_online ?? ""}
               error={fieldErrors.link_online}
@@ -236,7 +280,7 @@ export function ReuniaoForm({
             <Input
               id="gravacao_url"
               name="gravacao_url"
-              label="URL da gravação"
+              label="URL da gravação (opcional)"
               defaultValue={src?.gravacao_url ?? ""}
               error={fieldErrors.gravacao_url}
             />
@@ -245,6 +289,8 @@ export function ReuniaoForm({
               name="ata_texto"
               label="Ata (texto)"
               defaultValue={src?.ata_texto ?? ""}
+              error={fieldErrors.ata_texto}
+              required
             />
           </div>
         )}
@@ -256,6 +302,8 @@ export function ReuniaoForm({
             name="local"
             label="Local (endereço ou nome)"
             defaultValue={src?.local ?? ""}
+            error={fieldErrors.local}
+            required
           />
         )}
 
@@ -271,55 +319,37 @@ export function ReuniaoForm({
           />
         )}
 
-        {/* Participantes */}
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-slate-700">
-            Participantes internos
-          </span>
-          <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2">
-            {pessoas.length === 0 && (
-              <p className="px-1 py-2 text-xs text-slate-400">
-                Nenhuma pessoa cadastrada.
-              </p>
-            )}
-            {pessoas.map((p) => (
-              <label
-                key={p.id}
-                className="flex items-center gap-2 rounded px-1 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  name="participantes"
-                  value={p.id}
-                  defaultChecked={participantesIniciais.has(p.id)}
-                  className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                />
-                <Avatar nome={p.nome} src={p.avatar_url} size={22} />
-                {p.nome}
-              </label>
-            ))}
-          </div>
-        </div>
+        <ParticipantesPicker
+          colaboradores={colaboradores}
+          defaultSelected={participantesIniciais}
+          error={fieldErrors.participantes}
+        />
 
         <Textarea
           id="tema"
           name="tema"
-          label="Tema / pauta (opcional)"
+          label="Tema / pauta"
           defaultValue={src?.tema ?? ""}
+          error={fieldErrors.tema}
+          required
         />
         {status === "REALIZADA" && (
           <>
             <Textarea
               id="resultado"
               name="resultado"
-              label="Resultado (opcional)"
+              label="Resultado"
               defaultValue={src?.resultado ?? ""}
+              error={fieldErrors.resultado}
+              required
             />
             <Textarea
               id="proximos_passos"
               name="proximos_passos"
-              label="Próximos passos (opcional)"
+              label="Próximos passos"
               defaultValue={src?.proximos_passos ?? ""}
+              error={fieldErrors.proximos_passos}
+              required
             />
           </>
         )}

@@ -1,6 +1,7 @@
 "use server";
 
 import { isGrupoSemNome } from "@/lib/clientes";
+import { getPessoaAtual } from "@/lib/currentPessoa";
 import { createClient } from "@/lib/supabase/server";
 import type { EmpresaDoGrupo } from "@/types/database";
 
@@ -89,4 +90,45 @@ export async function buscarClientes(q: string): Promise<ClienteBusca[]> {
     .limit(20);
 
   return (data as ClienteBusca[]) ?? [];
+}
+
+/** Cria contato de captação local (não existe no VIOS). */
+export async function criarLeadCaptacao(
+  nome: string
+): Promise<{ ok: boolean; error?: string; cliente?: ClienteBusca }> {
+  const trimmed = nome.trim();
+  if (trimmed.length < 2) {
+    return {
+      ok: false,
+      error: "Informe ao menos 2 caracteres para o nome do contato.",
+    };
+  }
+
+  const pessoa = await getPessoaAtual();
+  if (!pessoa) {
+    return { ok: false, error: "Não foi possível identificar quem está logado." };
+  }
+
+  const supabase = await createClient();
+  const ci = `SAMA-LEAD-${crypto.randomUUID()}`;
+  const nomeMaiusculo = trimmed.toLocaleUpperCase("pt-BR");
+
+  const { data, error } = await supabase
+    .from("pessoas")
+    .insert({
+      ci,
+      nome: nomeMaiusculo,
+      categoria: "CAPTAÇÃO",
+      etiquetas: "captacao_sama",
+      criado_por_usuario_id: pessoa.id,
+      data_cadastro: new Date().toISOString().slice(0, 10),
+    })
+    .select("ci, nome, cpf_cnpj, grupo_cliente")
+    .single();
+
+  if (error) {
+    return { ok: false, error: "Não foi possível criar o contato de captação." };
+  }
+
+  return { ok: true, cliente: data as ClienteBusca };
 }

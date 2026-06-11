@@ -15,13 +15,21 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { TIPO_REUNIAO } from "@/lib/constants";
 
-const CORES_TIPO = {
-  Captação: "#3563eb",
-  Fidelização: "#10b981",
-  Relacionamento: "#f59e0b",
+const TIPO_LABELS = Object.values(TIPO_REUNIAO);
+
+const CORES_TIPO: Record<string, string> = {
+  [TIPO_REUNIAO.CAPTACAO]: "#3563eb",
+  [TIPO_REUNIAO.FIDELIZACAO]: "#10b981",
+  [TIPO_REUNIAO.RELACIONAMENTO_INSTITUCIONAL]: "#f59e0b",
+  [TIPO_REUNIAO.GESTAO_ESTRATEGICA]: "#8b5cf6",
+  [TIPO_REUNIAO.GESTAO_EQUIPE]: "#64748b",
+  [TIPO_REUNIAO.GESTAO_OPERACIONAL]: "#ef4444",
 };
 const CORES_PIE = ["#3563eb", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
+
+type TrendRow = { mes: string; [key: string]: string | number };
 
 function ChartCard({
   title,
@@ -52,23 +60,17 @@ export function DashboardCharts({
   horasPorPessoa,
   ranking,
 }: {
-  trend: {
-    mes: string;
-    Captação: number;
-    Fidelização: number;
-    Relacionamento: number;
-  }[];
+  trend: TrendRow[];
   modalidade: { name: string; value: number }[];
   horasPorPessoa: { nome: string; horas: number }[];
   ranking: { nome: string; qtd: number }[];
 }) {
-  const trendVazio = trend.every(
-    (t) => t.Captação + t.Fidelização + t.Relacionamento === 0
+  const trendVazio = trend.every((t) =>
+    TIPO_LABELS.every((label) => (t[label] ?? 0) === 0)
   );
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {/* Reuniões por tipo ao longo do tempo */}
       <ChartCard title="Reuniões por tipo ao longo do tempo" empty={trendVazio}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={trend} margin={{ top: 5, right: 10, bottom: 0, left: -20 }}>
@@ -76,13 +78,13 @@ export function DashboardCharts({
             <XAxis dataKey="mes" tick={{ fontSize: 12 }} stroke="#94a3b8" />
             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} stroke="#94a3b8" />
             <Tooltip />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            {(["Captação", "Fidelização", "Relacionamento"] as const).map((k) => (
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            {TIPO_LABELS.map((label) => (
               <Line
-                key={k}
+                key={label}
                 type="monotone"
-                dataKey={k}
-                stroke={CORES_TIPO[k]}
+                dataKey={label}
+                stroke={CORES_TIPO[label] ?? "#94a3b8"}
                 strokeWidth={2}
                 dot={{ r: 3 }}
               />
@@ -91,7 +93,6 @@ export function DashboardCharts({
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* Distribuição por modalidade */}
       <ChartCard
         title="Distribuição por modalidade"
         empty={modalidade.length === 0}
@@ -118,7 +119,6 @@ export function DashboardCharts({
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* Horas por pessoa */}
       <ChartCard
         title="Horas internas por pessoa"
         empty={horasPorPessoa.length === 0}
@@ -144,7 +144,6 @@ export function DashboardCharts({
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* Ranking de reuniões por pessoa */}
       <ChartCard
         title="Ranking de reuniões por pessoa"
         empty={ranking.length === 0}

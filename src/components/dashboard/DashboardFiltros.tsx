@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { TIPO_REUNIAO } from "@/lib/constants";
+import { tipoReuniaoOptions } from "@/lib/constants";
 import { PersonSelect } from "@/components/ui/PersonSelect";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 
@@ -62,11 +62,8 @@ export function DashboardFiltros({
         onChange={(v) => update({ tipo: v })}
         emptyOption="Todos os tipos"
         placeholder="Todos os tipos"
-        options={Object.entries(TIPO_REUNIAO).map(([v, l]) => ({
-          value: v,
-          label: l,
-        }))}
-        className="w-full sm:w-44"
+        options={tipoReuniaoOptions(false)}
+        className="w-full sm:w-52"
       />
 
       {isAdmin && (

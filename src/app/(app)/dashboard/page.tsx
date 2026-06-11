@@ -24,6 +24,7 @@ import { formatDuration, formatDateTime } from "@/lib/format";
 import { DashboardFiltros } from "@/components/dashboard/DashboardFiltros";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { CALENDARIO_PATH } from "@/lib/calendario";
+import { TIPO_REUNIAO } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function DashboardPage({
   let reunioesQ = supabase
     .from("reunioes")
     .select(
-      "id, tipo, status, modalidade, data_hora_inicio, participantes:reuniao_participantes(pessoa_id, pessoa:usuarios(nome))"
+      "id, tipo, status, modalidade, data_hora_inicio, participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
     )
     .gte("data_hora_inicio", de.toISOString())
     .lte("data_hora_inicio", ate.toISOString());
@@ -110,7 +111,7 @@ export default async function DashboardPage({
   const proximasQ = supabase
     .from("reunioes")
     .select(
-      "id, titulo, modalidade, data_hora_inicio, link_online, cliente:pessoas(nome), participantes:reuniao_participantes(pessoa_id, pessoa:usuarios(nome, avatar_url))"
+      "id, titulo, modalidade, data_hora_inicio, link_online, cliente:pessoas(nome), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url, usuario_id))"
     )
     .eq("status", "AGENDADA")
     .gte("data_hora_inicio", new Date().toISOString())
@@ -140,7 +141,10 @@ export default async function DashboardPage({
     status: string;
     modalidade: string;
     data_hora_inicio: string;
-    participantes: { pessoa_id: string; pessoa?: { nome?: string } | null }[];
+    participantes: {
+      colaborador_id: string;
+      colaborador?: { nome?: string; usuario_id?: string | null } | null;
+    }[];
   };
   type ProxRow = {
     id: string;
@@ -150,21 +154,27 @@ export default async function DashboardPage({
     link_online: string | null;
     cliente?: { nome?: string } | null;
     participantes: {
-      pessoa_id: string;
-      pessoa?: { nome?: string; avatar_url?: string | null } | null;
+      colaborador_id: string;
+      colaborador?: {
+        nome?: string;
+        avatar_url?: string | null;
+        usuario_id?: string | null;
+      } | null;
     }[];
   };
   let proximas = (proximasRaw as ProxRow[]) ?? [];
   if (!isAdmin && eu?.id) {
     proximas = proximas.filter((r) =>
-      (r.participantes ?? []).some((p) => p.pessoa_id === eu.id)
+      (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
     );
   }
   let reunioes = (reunioesRaw as RRow[]) ?? [];
-  // Filtro por pessoa (participação).
+  // Filtro por pessoa (participação via colaborador vinculado).
   if (pessoaScope) {
     reunioes = reunioes.filter((r) =>
-      (r.participantes ?? []).some((p) => p.pessoa_id === pessoaScope)
+      (r.participantes ?? []).some(
+        (p) => p.colaborador?.usuario_id === pessoaScope
+      )
     );
   }
 
@@ -187,9 +197,12 @@ export default async function DashboardPage({
     );
     return {
       mes: label,
-      Captação: doMes.filter((r) => r.tipo === "CAPTACAO").length,
-      Fidelização: doMes.filter((r) => r.tipo === "FIDELIZACAO").length,
-      Relacionamento: doMes.filter((r) => r.tipo === "RELACIONAMENTO").length,
+      ...Object.fromEntries(
+        Object.entries(TIPO_REUNIAO).map(([k, nome]) => [
+          nome,
+          doMes.filter((r) => r.tipo === k).length,
+        ])
+      ),
     };
   });
 
@@ -221,7 +234,7 @@ export default async function DashboardPage({
   const rankMap = new Map<string, number>();
   for (const r of reunioes) {
     for (const p of r.participantes ?? []) {
-      const nome = p.pessoa?.nome ?? "—";
+      const nome = p.colaborador?.nome ?? "—";
       rankMap.set(nome, (rankMap.get(nome) ?? 0) + 1);
     }
   }
@@ -314,8 +327,8 @@ export default async function DashboardPage({
                   <AvatarGroup
                     size={22}
                     pessoas={r.participantes.map((p) => ({
-                      nome: p.pessoa?.nome ?? "?",
-                      avatar_url: p.pessoa?.avatar_url,
+                      nome: p.colaborador?.nome ?? "?",
+                      avatar_url: p.colaborador?.avatar_url,
                     }))}
                   />
                 )}

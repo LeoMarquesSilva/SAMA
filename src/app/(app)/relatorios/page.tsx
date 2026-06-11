@@ -39,7 +39,7 @@ export default async function RelatoriosPage({
   let q = supabase
     .from("reunioes")
     .select(
-      "titulo, tipo, status, modalidade, data_hora_inicio, duracao_minutos, cliente:pessoas(nome), participantes:reuniao_participantes(pessoa_id, pessoa:usuarios(nome))"
+      "titulo, tipo, status, modalidade, data_hora_inicio, duracao_minutos, cliente:pessoas(nome), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
     )
     .gte("data_hora_inicio", de.toISOString())
     .lte("data_hora_inicio", ate.toISOString())
@@ -55,12 +55,15 @@ export default async function RelatoriosPage({
     data_hora_inicio: string;
     duracao_minutos: number | null;
     cliente?: { nome?: string } | null;
-    participantes?: { pessoa_id: string; pessoa?: { nome?: string } | null }[];
+    participantes?: {
+      colaborador_id: string;
+      colaborador?: { nome?: string; usuario_id?: string | null } | null;
+    }[];
   };
   let rows = (data as Row[]) ?? [];
   if (!isAdmin && eu?.id) {
     rows = rows.filter((r) =>
-      (r.participantes ?? []).some((p) => p.pessoa_id === eu.id)
+      (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
     );
   }
 

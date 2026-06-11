@@ -1,9 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X, Building2, Loader2, ChevronDown } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  Search,
+  X,
+  Building2,
+  Loader2,
+  ChevronDown,
+  UserPlus,
+} from "lucide-react";
 import { clsx } from "clsx";
-import { buscarClientes, type ClienteBusca } from "@/app/(app)/clientes/actions";
+import {
+  buscarClientes,
+  criarLeadCaptacao,
+  type ClienteBusca,
+} from "@/app/(app)/clientes/actions";
+import { useFloatingPanel } from "@/hooks/useFloatingPanel";
+import { Badge } from "@/components/ui/Badge";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
+
+type Selected = { ci: string; nome: string; isCaptacao?: boolean };
+
+function isContatoCaptacao(ci: string) {
+  return ci.startsWith("SAMA-LEAD-");
+}
 
 /**
  * Seletor de cliente com busca server-side (a base tem ~37k clientes do VIOS).
@@ -11,54 +32,86 @@ import { buscarClientes, type ClienteBusca } from "@/app/(app)/clientes/actions"
  */
 export function ClienteSelect({
   name = "cliente_id",
-  label = "Cliente (opcional)",
+  label = "Cliente",
+  tooltip,
+  required = false,
+  allowCreateLead = false,
   defaultValue = "",
   defaultLabel = "",
   error,
 }: {
   name?: string;
   label?: string;
-  /** ci do cliente já vinculado (edição) */
+  tooltip?: string;
+  required?: boolean;
+  /** Em Captação: permite criar lead se o nome não existir na base. */
+  allowCreateLead?: boolean;
   defaultValue?: string;
-  /** nome do cliente já vinculado (edição) */
   defaultLabel?: string;
   error?: string;
 }) {
-  const [selected, setSelected] = useState<{ ci: string; nome: string } | null>(
-    defaultValue ? { ci: defaultValue, nome: defaultLabel || defaultValue } : null
+  const [selected, setSelected] = useState<Selected | null>(
+    defaultValue
+      ? {
+          ci: defaultValue,
+          nome: defaultLabel || defaultValue,
+          isCaptacao: isContatoCaptacao(defaultValue),
+        }
+      : null
   );
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<ClienteBusca[]>([]);
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string>();
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<number>(0);
+  const [mounted, setMounted] = useState(false);
+  const panelStyle = useFloatingPanel(open, rootRef, false);
+
+  const trimmedQ = q.trim();
+  const podeCriarLead =
+    allowCreateLead &&
+    trimmedQ.length >= 2 &&
+    !loading &&
+    !creating &&
+    !results.some((r) => r.nome.toLowerCase() === trimmedQ.toLowerCase());
+
+  const panelItems = [
+    ...(podeCriarLead ? [{ kind: "create" as const }] : []),
+    ...results.map((c) => ({ kind: "result" as const, c })),
+  ];
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Busca com debounce.
   useEffect(() => {
     if (!open) return;
     window.clearTimeout(debounceRef.current);
-    if (q.trim().length < 2) {
+    if (trimmedQ.length < 2) {
       setResults([]);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setCreateError(undefined);
     debounceRef.current = window.setTimeout(async () => {
       try {
-        const r = await buscarClientes(q);
+        const r = await buscarClientes(trimmedQ);
         setResults(r);
         setActive(0);
       } finally {
@@ -66,18 +119,37 @@ export function ClienteSelect({
       }
     }, 300);
     return () => window.clearTimeout(debounceRef.current);
-  }, [q, open]);
+  }, [q, open, trimmedQ]);
 
   function abrir() {
     setQ("");
     setResults([]);
+    setCreateError(undefined);
     setOpen(true);
     window.setTimeout(() => inputRef.current?.focus(), 30);
   }
 
-  function pick(c: ClienteBusca) {
-    setSelected({ ci: c.ci, nome: c.nome });
+  function pick(c: ClienteBusca, isCaptacao = false) {
+    setSelected({
+      ci: c.ci,
+      nome: c.nome,
+      isCaptacao: isCaptacao || isContatoCaptacao(c.ci),
+    });
     setOpen(false);
+    setCreateError(undefined);
+  }
+
+  async function criarLead() {
+    if (!podeCriarLead) return;
+    setCreating(true);
+    setCreateError(undefined);
+    const r = await criarLeadCaptacao(trimmedQ);
+    setCreating(false);
+    if (!r.ok || !r.cliente) {
+      setCreateError(r.error ?? "Erro ao criar lead.");
+      return;
+    }
+    pick(r.cliente, true);
   }
 
   function limpar() {
@@ -89,23 +161,29 @@ export function ClienteSelect({
     if (e.key === "Escape") setOpen(false);
     else if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, results.length - 1));
+      setActive((a) => Math.min(a + 1, panelItems.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (results[active]) pick(results[active]);
+      const item = panelItems[active];
+      if (!item) return;
+      if (item.kind === "create") void criarLead();
+      else pick(item.c);
     }
   }
 
   return (
     <div ref={rootRef} className="flex flex-col gap-1" onKeyDown={onKeyDown}>
-      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+        {label}
+        {required && <span className="text-red-500">*</span>}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </span>
       <input type="hidden" name={name} value={selected?.ci ?? ""} />
 
       <div className="relative">
-        {/* Campo fechado: mostra a seleção */}
         {!open && (
           <button
             type="button"
@@ -121,9 +199,12 @@ export function ClienteSelect({
               <span className="flex min-w-0 items-center gap-2 text-slate-800">
                 <Building2 size={15} className="shrink-0 text-slate-400" />
                 <span className="truncate">{selected.nome}</span>
+                {selected.isCaptacao && (
+                  <Badge tone="blue">Captação</Badge>
+                )}
               </span>
             ) : (
-              <span className="text-slate-400">— Sem cliente —</span>
+              <span className="text-slate-400">Buscar cliente...</span>
             )}
             <span className="flex shrink-0 items-center gap-1">
               {selected && (
@@ -142,10 +223,9 @@ export function ClienteSelect({
           </button>
         )}
 
-        {/* Campo aberto: busca */}
         {open && (
           <div className="flex items-center gap-2 rounded-lg border border-brand-500 bg-white px-3 ring-1 ring-brand-500">
-            {loading ? (
+            {loading || creating ? (
               <Loader2 size={15} className="animate-spin text-slate-400" />
             ) : (
               <Search size={15} className="text-slate-400" />
@@ -154,7 +234,11 @@ export function ClienteSelect({
               ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nome, CNPJ ou grupo..."
+              placeholder={
+                allowCreateLead
+                  ? "Buscar cliente ou digitar nome do contato..."
+                  : "Buscar por nome, CNPJ ou grupo..."
+              }
               className="w-full bg-transparent py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
             />
             <button
@@ -168,44 +252,106 @@ export function ClienteSelect({
           </div>
         )}
 
-        {open && (
-          <div className="animate-dialog-in absolute z-[75] mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-            {q.trim().length < 2 ? (
-              <p className="px-3 py-3 text-center text-xs text-slate-400">
-                Digite ao menos 2 letras para buscar nos{" "}
-                <strong>clientes do VIOS</strong>.
-              </p>
-            ) : results.length === 0 && !loading ? (
-              <p className="px-3 py-3 text-center text-xs text-slate-400">
-                Nenhum cliente encontrado para “{q}”.
-              </p>
-            ) : (
-              results.map((c, i) => (
-                <button
-                  key={c.ci}
-                  type="button"
-                  onClick={() => pick(c)}
-                  onMouseEnter={() => setActive(i)}
-                  className={clsx(
-                    "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left",
-                    i === active && "bg-slate-100"
+        {mounted &&
+          open &&
+          createPortal(
+            <div
+              ref={panelRef}
+              style={panelStyle}
+              className="animate-dialog-in overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg"
+            >
+              {trimmedQ.length < 2 ? (
+                <p className="px-3 py-3 text-center text-xs text-slate-400">
+                  Digite ao menos 2 letras para buscar nos{" "}
+                  <strong>clientes do VIOS</strong>.
+                  {allowCreateLead && (
+                    <>
+                      {" "}
+                      Se não existir, você poderá criar um contato de{" "}
+                      <strong>Captação</strong>.
+                    </>
                   )}
-                >
-                  <Building2 size={15} className="mt-0.5 shrink-0 text-slate-400" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm text-slate-800">
-                      {c.nome}
-                    </span>
-                    <span className="block truncate text-xs text-slate-400">
-                      {[c.cpf_cnpj, c.grupo_cliente].filter(Boolean).join(" · ") ||
-                        "—"}
-                    </span>
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        )}
+                </p>
+              ) : (
+                <>
+                  {podeCriarLead && (
+                    <button
+                      type="button"
+                      data-idx={0}
+                      onClick={() => void criarLead()}
+                      onMouseEnter={() => setActive(0)}
+                      className={clsx(
+                        "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm",
+                        active === 0 && "bg-brand-50"
+                      )}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+                        <UserPlus size={15} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <Badge tone="blue">+ Captação</Badge>
+                          <span className="font-medium text-slate-800">
+                            Criar &ldquo;{trimmedQ.toLocaleUpperCase("pt-BR")}&rdquo;
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Contato ainda não cadastrado na base
+                        </span>
+                      </span>
+                    </button>
+                  )}
+
+                  {results.length === 0 && !podeCriarLead && !loading && (
+                    <p className="px-3 py-3 text-center text-xs text-slate-400">
+                      Nenhum cliente encontrado para &ldquo;{trimmedQ}&rdquo;.
+                    </p>
+                  )}
+
+                  {results.map((c, i) => {
+                    const idx = podeCriarLead ? i + 1 : i;
+                    const isCaptacao = isContatoCaptacao(c.ci);
+                    return (
+                      <button
+                        key={c.ci}
+                        type="button"
+                        data-idx={idx}
+                        onClick={() => pick(c)}
+                        onMouseEnter={() => setActive(idx)}
+                        className={clsx(
+                          "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left",
+                          idx === active && "bg-slate-100"
+                        )}
+                      >
+                        <Building2
+                          size={15}
+                          className="mt-0.5 shrink-0 text-slate-400"
+                        />
+                        <span className="min-w-0">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="block truncate text-sm text-slate-800">
+                              {c.nome}
+                            </span>
+                            {isCaptacao && <Badge tone="blue">Captação</Badge>}
+                          </span>
+                          <span className="block truncate text-xs text-slate-400">
+                            {[c.cpf_cnpj, c.grupo_cliente]
+                              .filter(Boolean)
+                              .join(" · ") || "—"}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+
+              {createError && (
+                <p className="px-3 py-2 text-xs text-red-600">{createError}</p>
+              )}
+            </div>,
+            document.body
+          )}
       </div>
 
       {error && <span className="text-xs text-red-600">{error}</span>}

@@ -38,6 +38,7 @@ import type {
   ReuniaoComRelacoes,
   AtividadeInterna,
 } from "@/types/database";
+import type { ColaboradorOpt } from "@/lib/colaboradores";
 
 type PessoaOpt = {
   id: string;
@@ -56,13 +57,13 @@ const statusInfo: Record<string, { label: string; tone: "gray" | "green" | "blue
 export function OutlookClient({
   eventos,
   pessoas,
-
+  colaboradores,
   isAdmin,
   pessoaAtualId,
 }: {
   eventos: OutlookEventoComPessoa[];
   pessoas: PessoaOpt[];
-
+  colaboradores: ColaboradorOpt[];
   isAdmin: boolean;
   pessoaAtualId: string | null;
 }) {
@@ -81,9 +82,15 @@ export function OutlookClient({
   // Avatar real para participantes internos (casado por e-mail).
   const avatarPorEmail = useMemo(() => {
     const m = new Map<string, string | null>();
-    for (const p of pessoas) m.set(p.email.toLowerCase(), p.avatar_url ?? null);
+    for (const c of colaboradores) {
+      m.set(c.email.toLowerCase(), c.avatar_url ?? null);
+    }
+    for (const p of pessoas) {
+      const k = p.email.toLowerCase();
+      if (!m.has(k)) m.set(k, p.avatar_url ?? null);
+    }
     return m;
-  }, [pessoas]);
+  }, [colaboradores, pessoas]);
 
   // Pessoas que de fato têm eventos importados (para o seletor).
   const pessoasComEventos = useMemo(() => {
@@ -173,13 +180,13 @@ export function OutlookClient({
 
   // Pré-preenchimento dos formulários a partir do evento.
   function prefillReuniao(e: OutlookEventoComPessoa): Partial<ReuniaoComRelacoes> {
-    const matchIds = pessoas
-      .filter((p) =>
+    const matchIds = colaboradores
+      .filter((c) =>
         (e.participantes ?? []).some(
-          (a) => a.email?.toLowerCase() === p.email.toLowerCase()
+          (a) => a.email?.toLowerCase() === c.email.toLowerCase()
         )
       )
-      .map((p) => ({ pessoa_id: p.id, papel: "PARTICIPANTE" }));
+      .map((c) => ({ colaborador_id: c.id, papel: "PARTICIPANTE" }));
     return {
       titulo: e.titulo ?? "",
       data_hora_inicio: e.inicio ?? "",
@@ -365,8 +372,7 @@ export function OutlookClient({
           afterCreate={async (id) => {
             await vincularCategorizado(reuniaoEvento.id, "REUNIAO", id);
           }}
-          pessoas={pessoas}
-
+          colaboradores={colaboradores}
         />
       )}
 
@@ -554,10 +560,10 @@ function EventoCard({
       {e.status === "PENDENTE" ? (
         <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
           <Button size="sm" onClick={onReuniao}>
-            <CalendarClock size={15} /> Reunião externa
+            <CalendarClock size={15} /> Reclassificação Reunião
           </Button>
           <Button size="sm" variant="secondary" onClick={onAtividade}>
-            <ClipboardList size={15} /> Atividade interna
+            <ClipboardList size={15} /> Reclassificação Atividade
           </Button>
           <Button size="sm" variant="ghost" disabled={pending} onClick={onIgnorar}>
             <EyeOff size={15} /> Ignorar

@@ -31,8 +31,10 @@ import { SelectMenu } from "@/components/ui/SelectMenu";
 import { ReuniaoForm } from "./ReuniaoForm";
 import {
   TIPO_REUNIAO,
+  TIPO_REUNIAO_TONE,
   MODALIDADE_REUNIAO,
   STATUS_REUNIAO,
+  tipoReuniaoOptions,
 } from "@/lib/constants";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import {
@@ -45,12 +47,9 @@ import type {
   TipoReuniao,
   StatusReuniao,
 } from "@/types/database";
+import type { ColaboradorOpt } from "@/lib/colaboradores";
 
-const tipoTone: Record<TipoReuniao, "blue" | "amber" | "green"> = {
-  CAPTACAO: "blue",
-  FIDELIZACAO: "green",
-  RELACIONAMENTO: "amber",
-};
+const tipoTone = TIPO_REUNIAO_TONE;
 const statusTone: Record<StatusReuniao, "green" | "gray" | "red" | "amber"> = {
   REALIZADA: "green",
   AGENDADA: "gray",
@@ -60,12 +59,12 @@ const statusTone: Record<StatusReuniao, "green" | "gray" | "red" | "amber"> = {
 
 export function ReunioesClient({
   reunioes,
-  pessoas,
+  colaboradores,
   autoNew = false,
   prefillCliente = null,
 }: {
   reunioes: ReuniaoComRelacoes[];
-  pessoas: { id: string; nome: string; avatar_url?: string | null }[];
+  colaboradores: ColaboradorOpt[];
   autoNew?: boolean;
   prefillCliente?: { ci: string; nome: string } | null;
 }) {
@@ -96,7 +95,7 @@ export function ReunioesClient({
           r.cliente?.nome,
           r.tema,
           r.local,
-          ...(r.participantes ?? []).map((p) => p.pessoa?.nome),
+          ...(r.participantes ?? []).map((p) => p.colaborador?.nome),
         ]
           .filter(Boolean)
           .join(" ")
@@ -137,12 +136,10 @@ export function ReunioesClient({
   const totais = useMemo(() => {
     const t = {
       total: reunioes.length,
-      CAPTACAO: 0,
-      FIDELIZACAO: 0,
-      RELACIONAMENTO: 0,
       REALIZADA: 0,
       CANCELADA: 0,
       AGENDADA: 0,
+      ...Object.fromEntries(Object.keys(TIPO_REUNIAO).map((k) => [k, 0])),
     } as Record<string, number>;
     for (const r of reunioes) {
       t[r.tipo] = (t[r.tipo] ?? 0) + 1;
@@ -254,7 +251,10 @@ export function ReunioesClient({
   const tipoAccent: Record<TipoReuniao, string> = {
     CAPTACAO: "before:bg-brand-500",
     FIDELIZACAO: "before:bg-emerald-500",
-    RELACIONAMENTO: "before:bg-amber-500",
+    RELACIONAMENTO_INSTITUCIONAL: "before:bg-amber-500",
+    GESTAO_ESTRATEGICA: "before:bg-violet-500",
+    GESTAO_EQUIPE: "before:bg-slate-500",
+    GESTAO_OPERACIONAL: "before:bg-red-500",
   };
 
   function ReuniaoCard({ r }: { r: ReuniaoComRelacoes }) {
@@ -264,14 +264,16 @@ export function ReunioesClient({
         className={clsx(
           "relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md",
           "before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
-          tipoAccent[r.tipo]
+          tipoAccent[r.tipo] ?? "before:bg-slate-300"
         )}
       >
         {/* Cabeçalho */}
         <div className="flex items-start justify-between gap-3 pl-1.5">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={tipoTone[r.tipo]}>{TIPO_REUNIAO[r.tipo]}</Badge>
+              <Badge tone={tipoTone[r.tipo] ?? "gray"}>
+                {TIPO_REUNIAO[r.tipo] ?? r.tipo}
+              </Badge>
               <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                 <ModalidadeIcon m={r.modalidade} />
                 {MODALIDADE_REUNIAO[r.modalidade]}
@@ -333,20 +335,20 @@ export function ReunioesClient({
               {parts.map((p, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <Avatar
-                    nome={p.pessoa?.nome ?? "?"}
-                    src={p.pessoa?.avatar_url}
+                    nome={p.colaborador?.nome ?? "?"}
+                    src={p.colaborador?.avatar_url}
                     size={30}
                   />
                   <div className="min-w-0 leading-tight">
                     <p className="flex items-center gap-1 text-sm font-medium text-slate-700">
-                      {p.pessoa?.nome ?? "?"}
+                      {p.colaborador?.nome ?? "?"}
                       {p.papel === "ORGANIZADOR" && (
                         <Crown size={12} className="shrink-0 text-amber-500" />
                       )}
                     </p>
-                    {p.pessoa?.email && (
+                    {p.colaborador?.email && (
                       <p className="break-all text-xs text-slate-400">
-                        {p.pessoa.email}
+                        {p.colaborador.email}
                       </p>
                     )}
                   </div>
@@ -405,7 +407,7 @@ export function ReunioesClient({
             Reuniões externas
           </h1>
           <p className="text-sm text-slate-500">
-            Captação, fidelização e relacionamento
+            Captação, fidelização, gestão e relacionamento
           </p>
         </div>
         <Button
@@ -421,15 +423,24 @@ export function ReunioesClient({
       </div>
 
       {/* Totalizadores */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <Totalizador label="Total" value={totais.total} tone="slate" />
-        <Totalizador label="Captação" value={totais.CAPTACAO} tone="blue" />
-        <Totalizador label="Fidelização" value={totais.FIDELIZACAO} tone="green" />
-        <Totalizador
-          label="Relacionam."
-          value={totais.RELACIONAMENTO}
-          tone="amber"
-        />
+        {Object.entries(TIPO_REUNIAO).map(([k, label]) => (
+          <Totalizador
+            key={k}
+            label={label}
+            value={totais[k] ?? 0}
+            tone={
+              k === "CAPTACAO"
+                ? "blue"
+                : k === "FIDELIZACAO"
+                  ? "green"
+                  : k === "RELACIONAMENTO_INSTITUCIONAL"
+                    ? "amber"
+                    : "slate"
+            }
+          />
+        ))}
         <Totalizador label="Realizadas" value={totais.REALIZADA} tone="green" />
         <Totalizador label="Canceladas" value={totais.CANCELADA} tone="red" />
       </div>
@@ -454,11 +465,8 @@ export function ReunioesClient({
           onChange={setFTipo}
           emptyOption="Todos os tipos"
           placeholder="Todos os tipos"
-          options={Object.entries(TIPO_REUNIAO).map(([v, l]) => ({
-            value: v,
-            label: l,
-          }))}
-          className="sm:w-44"
+          options={tipoReuniaoOptions(false)}
+          className="sm:w-56"
         />
         <SelectMenu
           value={fStatus}
@@ -528,7 +536,7 @@ export function ReunioesClient({
             ? { cliente_id: prefillCliente.ci, cliente: prefillCliente }
             : undefined
         }
-        pessoas={pessoas}
+        colaboradores={colaboradores}
       />
     </div>
   );

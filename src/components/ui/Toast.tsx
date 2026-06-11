@@ -1,5 +1,6 @@
 "use client";
 
+import { Z } from "@/lib/zIndex";
 import {
   createContext,
   useCallback,
@@ -61,7 +62,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       {/* acima da bottom-nav no mobile; canto inferior direito no desktop */}
-      <div className="pointer-events-none fixed inset-x-3 bottom-20 z-[70] flex flex-col items-center gap-2 md:inset-x-auto md:bottom-5 md:right-5 md:items-end">
+      <div
+        className="pointer-events-none fixed inset-x-3 bottom-20 flex flex-col items-center gap-2 md:inset-x-auto md:bottom-5 md:right-5 md:items-end"
+        style={{ zIndex: Z.toast }}
+      >
         {items.map((t) => {
           const { icon: Icon, classes } = kindStyle[t.kind];
           return (

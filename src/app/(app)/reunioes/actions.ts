@@ -45,10 +45,29 @@ function buildRow(values: ReuniaoFormValues) {
   };
 }
 
+async function colaboradorIdDoUsuario(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  usuarioId: string | null
+) {
+  if (!usuarioId) return null;
+  const { data: u } = await supabase
+    .from("usuarios")
+    .select("email")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (!u?.email) return null;
+  const { data: c } = await supabase
+    .from("colaboradores")
+    .select("id")
+    .ilike("email", u.email)
+    .maybeSingle();
+  return c?.id ?? null;
+}
+
 async function syncParticipantes(
   reuniaoId: string,
   participantes: string[],
-  organizadorId: string | null
+  organizadorUsuarioId: string | null
 ) {
   const supabase = await createClient();
   await supabase
@@ -57,13 +76,18 @@ async function syncParticipantes(
     .eq("reuniao_id", reuniaoId);
 
   const ids = new Set(participantes ?? []);
-  if (organizadorId) ids.add(organizadorId);
+  const organizadorColabId = await colaboradorIdDoUsuario(
+    supabase,
+    organizadorUsuarioId
+  );
+  if (organizadorColabId) ids.add(organizadorColabId);
   if (ids.size === 0) return;
 
-  const rows = Array.from(ids).map((pessoaId) => ({
+  const rows = Array.from(ids).map((colaboradorId) => ({
     reuniao_id: reuniaoId,
-    pessoa_id: pessoaId,
-    papel: pessoaId === organizadorId ? "ORGANIZADOR" : "PARTICIPANTE",
+    colaborador_id: colaboradorId,
+    papel:
+      colaboradorId === organizadorColabId ? "ORGANIZADOR" : "PARTICIPANTE",
   }));
   await supabase.from("reuniao_participantes").insert(rows);
 }
@@ -116,16 +140,16 @@ export async function updateReuniao(
   // Preserva o organizador atual (não força o editor como organizador).
   const { data: org } = await supabase
     .from("reuniao_participantes")
-    .select("pessoa_id")
+    .select("colaborador_id, colaborador:colaboradores(usuario_id)")
     .eq("reuniao_id", id)
     .eq("papel", "ORGANIZADOR")
     .maybeSingle();
 
-  await syncParticipantes(
-    id,
-    parsed.data.participantes ?? [],
-    org?.pessoa_id ?? null
-  );
+  const orgUsuarioId =
+    (org?.colaborador as { usuario_id?: string | null } | null)?.usuario_id ??
+    null;
+
+  await syncParticipantes(id, parsed.data.participantes ?? [], orgUsuarioId);
 
   revalidatePath("/reunioes");
   return { ok: true, id };

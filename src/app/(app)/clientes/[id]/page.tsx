@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { AvatarGroup } from "@/components/ui/Avatar";
 import {
   TIPO_REUNIAO,
+  TIPO_REUNIAO_TONE,
   STATUS_REUNIAO,
   MODALIDADE_REUNIAO,
 } from "@/lib/constants";
@@ -19,11 +20,7 @@ import type {
 
 export const dynamic = "force-dynamic";
 
-const tipoTone: Record<TipoReuniao, "blue" | "green" | "amber"> = {
-  CAPTACAO: "blue",
-  FIDELIZACAO: "green",
-  RELACIONAMENTO: "amber",
-};
+const tipoTone = TIPO_REUNIAO_TONE;
 const statusTone: Record<StatusReuniao, "green" | "gray" | "red" | "amber"> = {
   REALIZADA: "green",
   AGENDADA: "gray",
@@ -50,7 +47,7 @@ export default async function ClienteDetalhePage({
   const { data: reunioesRaw } = await supabase
     .from("reunioes")
     .select(
-      "*, participantes:reuniao_participantes(pessoa_id, pessoa:usuarios(nome, avatar_url))"
+      "*, participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url))"
     )
     .eq("cliente_id", decodeURIComponent(id))
     .order("data_hora_inicio", { ascending: false });
@@ -183,8 +180,8 @@ export default async function ClienteDetalhePage({
                         <AvatarGroup
                           size={20}
                           pessoas={r.participantes.map((p) => ({
-                            nome: p.pessoa?.nome ?? "?",
-                            avatar_url: p.pessoa?.avatar_url,
+                            nome: p.colaborador?.nome ?? "?",
+                            avatar_url: p.colaborador?.avatar_url,
                           }))}
                         />
                       </span>

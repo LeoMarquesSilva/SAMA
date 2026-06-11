@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SelectMenu } from "@/components/ui/SelectMenu";
-import { TIPO_REUNIAO } from "@/lib/constants";
+import { tipoReuniaoOptions } from "@/lib/constants";
 
 const PERIODOS = [
   { key: "mes", label: "Este mês" },
@@ -65,11 +65,8 @@ export function RelatoriosBar({
           onChange={(v) => update({ tipo: v })}
           emptyOption="Todos os tipos"
           placeholder="Todos os tipos"
-          options={Object.entries(TIPO_REUNIAO).map(([v, l]) => ({
-            value: v,
-            label: l,
-          }))}
-          className="w-full sm:w-44"
+          options={tipoReuniaoOptions(false)}
+          className="w-full sm:w-52"
         />
       </div>
 

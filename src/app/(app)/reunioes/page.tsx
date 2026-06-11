@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
+import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { ReunioesClient } from "@/components/reunioes/ReunioesClient";
 import { CalendarioPendenteBanner } from "@/components/calendario/CalendarioPendenteBanner";
 import { countEventosPendentes } from "@/lib/calendario";
@@ -13,20 +14,23 @@ export default async function ReunioesPage({
   searchParams: Promise<{ novo?: string; cliente?: string }>;
 }) {
   const { novo, cliente } = await searchParams;
+  await ensureColaboradoresSync();
+
   const supabase = await createClient();
   const pessoa = await getPessoaAtual();
   const isAdmin = pessoa?.is_admin ?? false;
 
-  const [{ data: reunioes }, { data: pessoas }] = await Promise.all([
+  const [{ data: reunioes }, { data: colaboradores }] = await Promise.all([
     supabase
       .from("reunioes")
       .select(
-        "*, cliente:pessoas(ci, nome), participantes:reuniao_participantes(pessoa_id, papel, pessoa:usuarios(id, nome, avatar_url, email))"
+        "*, cliente:pessoas(ci, nome), participantes:reuniao_participantes(colaborador_id, papel, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
       )
       .order("data_hora_inicio", { ascending: false }),
     supabase
-      .from("usuarios")
-      .select("id, nome, avatar_url")
+      .from("colaboradores")
+      .select("id, nome, email, departamento, avatar_url, usuario_id")
+      .eq("ativo", true)
       .order("nome", { ascending: true }),
   ]);
 
@@ -51,7 +55,7 @@ export default async function ReunioesPage({
       <CalendarioPendenteBanner pendentes={pendentes} />
       <ReunioesClient
         reunioes={(reunioes as ReuniaoComRelacoes[]) ?? []}
-        pessoas={pessoas ?? []}
+        colaboradores={colaboradores ?? []}
         autoNew={novo === "1"}
         prefillCliente={prefillCliente}
       />

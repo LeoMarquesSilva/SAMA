@@ -6,16 +6,20 @@ import { Input, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PersonSelect } from "@/components/ui/PersonSelect";
 import { SelectMenu } from "@/components/ui/SelectMenu";
-import { TIPO_ATIVIDADE_INTERNA } from "@/lib/constants";
+import { atividadeTipoOptions } from "@/lib/constants";
 import { toDatetimeLocal } from "@/lib/format";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
   createAtividade,
   updateAtividade,
 } from "@/app/(app)/atividades/actions";
-import type { AtividadeInterna } from "@/types/database";
+import type { AtividadeInterna, TipoAtividade } from "@/types/database";
 
-const TIPOS_COM_QUEM = ["REUNIAO_INTERNA", "REUNIAO_GESTAO", "UM_A_UM"];
+const TIPOS_COM_QUEM: TipoAtividade[] = [
+  "AUDIENCIA",
+  "SUSTENTACAO_ORAL",
+  "PALESTRAS_EVENTOS",
+];
 
 export function AtividadeForm({
   open,
@@ -102,9 +106,6 @@ export function AtividadeForm({
       duracao_minutos: {
         min: { value: 1, message: "Duração deve ser maior que zero." },
       },
-      ...(tipo === "UM_A_UM" && !values.com_pessoa_id && !values.com_pessoa_nome
-        ? { com_pessoa_id: { required: "Informe com quem foi o 1:1." } }
-        : {}),
       ...(status === "CANCELADA"
         ? {
             motivo_cancelamento: {
@@ -134,7 +135,8 @@ export function AtividadeForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Editar atividade" : "Nova atividade interna"}
+      title={editing ? "Editar Reclassificação Atividade" : "Reclassificação Atividade"}
+      size="lg"
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <Input
@@ -152,10 +154,7 @@ export function AtividadeForm({
             label="Tipo"
             value={tipo}
             onChange={(v) => setTipo(v as typeof tipo)}
-            options={Object.entries(TIPO_ATIVIDADE_INTERNA).map(([v, l]) => ({
-              value: v,
-              label: l,
-            }))}
+            options={atividadeTipoOptions()}
           />
           <SelectMenu
             name="status"
@@ -215,7 +214,7 @@ export function AtividadeForm({
           <div className="grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
             <PersonSelect
               name="com_pessoa_id"
-              label={tipo === "UM_A_UM" ? "Com quem (obrigatório)" : "Com quem"}
+              label="Com quem / parte / evento"
               pessoas={pessoas}
               defaultValue={src?.com_pessoa_id ?? ""}
               error={fieldErrors.com_pessoa_id}

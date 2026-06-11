@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check, Search, X } from "lucide-react";
 import { clsx } from "clsx";
 import { Avatar } from "@/components/ui/Avatar";
+import { useFloatingPanel } from "@/hooks/useFloatingPanel";
+import { Z } from "@/lib/zIndex";
 
 export type SelectOption = {
   value: string;
@@ -65,8 +68,13 @@ export function SelectMenu({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [dropUp, setDropUp] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelStyle = useFloatingPanel(open && !isMobile, btnRef, dropUp);
+
+  useEffect(() => setMounted(true), []);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -87,9 +95,10 @@ export function SelectMenu({
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -175,6 +184,7 @@ export function SelectMenu({
             role="option"
             aria-selected={sel}
             data-idx={i}
+            title={o.description ?? undefined}
             onClick={() => pick(o.value)}
             onMouseEnter={() => setActive(i)}
             className={clsx(
@@ -191,7 +201,7 @@ export function SelectMenu({
             <span className="min-w-0 flex-1">
               <span className="block truncate">{o.label}</span>
               {o.description && (
-                <span className="block truncate text-xs font-normal text-slate-400">
+                <span className="block line-clamp-3 text-xs font-normal leading-snug text-slate-400">
                   {o.description}
                 </span>
               )}
@@ -271,23 +281,27 @@ export function SelectMenu({
           />
         </button>
 
-        {/* Desktop: painel ancorado */}
-        {open && !isMobile && (
+      </div>
+
+      {/* Desktop: painel em portal (evita corte pelo overflow do modal) */}
+      {mounted &&
+        open &&
+        !isMobile &&
+        createPortal(
           <div
-            className={clsx(
-              "animate-dialog-in absolute z-[75] w-full min-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg",
-              dropUp ? "bottom-full mb-1" : "top-full mt-1"
-            )}
+            ref={panelRef}
+            style={panelStyle}
+            className="animate-dialog-in flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           >
             {Busca}
-            <div className="max-h-64 overflow-y-auto">{Lista}</div>
-          </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{Lista}</div>
+          </div>,
+          document.body
         )}
-      </div>
 
       {/* Mobile: bottom sheet */}
       {open && isMobile && (
-        <div className="fixed inset-0 z-[75]">
+        <div className="fixed inset-0" style={{ zIndex: Z.popover }}>
           <div
             className="absolute inset-0 bg-slate-900/40"
             onClick={() => setOpen(false)}

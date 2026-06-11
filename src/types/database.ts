@@ -16,6 +16,19 @@ export type Pessoa = {
   atualizado_em: string;
 };
 
+/** Colaborador espelhado do Responsum (seleção de participantes). */
+export type Colaborador = {
+  id: string;
+  responsum_id: string;
+  nome: string;
+  email: string;
+  departamento: string | null;
+  avatar_url: string | null;
+  ativo: boolean;
+  usuario_id: string | null;
+  sincronizado_em: string;
+};
+
 // Cliente VIOS = public.pessoas (espelho SIOE; equipe interna = public.usuarios).
 export type Cliente = {
   id: string;
@@ -39,6 +52,7 @@ export type Cliente = {
   email: string | null;
   grupo_cliente: string | null;
   categoria: string | null;
+  criado_por_usuario_id: string | null;
   contato_1: string | null;
   facebook: string | null;
   instagram: string | null;
@@ -65,7 +79,13 @@ export type EmpresaDoGrupo = {
   qtd_processos: number;
 };
 
-export type TipoReuniao = "CAPTACAO" | "FIDELIZACAO" | "RELACIONAMENTO";
+export type TipoReuniao =
+  | "CAPTACAO"
+  | "FIDELIZACAO"
+  | "RELACIONAMENTO_INSTITUCIONAL"
+  | "GESTAO_ESTRATEGICA"
+  | "GESTAO_EQUIPE"
+  | "GESTAO_OPERACIONAL";
 export type ModalidadeReuniao =
   | "PRESENCIAL_ESCRITORIO"
   | "PRESENCIAL_EXTERNO"
@@ -76,12 +96,13 @@ export type StatusReuniao =
   | "CANCELADA"
   | "REAGENDADA";
 export type TipoAtividade =
+  | "PARECER"
   | "DESPACHO"
-  | "REVISAO_PECA"
-  | "REUNIAO_INTERNA"
-  | "REUNIAO_GESTAO"
-  | "UM_A_UM"
-  | "OUTROS";
+  | "REVISAO_PRAZO"
+  | "ELABORACAO_PRAZO"
+  | "AUDIENCIA"
+  | "SUSTENTACAO_ORAL"
+  | "PALESTRAS_EVENTOS";
 
 export type Reuniao = {
   id: string;
@@ -114,13 +135,15 @@ export type Reuniao = {
 export type ReuniaoComRelacoes = Reuniao & {
   cliente?: { ci: string; nome: string } | null;
   participantes?: {
-    pessoa_id: string;
+    colaborador_id: string;
     papel: string;
-    pessoa?: {
+    colaborador?: {
       id: string;
       nome: string;
       avatar_url: string | null;
       email?: string | null;
+      departamento?: string | null;
+      usuario_id?: string | null;
     } | null;
   }[];
 };

@@ -11,7 +11,7 @@ import { useConfirm } from "@/components/ui/Confirm";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { AtividadeForm } from "./AtividadeForm";
-import { TIPO_ATIVIDADE_INTERNA } from "@/lib/constants";
+import { TIPO_ATIVIDADE_INTERNA, atividadeTipoOptions } from "@/lib/constants";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { deleteAtividade } from "@/app/(app)/atividades/actions";
 import type { AtividadeComPessoa } from "@/types/database";
@@ -107,7 +107,7 @@ export function AtividadesClient({
             Atividades internas
           </h1>
           <p className="text-sm text-slate-500">
-            Despachos, revisões, reuniões e 1:1 · timesheet automático
+            Pareceres, prazos, audiências e eventos · timesheet automático
           </p>
         </div>
         <Button
@@ -141,10 +141,7 @@ export function AtividadesClient({
           onChange={setFTipo}
           emptyOption="Todos os tipos"
           placeholder="Todos os tipos"
-          options={Object.entries(TIPO_ATIVIDADE_INTERNA).map(([v, l]) => ({
-            value: v,
-            label: l,
-          }))}
+          options={atividadeTipoOptions()}
           className="w-full sm:w-52"
         />
       </div>
@@ -184,7 +181,7 @@ export function AtividadesClient({
                 <Badge tone="red">Cancelada</Badge>
               ) : (
                 <Badge tone="blue">
-                  {TIPO_ATIVIDADE_INTERNA[a.tipo]}
+                  {TIPO_ATIVIDADE_INTERNA[a.tipo] ?? a.tipo}
                 </Badge>
               )}
             </div>

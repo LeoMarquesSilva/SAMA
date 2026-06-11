@@ -46,15 +46,6 @@ export async function createAtividade(
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
 
-  // 1:1 exige "com quem".
-  if (
-    parsed.data.tipo === "UM_A_UM" &&
-    !parsed.data.com_pessoa_id &&
-    !parsed.data.com_pessoa_nome
-  ) {
-    return { ok: false, error: 'Para 1:1, informe "com quem".' };
-  }
-
   const pessoa = await getPessoaAtual();
   const pessoaId = pessoaIdOverride || pessoa?.id;
   if (!pessoaId) {

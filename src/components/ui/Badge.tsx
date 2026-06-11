@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 
-type Tone = "green" | "gray" | "amber" | "blue" | "red";
+type Tone = "green" | "gray" | "amber" | "blue" | "red" | "purple";
 
 const tones: Record<Tone, string> = {
   green: "bg-emerald-100 text-emerald-700",
@@ -8,6 +8,7 @@ const tones: Record<Tone, string> = {
   amber: "bg-amber-100 text-amber-700",
   blue: "bg-brand-100 text-brand-700",
   red: "bg-red-100 text-red-700",
+  purple: "bg-violet-100 text-violet-700",
 };
 
 export function Badge({

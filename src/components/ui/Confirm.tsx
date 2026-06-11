@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Z } from "@/lib/zIndex";
 import { AlertTriangle, HelpCircle } from "lucide-react";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
@@ -92,7 +93,8 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       {children}
       {opts && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
+          className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-4"
+          style={{ zIndex: Z.confirm }}
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="confirm-title"

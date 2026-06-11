@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   let q = supabase
     .from("reunioes")
     .select(
-      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, tema, resultado, criado_em, cliente:pessoas(nome), participantes:reuniao_participantes(pessoa_id, pessoa:usuarios(nome))"
+      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, tema, resultado, criado_em, cliente:pessoas(nome), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
     )
     .order("data_hora_inicio", { ascending: false });
   if (de) q = q.gte("data_hora_inicio", de);
@@ -53,12 +53,15 @@ export async function GET(request: Request) {
     resultado: string | null;
     criado_em: string;
     cliente?: { nome?: string } | null;
-    participantes?: { pessoa_id: string; pessoa?: { nome?: string } | null }[];
+    participantes?: {
+      colaborador_id: string;
+      colaborador?: { nome?: string; usuario_id?: string | null } | null;
+    }[];
   };
   let rows = (data as Row[]) ?? [];
   if (!isAdmin && eu?.id) {
     rows = rows.filter((r) =>
-      (r.participantes ?? []).some((p) => p.pessoa_id === eu.id)
+      (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
     );
   }
 
@@ -90,7 +93,7 @@ export async function GET(request: Request) {
       r.duracao_minutos ?? "",
       r.cliente?.nome ?? "",
       (r.participantes ?? [])
-        .map((p) => p.pessoa?.nome)
+        .map((p) => p.colaborador?.nome)
         .filter(Boolean)
         .join(", "),
       r.tema ?? "",

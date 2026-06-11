@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { Target } from "lucide-react";
@@ -17,7 +17,7 @@ function SubmitButton() {
   );
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const [state, formAction] = useActionState<LoginState, FormData>(login, {});
   const searchParams = useSearchParams();
   const inativo = searchParams.get("erro") === "inativo";
@@ -69,5 +69,13 @@ export default function LoginPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
