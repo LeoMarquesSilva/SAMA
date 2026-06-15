@@ -2,7 +2,7 @@
   "name": "sama",
   "version": "0.1.0",
   "private": true,
-  "description": "Sistema de Acompanhamento de Metas e Atividades dos Sócios",
+  "description": "Sistema de Análise de Metas e Atividades",
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",

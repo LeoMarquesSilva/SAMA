@@ -8,6 +8,7 @@ import {
   MapPin,
   Building2,
   ArrowRight,
+  ClipboardList,
 } from "lucide-react";
 import { AvatarGroup } from "@/components/ui/Avatar";
 import {
@@ -20,11 +21,17 @@ import {
 import { ptBR } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
-import { formatDuration, formatDateTime } from "@/lib/format";
+import {
+  atividadeDataConclusaoIso,
+  formatDuration,
+  formatDateTime,
+} from "@/lib/format";
+import { linhaCliente } from "@/lib/clientes";
 import { DashboardFiltros } from "@/components/dashboard/DashboardFiltros";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { CALENDARIO_PATH } from "@/lib/calendario";
-import { TIPO_REUNIAO } from "@/lib/constants";
+import { TIPO_ATIVIDADE_INTERNA, TIPO_REUNIAO, atividadeTipoOptionsAtividades } from "@/lib/constants";
+import { PersonTag } from "@/components/ui/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +101,16 @@ export default async function DashboardPage({
     .lte("data_hora_inicio", ate.toISOString());
   if (fTipo) reunioesQ = reunioesQ.eq("tipo", fTipo);
 
+  let atividadesQ = supabase
+    .from("atividades_internas")
+    .select(
+      "id, tipo, status, titulo, data_hora_inicio, data_hora_fim, duracao_minutos, pessoa_id, pessoa:usuarios!atividades_internas_pessoa_id_fkey(nome, avatar_url)"
+    )
+    .gte("data_hora_inicio", de.toISOString())
+    .lte("data_hora_inicio", ate.toISOString())
+    .neq("tipo", "CIENCIA_NF");
+  if (pessoaScope) atividadesQ = atividadesQ.eq("pessoa_id", pessoaScope);
+
   let timesheetQ = supabase
     .from("timesheet_entradas")
     .select("duracao_minutos, pessoa_id, data, pessoa:usuarios(nome)")
@@ -111,7 +128,7 @@ export default async function DashboardPage({
   const proximasQ = supabase
     .from("reunioes")
     .select(
-      "id, titulo, modalidade, data_hora_inicio, link_online, cliente:pessoas(nome), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url, usuario_id))"
+      "id, titulo, modalidade, data_hora_inicio, link_online, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url, usuario_id))"
     )
     .eq("status", "AGENDADA")
     .gte("data_hora_inicio", new Date().toISOString())
@@ -124,12 +141,14 @@ export default async function DashboardPage({
 
   const [
     { data: reunioesRaw },
+    { data: atividadesRaw },
     { data: timesheet },
     { data: pessoas },
     { count: pendentes },
     { data: proximasRaw },
   ] = await Promise.all([
     reunioesQ,
+    atividadesQ,
     timesheetQ,
     supabase.from("usuarios").select("id, nome, avatar_url").order("nome"),
     pendentesQ,
@@ -152,7 +171,7 @@ export default async function DashboardPage({
     modalidade: string;
     data_hora_inicio: string;
     link_online: string | null;
-    cliente?: { nome?: string } | null;
+    cliente?: { nome?: string; grupo_cliente?: string | null } | null;
     participantes: {
       colaborador_id: string;
       colaborador?: {
@@ -178,10 +197,25 @@ export default async function DashboardPage({
     );
   }
 
+  type ARow = {
+    id: string;
+    tipo: string;
+    status: string;
+    titulo: string;
+    data_hora_inicio: string;
+    data_hora_fim: string | null;
+    duracao_minutos: number | null;
+    pessoa_id: string;
+    pessoa?: { nome?: string; avatar_url?: string | null } | null;
+  };
+  const atividades = (atividadesRaw as ARow[]) ?? [];
+
   // ── Cards ──
   const realizadas = reunioes.filter((r) => r.status === "REALIZADA").length;
   const canceladas = reunioes.filter((r) => r.status === "CANCELADA").length;
   const agendadas = reunioes.filter((r) => r.status === "AGENDADA").length;
+  const atvRealizadas = atividades.filter((a) => a.status === "REALIZADA").length;
+  const atvCanceladas = atividades.filter((a) => a.status === "CANCELADA").length;
   const horasMin = (timesheet ?? []).reduce(
     (s, t) => s + (t.duracao_minutos ?? 0),
     0
@@ -243,6 +277,55 @@ export default async function DashboardPage({
     .sort((a, b) => b.qtd - a.qtd)
     .slice(0, 10);
 
+  // ── Atividades: tendência por mês × tipo ──
+  const trendAtividades = meses.map((m) => {
+    const key = format(m, "yyyy-MM");
+    const label = format(m, "MMM/yy", { locale: ptBR });
+    const doMes = atividades.filter(
+      (a) =>
+        format(new Date(atividadeDataConclusaoIso(a)), "yyyy-MM") === key
+    );
+    return {
+      mes: label,
+      ...Object.fromEntries(
+        atividadeTipoOptionsAtividades().map(({ value, label }) => [
+          label,
+          doMes.filter((a) => a.tipo === value).length,
+        ])
+      ),
+    };
+  });
+
+  const porTipoAtividades = Object.entries(
+    atividades.reduce<Record<string, number>>((acc, a) => {
+      if (a.status === "CANCELADA") return acc;
+      acc[a.tipo] = (acc[a.tipo] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).map(([k, v]) => ({
+    name: TIPO_ATIVIDADE_INTERNA[k as keyof typeof TIPO_ATIVIDADE_INTERNA] ?? k,
+    value: v,
+  }));
+
+  const rankAtvMap = new Map<string, number>();
+  for (const a of atividades.filter((x) => x.status === "REALIZADA")) {
+    const nome = a.pessoa?.nome ?? "—";
+    rankAtvMap.set(nome, (rankAtvMap.get(nome) ?? 0) + 1);
+  }
+  const rankingAtividades = [...rankAtvMap.entries()]
+    .map(([nome, qtd]) => ({ nome, qtd }))
+    .sort((a, b) => b.qtd - a.qtd)
+    .slice(0, 10);
+
+  const recentesAtividades = [...atividades]
+    .filter((a) => a.status === "REALIZADA")
+    .sort(
+      (a, b) =>
+        new Date(atividadeDataConclusaoIso(b)).getTime() -
+        new Date(atividadeDataConclusaoIso(a)).getTime()
+    )
+    .slice(0, 6);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -251,7 +334,7 @@ export default async function DashboardPage({
             Dashboard
           </h1>
           <p className="text-sm text-slate-500">
-            Análise de reuniões e timesheet
+            Análise de reuniões, atividades e timesheet
           </p>
         </div>
       </div>
@@ -277,10 +360,16 @@ export default async function DashboardPage({
         isAdmin={isAdmin}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Card label="Reuniões realizadas" value={realizadas} icon={CalendarCheck} />
-        <Card label="Agendadas" value={agendadas} icon={CalendarClock} />
-        <Card label="Canceladas" value={canceladas} icon={Ban} />
+        <Card label="Reuniões agendadas" value={agendadas} icon={CalendarClock} />
+        <Card label="Reuniões canceladas" value={canceladas} icon={Ban} />
+        <Card
+          label="Atividades realizadas"
+          value={atvRealizadas}
+          icon={ClipboardList}
+        />
+        <Card label="Atividades canceladas" value={atvCanceladas} icon={Ban} />
         <Card
           label="Horas internas"
           value={formatDuration(horasMin)}
@@ -320,7 +409,9 @@ export default async function DashboardPage({
                   </p>
                   <p className="truncate text-xs text-slate-400">
                     {formatDateTime(r.data_hora_inicio)}
-                    {r.cliente?.nome ? ` · ${r.cliente.nome}` : ""}
+                    {r.cliente?.nome
+                      ? ` · ${linhaCliente({ nome: r.cliente.nome, grupo_cliente: r.cliente.grupo_cliente })}`
+                      : ""}
                   </p>
                 </div>
                 {r.participantes && r.participantes.length > 0 && (
@@ -348,11 +439,57 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {recentesAtividades.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Atividades recentes
+            </h2>
+            <Link
+              href="/atividades"
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+            >
+              Ver todas <ArrowRight size={13} />
+            </Link>
+          </div>
+          <ul className="divide-y divide-slate-100">
+            {recentesAtividades.map((a) => (
+              <li key={a.id} className="flex items-center gap-3 py-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <ClipboardList size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-800">
+                    {a.titulo}
+                  </p>
+                  <p className="truncate text-xs text-slate-400">
+                    {TIPO_ATIVIDADE_INTERNA[
+                      a.tipo as keyof typeof TIPO_ATIVIDADE_INTERNA
+                    ] ?? a.tipo}{" "}
+                    · {formatDateTime(atividadeDataConclusaoIso(a))}
+                  </p>
+                </div>
+                {a.pessoa?.nome && (
+                  <PersonTag
+                    nome={a.pessoa.nome}
+                    src={a.pessoa.avatar_url}
+                    size={24}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <DashboardCharts
         trend={trend}
         modalidade={modalidade}
         horasPorPessoa={horasPorPessoa}
         ranking={ranking}
+        trendAtividades={trendAtividades}
+        porTipoAtividades={porTipoAtividades}
+        rankingAtividades={rankingAtividades}
       />
     </div>
   );

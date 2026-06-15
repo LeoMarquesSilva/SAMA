@@ -2,7 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
+import { calendarioEventQueryRange } from "@/lib/calendario";
 import { outlookConfigurado } from "@/lib/graph";
+import { fellowConfigurado } from "@/lib/fellow";
 import type { OutlookEventoComPessoa } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +16,14 @@ export default async function CalendarioPage() {
   const pessoa = await getPessoaAtual();
   const isAdmin = pessoa?.is_admin ?? false;
 
+  const { start, end } = calendarioEventQueryRange();
+
   let query = supabase
     .from("outlook_eventos")
     .select("*, pessoa:usuarios(id, nome, email, avatar_url)")
-    .order("inicio", { ascending: true, nullsFirst: false })
-    .limit(200);
+    .gte("inicio", start)
+    .lte("inicio", end)
+    .order("inicio", { ascending: true, nullsFirst: false });
 
   if (!isAdmin && pessoa?.id) query = query.eq("pessoa_id", pessoa.id);
 
@@ -47,6 +52,7 @@ export default async function CalendarioPage() {
         colaboradores={colaboradores ?? []}
         isAdmin={isAdmin}
         pessoaAtualId={pessoa?.id ?? null}
+        fellowAtivo={fellowConfigurado()}
       />
     </div>
   );

@@ -19,6 +19,7 @@ import {
   Crown,
   ArrowUpRight,
   CalendarPlus,
+  Download,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -37,10 +38,12 @@ import {
   tipoReuniaoOptions,
 } from "@/lib/constants";
 import { formatDateTime, formatDuration } from "@/lib/format";
+import { labelGrupoCliente } from "@/lib/clientes";
 import {
   deleteReuniao,
   cancelarReuniao,
   mudarStatusReuniao,
+  importarFellowReuniao,
 } from "@/app/(app)/reunioes/actions";
 import type {
   ReuniaoComRelacoes,
@@ -48,6 +51,7 @@ import type {
   StatusReuniao,
 } from "@/types/database";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
+import { parseChecklist } from "@/lib/proximos-passos-checklist";
 
 const tipoTone = TIPO_REUNIAO_TONE;
 const statusTone: Record<StatusReuniao, "green" | "gray" | "red" | "amber"> = {
@@ -62,11 +66,17 @@ export function ReunioesClient({
   colaboradores,
   autoNew = false,
   prefillCliente = null,
+  fellowAtivo = false,
 }: {
   reunioes: ReuniaoComRelacoes[];
   colaboradores: ColaboradorOpt[];
   autoNew?: boolean;
-  prefillCliente?: { ci: string; nome: string } | null;
+  prefillCliente?: {
+    ci: string;
+    nome: string;
+    grupo_cliente?: string | null;
+  } | null;
+  fellowAtivo?: boolean;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -93,6 +103,7 @@ export function ReunioesClient({
         const hay = [
           r.titulo,
           r.cliente?.nome,
+          r.cliente?.grupo_cliente,
           r.tema,
           r.local,
           ...(r.participantes ?? []).map((p) => p.colaborador?.nome),
@@ -160,7 +171,7 @@ export function ReunioesClient({
     startTransition(async () => {
       const r = await fn();
       if (!r.ok) toastError(r.error ?? "Algo deu errado.");
-      else if (okMsg) success(okMsg);
+      else success(okMsg ?? r.error ?? "Concluído.");
       setBusyId(null);
       router.refresh();
     });
@@ -193,6 +204,27 @@ export function ReunioesClient({
     run(r.id, () => deleteReuniao(r.id), "Reunião excluída.");
   }
 
+  async function handleImportarFellow(r: ReuniaoComRelacoes) {
+    const ok = await confirmar({
+      title: "Importar do Fellow?",
+      message: `Buscar resumo e ações da gravação Fellow para "${r.titulo}" e salvar na reunião.`,
+      confirmLabel: "Importar",
+    });
+    if (!ok) return;
+    run(
+      r.id,
+      async () => {
+        const res = await importarFellowReuniao(r.id);
+        if (!res.ok) return res;
+        const partes = ["Conteúdo Fellow importado."];
+        if (res.tem_resumo_ia) partes.push("resumo");
+        if (res.proximos_passos) partes.push("ações");
+        return { ok: true, error: partes.join(" · ") };
+      },
+      undefined
+    );
+  }
+
   function ModalidadeIcon({ m, size = 14 }: { m: string; size?: number }) {
     if (m === "ONLINE") return <Video size={size} />;
     if (m === "PRESENCIAL_EXTERNO") return <MapPin size={size} />;
@@ -222,6 +254,17 @@ export function ReunioesClient({
             title="Cancelar"
           >
             <Ban size={16} className="text-amber-600" />
+          </Button>
+        )}
+        {fellowAtivo && r.modalidade === "ONLINE" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busyId === r.id}
+            onClick={() => handleImportarFellow(r)}
+            title="Importar resumo e ações do Fellow"
+          >
+            <Download size={16} className="text-brand-600" />
           </Button>
         )}
         <Button
@@ -301,7 +344,12 @@ export function ReunioesClient({
           {r.cliente?.nome && (
             <span className="inline-flex items-center gap-2">
               <Building2 size={15} className="shrink-0 text-slate-400" />
-              {r.cliente.nome}
+              <span className="min-w-0">
+                <span className="block truncate">{r.cliente.nome}</span>
+                <span className="block truncate text-xs text-slate-400">
+                  {labelGrupoCliente(r.cliente.grupo_cliente)}
+                </span>
+              </span>
             </span>
           )}
           {r.modalidade !== "ONLINE" && r.local && (
@@ -369,17 +417,34 @@ export function ReunioesClient({
             )}
             {r.resultado && (
               <p className="text-slate-600">
-                <span className="font-medium text-slate-500">Resultado: </span>
+                <span className="font-medium text-slate-500">Resumo: </span>
                 {r.resultado}
               </p>
             )}
             {r.proximos_passos && (
-              <p className="text-slate-600">
+              <div className="text-slate-600">
                 <span className="font-medium text-slate-500">
-                  Próximos passos:{" "}
+                  Próximos passos:
                 </span>
-                {r.proximos_passos}
-              </p>
+                <ul className="mt-1 space-y-1">
+                  {parseChecklist(r.proximos_passos).map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <span
+                        className={
+                          item.done
+                            ? "text-emerald-600 line-through"
+                            : "text-slate-400"
+                        }
+                      >
+                        {item.done ? "☑" : "☐"}
+                      </span>
+                      <span className={item.done ? "line-through" : ""}>
+                        {item.text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
@@ -537,6 +602,7 @@ export function ReunioesClient({
             : undefined
         }
         colaboradores={colaboradores}
+        fellowAtivo={fellowAtivo}
       />
     </div>
   );

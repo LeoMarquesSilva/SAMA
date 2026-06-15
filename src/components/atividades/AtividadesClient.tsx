@@ -11,8 +11,12 @@ import { useConfirm } from "@/components/ui/Confirm";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { AtividadeForm } from "./AtividadeForm";
-import { TIPO_ATIVIDADE_INTERNA, atividadeTipoOptions } from "@/lib/constants";
-import { formatDateTime, formatDuration } from "@/lib/format";
+import { TIPO_ATIVIDADE_INTERNA, atividadeTipoOptionsAtividades } from "@/lib/constants";
+import {
+  atividadeDataConclusaoIso,
+  formatDateTime,
+  formatDuration,
+} from "@/lib/format";
 import { deleteAtividade } from "@/app/(app)/atividades/actions";
 import type { AtividadeComPessoa } from "@/types/database";
 
@@ -141,7 +145,7 @@ export function AtividadesClient({
           onChange={setFTipo}
           emptyOption="Todos os tipos"
           placeholder="Todos os tipos"
-          options={atividadeTipoOptions()}
+          options={atividadeTipoOptionsAtividades()}
           className="w-full sm:w-52"
         />
       </div>
@@ -187,7 +191,8 @@ export function AtividadesClient({
             </div>
             <div className="mt-2 space-y-1 text-xs text-slate-500">
               <p className="inline-flex items-center gap-1">
-                <Calendar size={13} /> {formatDateTime(a.data_hora_inicio)} ·{" "}
+                <Calendar size={13} />{" "}
+                {formatDateTime(atividadeDataConclusaoIso(a))} ·{" "}
                 {formatDuration(a.duracao_minutos)}
               </p>
               {podeEscolherPessoa && a.pessoa?.nome && (
@@ -229,7 +234,7 @@ export function AtividadesClient({
               {podeEscolherPessoa && (
                 <th className="px-4 py-3 font-medium">Responsável</th>
               )}
-              <th className="px-4 py-3 font-medium">Início</th>
+              <th className="px-4 py-3 font-medium">Conclusão</th>
               <th className="px-4 py-3 font-medium">Duração</th>
               <th className="px-4 py-3 text-right font-medium">Ações</th>
             </tr>
@@ -284,7 +289,7 @@ export function AtividadesClient({
                   </td>
                 )}
                 <td className="px-4 py-3 text-slate-600">
-                  {formatDateTime(a.data_hora_inicio)}
+                  {formatDateTime(atividadeDataConclusaoIso(a))}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {formatDuration(a.duracao_minutos)}
@@ -308,6 +313,7 @@ export function AtividadesClient({
         pessoas={pessoas}
         podeEscolherPessoa={podeEscolherPessoa}
         pessoaAtualId={pessoaAtualId}
+        tipoOptions={atividadeTipoOptionsAtividades()}
       />
     </div>
   );

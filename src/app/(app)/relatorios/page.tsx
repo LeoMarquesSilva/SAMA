@@ -2,6 +2,7 @@ import { startOfMonth, startOfYear, subMonths } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { formatDateTime, formatDuration } from "@/lib/format";
+import { linhaCliente } from "@/lib/clientes";
 import {
   TIPO_REUNIAO,
   STATUS_REUNIAO,
@@ -39,7 +40,7 @@ export default async function RelatoriosPage({
   let q = supabase
     .from("reunioes")
     .select(
-      "titulo, tipo, status, modalidade, data_hora_inicio, duracao_minutos, cliente:pessoas(nome), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
+      "titulo, tipo, status, modalidade, data_hora_inicio, duracao_minutos, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
     )
     .gte("data_hora_inicio", de.toISOString())
     .lte("data_hora_inicio", ate.toISOString())
@@ -54,7 +55,7 @@ export default async function RelatoriosPage({
     modalidade: keyof typeof MODALIDADE_REUNIAO;
     data_hora_inicio: string;
     duracao_minutos: number | null;
-    cliente?: { nome?: string } | null;
+    cliente?: { nome?: string; grupo_cliente?: string | null } | null;
     participantes?: {
       colaborador_id: string;
       colaborador?: { nome?: string; usuario_id?: string | null } | null;
@@ -135,7 +136,12 @@ export default async function RelatoriosPage({
                   {TIPO_REUNIAO[r.tipo] ?? r.tipo}
                 </td>
                 <td className="py-2 pr-2 text-slate-600">
-                  {r.cliente?.nome ?? "—"}
+                  {r.cliente?.nome
+                    ? linhaCliente({
+                        nome: r.cliente.nome,
+                        grupo_cliente: r.cliente.grupo_cliente,
+                      })
+                    : "—"}
                 </td>
                 <td className="py-2 pr-2 text-slate-600">
                   {formatDateTime(r.data_hora_inicio)}

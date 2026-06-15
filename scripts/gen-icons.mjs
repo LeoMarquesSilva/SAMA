@@ -11,8 +11,8 @@ const svg = readFileSync(join(root, "public", "icon.svg"));
 const targets = [
   { file: "icon-192.png", size: 192 },
   { file: "icon-512.png", size: 512 },
-  { file: "apple-touch-icon.png", size: 180, bg: "#2447d0" },
-  { file: "icon-maskable-512.png", size: 512, pad: 0.12, bg: "#2447d0" },
+  { file: "apple-touch-icon.png", size: 180, bg: "#101f2e" },
+  { file: "icon-maskable-512.png", size: 512, pad: 0.12, bg: "#101f2e" },
 ];
 
 for (const t of targets) {

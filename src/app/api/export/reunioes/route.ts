@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { formatDateTime } from "@/lib/format";
+import { linhaCliente } from "@/lib/clientes";
 import {
   TIPO_REUNIAO,
   MODALIDADE_REUNIAO,
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
   let q = supabase
     .from("reunioes")
     .select(
-      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, tema, resultado, criado_em, cliente:pessoas(nome), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
+      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, tema, resultado, criado_em, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
     )
     .order("data_hora_inicio", { ascending: false });
   if (de) q = q.gte("data_hora_inicio", de);
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
     tema: string | null;
     resultado: string | null;
     criado_em: string;
-    cliente?: { nome?: string } | null;
+    cliente?: { nome?: string; grupo_cliente?: string | null } | null;
     participantes?: {
       colaborador_id: string;
       colaborador?: { nome?: string; usuario_id?: string | null } | null;
@@ -91,7 +92,12 @@ export async function GET(request: Request) {
       formatDateTime(r.data_hora_inicio),
       formatDateTime(r.data_hora_fim),
       r.duracao_minutos ?? "",
-      r.cliente?.nome ?? "",
+      r.cliente?.nome
+        ? linhaCliente({
+            nome: r.cliente.nome,
+            grupo_cliente: r.cliente.grupo_cliente,
+          })
+        : "",
       (r.participantes ?? [])
         .map((p) => p.colaborador?.nome)
         .filter(Boolean)

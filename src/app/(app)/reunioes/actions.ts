@@ -5,8 +5,22 @@ import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoSchema, type ReuniaoFormValues } from "@/lib/validations";
 import { diffMinutos } from "@/lib/format";
+import {
+  buscarGravacaoFellow,
+  fellowConfigurado,
+  FellowApiError,
+} from "@/lib/fellow";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
+
+export type FellowImportResult = {
+  ok: boolean;
+  error?: string;
+  resultado?: string;
+  proximos_passos?: string;
+  titulo_fellow?: string | null;
+  tem_resumo_ia?: boolean;
+};
 
 function toIso(local?: string | null): string | null {
   if (!local) return null;
@@ -37,7 +51,6 @@ function buildRow(values: ReuniaoFormValues) {
     objetivos: values.objetivos || null,
     resultado: values.resultado || null,
     proximos_passos: values.proximos_passos || null,
-    gravacao_url: values.gravacao_url || null,
     ata_texto: values.ata_texto || null,
     motivo_cancelamento:
       values.status === "CANCELADA" ? values.motivo_cancelamento || null : null,
@@ -196,4 +209,82 @@ export async function deleteReuniao(id: string): Promise<ActionResult> {
   if (error) return { ok: false, error: "Erro ao excluir." };
   revalidatePath("/reunioes");
   return { ok: true };
+}
+
+export async function buscarConteudoFellow(input: {
+  outlook_event_id?: string | null;
+  titulo?: string | null;
+  data_hora_inicio?: string | null;
+}): Promise<FellowImportResult> {
+  if (!fellowConfigurado()) {
+    return { ok: false, error: "Integração Fellow não configurada no servidor." };
+  }
+
+  try {
+    const conteudo = await buscarGravacaoFellow(input);
+    if (!conteudo) {
+      return {
+        ok: false,
+        error:
+          "Nenhuma gravação Fellow encontrada para esta reunião. Verifique se foi gravada e se a conta da API tem acesso.",
+      };
+    }
+
+    return {
+      ok: true,
+      resultado: conteudo.resumo || undefined,
+      proximos_passos: conteudo.proximos_passos || undefined,
+      titulo_fellow: conteudo.tituloFellow,
+      tem_resumo_ia: conteudo.temResumoIa,
+    };
+  } catch (e) {
+    if (e instanceof FellowApiError) {
+      return { ok: false, error: `Fellow: ${e.message}` };
+    }
+    return { ok: false, error: "Erro ao consultar a API Fellow." };
+  }
+}
+
+export async function importarFellowReuniao(id: string): Promise<FellowImportResult> {
+  const supabase = await createClient();
+  const { data: reuniao, error } = await supabase
+    .from("reunioes")
+    .select("id, titulo, outlook_event_id, data_hora_inicio, modalidade")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !reuniao) {
+    return { ok: false, error: "Reunião não encontrada." };
+  }
+  if (reuniao.modalidade !== "ONLINE") {
+    return { ok: false, error: "Importação Fellow disponível só para reuniões online." };
+  }
+
+  const resultado = await buscarConteudoFellow({
+    outlook_event_id: reuniao.outlook_event_id,
+    titulo: reuniao.titulo,
+    data_hora_inicio: reuniao.data_hora_inicio,
+  });
+  if (!resultado.ok) return resultado;
+
+  const patch: {
+    resultado?: string | null;
+    proximos_passos?: string | null;
+  } = {};
+  if (resultado.resultado?.trim()) patch.resultado = resultado.resultado.trim();
+  if (resultado.proximos_passos?.trim()) {
+    patch.proximos_passos = resultado.proximos_passos.trim();
+  }
+  if (Object.keys(patch).length === 0) {
+    return { ok: false, error: "Nenhum conteúdo Fellow para importar." };
+  }
+
+  const { error: upErr } = await supabase
+    .from("reunioes")
+    .update(patch)
+    .eq("id", id);
+  if (upErr) return { ok: false, error: "Erro ao salvar conteúdo importado." };
+
+  revalidatePath("/reunioes");
+  return resultado;
 }

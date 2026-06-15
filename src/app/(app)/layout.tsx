@@ -58,6 +58,7 @@ export default async function AppLayout({
             "atividades_internas",
             "timesheet_entradas",
             "usuarios",
+            "vios_tarefas",
           ]}
         />
         <div className="flex h-screen overflow-hidden">

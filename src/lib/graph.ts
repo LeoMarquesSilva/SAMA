@@ -78,11 +78,15 @@ type GraphEventRaw = {
   }[];
 };
 
-// dateTime do Graph vem como "2026-06-10T13:00:00.0000000" (UTC, com Prefer).
+// dateTime do Graph: com Prefer America/Sao_Paulo vem como hora local SP (sem Z).
 function toIso(dt?: string): string | null {
   if (!dt) return null;
-  const norm = dt.endsWith("Z") ? dt : `${dt}Z`;
-  const d = new Date(norm);
+  if (dt.endsWith("Z")) {
+    const d = new Date(dt);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const clean = dt.replace(/\.\d+/, "");
+  const d = new Date(`${clean}-03:00`);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -114,7 +118,7 @@ export async function getCalendarEvents(
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
-        Prefer: 'outlook.timezone="UTC"',
+        Prefer: 'outlook.timezone="America/Sao_Paulo"',
       },
       cache: "no-store",
     });

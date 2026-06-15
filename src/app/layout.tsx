@@ -1,17 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { APP_FULL_NAME, APP_NAME, APP_TITLE } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "SAMA — Metas & Atividades dos Sócios",
-  description:
-    "Controle gerencial de reuniões externas, atividades internas e timesheet dos sócios.",
+  title: APP_TITLE,
+  description: APP_FULL_NAME,
   manifest: "/manifest.webmanifest",
-  applicationName: "SAMA",
+  applicationName: APP_NAME,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SAMA",
+    title: APP_NAME,
   },
   icons: {
     icon: [
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2447d0",
+  themeColor: "#101f2e",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

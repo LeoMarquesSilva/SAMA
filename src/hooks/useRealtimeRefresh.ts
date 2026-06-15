@@ -10,7 +10,8 @@ export type RealtimeTable =
   | "reuniao_participantes"
   | "atividades_internas"
   | "timesheet_entradas"
-  | "usuarios";
+  | "usuarios"
+  | "vios_tarefas";
 
 type Options = {
   tables: RealtimeTable[];

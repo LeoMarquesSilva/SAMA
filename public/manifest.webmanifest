@@ -1,13 +1,13 @@
 {
-  "name": "SAMA — Metas & Atividades",
+  "name": "SAMA — Sistema de Análise de Metas e Atividades",
   "short_name": "SAMA",
-  "description": "Acompanhamento de reuniões, atividades e timesheet dos sócios.",
+  "description": "Sistema de Análise de Metas e Atividades.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f8fafc",
-  "theme_color": "#2447d0",
+  "theme_color": "#101f2e",
   "lang": "pt-BR",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },

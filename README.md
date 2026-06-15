@@ -1,4 +1,4 @@
-# SAMA — Metas & Atividades dos Sócios
+# SAMA — Sistema de Análise de Metas e Atividades
 
 Sistema web de controle gerencial para acompanhamento de **reuniões externas**
 (captação, fidelização, relacionamento) e **atividades internas** (despacho,

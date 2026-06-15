@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { subtituloCliente } from "@/lib/clientes";
 
 export type SearchResult = {
   tipo: "reuniao" | "cliente" | "pessoa" | "atividade";
@@ -36,7 +37,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
     supabase
       .from("pessoas")
       .select("ci, nome, cpf_cnpj, grupo_cliente")
-      .or(`nome.ilike.${like},cpf_cnpj.ilike.${like}`)
+      .or(`nome.ilike.${like},cpf_cnpj.ilike.${like},grupo_cliente.ilike.${like}`)
       .order("nome")
       .limit(5),
     supabase
@@ -68,7 +69,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
       tipo: "cliente" as const,
       id: c.ci,
       titulo: c.nome,
-      subtitulo: c.cpf_cnpj ?? c.grupo_cliente ?? null,
+      subtitulo: subtituloCliente(c),
       href: `/clientes/${encodeURIComponent(c.ci)}`,
       avatar_url: null,
     })),

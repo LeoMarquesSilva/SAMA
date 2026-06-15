@@ -104,7 +104,6 @@ export async function sincronizarOutlook(
           .from("outlook_eventos")
           .upsert(rows, {
             onConflict: "pessoa_id,outlook_event_id",
-            ignoreDuplicates: true,
           });
         if (error) throw new Error(error.message);
       }

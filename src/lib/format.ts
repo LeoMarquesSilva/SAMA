@@ -1,10 +1,16 @@
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatTimeInTz, APP_TIMEZONE, toDatetimeLocalInTz } from "@/lib/timezone";
 
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
-    return format(new Date(iso), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const time = formatTimeInTz(iso);
+    const date = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: APP_TIMEZONE,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(iso));
+    return `${date} ${time}`;
   } catch {
     return "—";
   }
@@ -13,10 +19,32 @@ export function formatDateTime(iso: string | null | undefined): string {
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
-    return format(new Date(iso), "dd/MM/yyyy", { locale: ptBR });
+    return new Intl.DateTimeFormat("pt-BR", {
+      timeZone: APP_TIMEZONE,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(iso));
   } catch {
     return "—";
   }
+}
+
+/** Data/hora de conclusão da atividade (fim explícito, início + duração, ou início). */
+export function atividadeDataConclusaoIso(a: {
+  data_hora_inicio: string;
+  data_hora_fim?: string | null;
+  duracao_minutos?: number | null;
+}): string {
+  if (a.data_hora_fim) return a.data_hora_fim;
+  const min = a.duracao_minutos ?? 0;
+  if (min > 0 && a.data_hora_inicio) {
+    const t = new Date(a.data_hora_inicio).getTime();
+    if (!Number.isNaN(t)) {
+      return new Date(t + min * 60000).toISOString();
+    }
+  }
+  return a.data_hora_inicio;
 }
 
 /** Converte minutos em "2h 30min" / "45min". */
@@ -41,13 +69,7 @@ export function diffMinutos(
   return Math.round((b - a) / 60000);
 }
 
-/** Valor para <input type="datetime-local"> a partir de um ISO. */
+/** Valor para <input type="datetime-local"> a partir de um ISO (fuso SP). */
 export function toDatetimeLocal(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
+  return toDatetimeLocalInTz(iso);
 }

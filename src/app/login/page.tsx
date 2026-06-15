@@ -7,6 +7,7 @@ import { Target } from "lucide-react";
 import { login, type LoginState } from "./actions";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { APP_FULL_NAME, APP_NAME } from "@/lib/constants";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -29,10 +30,8 @@ function LoginForm() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-white">
             <Target size={24} />
           </div>
-          <h1 className="text-xl font-bold text-slate-800">SAMA</h1>
-          <p className="text-sm text-slate-500">
-            Metas &amp; Atividades dos Sócios
-          </p>
+          <h1 className="text-xl font-bold text-slate-800">{APP_NAME}</h1>
+          <p className="text-sm text-slate-500">{APP_FULL_NAME}</p>
         </div>
 
         <form action={formAction} className="flex flex-col gap-4">

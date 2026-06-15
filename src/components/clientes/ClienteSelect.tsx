@@ -9,6 +9,7 @@ import {
   Loader2,
   ChevronDown,
   UserPlus,
+  Layers,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -19,8 +20,15 @@ import {
 import { useFloatingPanel } from "@/hooks/useFloatingPanel";
 import { Badge } from "@/components/ui/Badge";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { labelGrupoCliente } from "@/lib/clientes";
 
-type Selected = { ci: string; nome: string; isCaptacao?: boolean };
+type Selected = {
+  ci: string;
+  nome: string;
+  grupo_cliente?: string | null;
+  isCaptacao?: boolean;
+  kind?: "grupo" | "empresa";
+};
 
 function isContatoCaptacao(ci: string) {
   return ci.startsWith("SAMA-LEAD-");
@@ -38,7 +46,10 @@ export function ClienteSelect({
   allowCreateLead = false,
   defaultValue = "",
   defaultLabel = "",
+  defaultGrupo = "",
+  defaultKind,
   error,
+  onUserChange,
 }: {
   name?: string;
   label?: string;
@@ -48,13 +59,21 @@ export function ClienteSelect({
   allowCreateLead?: boolean;
   defaultValue?: string;
   defaultLabel?: string;
+  /** grupo_cliente do cliente pré-selecionado (sempre exibir junto ao nome). */
+  defaultGrupo?: string | null;
+  /** Tipo visual do pré-preenchimento (grupo vs empresa). */
+  defaultKind?: "grupo" | "empresa";
   error?: string;
+  /** Disparado quando o usuário escolhe, cria ou remove o cliente manualmente. */
+  onUserChange?: () => void;
 }) {
   const [selected, setSelected] = useState<Selected | null>(
     defaultValue
       ? {
           ci: defaultValue,
           nome: defaultLabel || defaultValue,
+          grupo_cliente: defaultGrupo || null,
+          kind: defaultKind ?? "empresa",
           isCaptacao: isContatoCaptacao(defaultValue),
         }
       : null
@@ -87,6 +106,20 @@ export function ClienteSelect({
   ];
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (defaultValue) {
+      setSelected({
+        ci: defaultValue,
+        nome: defaultLabel || defaultValue,
+        grupo_cliente: defaultGrupo || null,
+        kind: defaultKind ?? "empresa",
+        isCaptacao: isContatoCaptacao(defaultValue),
+      });
+    } else if (!defaultLabel && !defaultGrupo) {
+      setSelected(null);
+    }
+  }, [defaultValue, defaultLabel, defaultGrupo, defaultKind]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -132,11 +165,14 @@ export function ClienteSelect({
   function pick(c: ClienteBusca, isCaptacao = false) {
     setSelected({
       ci: c.ci,
-      nome: c.nome,
+      nome: c.kind === "grupo" ? labelGrupoCliente(c.grupo_cliente) : c.nome,
+      grupo_cliente: c.grupo_cliente,
+      kind: c.kind ?? "empresa",
       isCaptacao: isCaptacao || isContatoCaptacao(c.ci),
     });
     setOpen(false);
     setCreateError(undefined);
+    onUserChange?.();
   }
 
   async function criarLead() {
@@ -155,6 +191,7 @@ export function ClienteSelect({
   function limpar() {
     setSelected(null);
     setOpen(false);
+    onUserChange?.();
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -196,12 +233,23 @@ export function ClienteSelect({
             )}
           >
             {selected ? (
-              <span className="flex min-w-0 items-center gap-2 text-slate-800">
-                <Building2 size={15} className="shrink-0 text-slate-400" />
-                <span className="truncate">{selected.nome}</span>
-                {selected.isCaptacao && (
-                  <Badge tone="blue">Captação</Badge>
-                )}
+              <span className="flex min-w-0 flex-col gap-1 text-left">
+                <span className="flex min-w-0 flex-wrap items-center gap-2 text-slate-800">
+                  {selected.kind === "grupo" ? (
+                    <Layers size={15} className="shrink-0 text-brand-600" />
+                  ) : (
+                    <Building2 size={15} className="shrink-0 text-slate-400" />
+                  )}
+                  <span className="truncate font-medium">{selected.nome}</span>
+                  {selected.grupo_cliente && selected.kind !== "grupo" && (
+                    <Badge tone="gray">
+                      {labelGrupoCliente(selected.grupo_cliente)}
+                    </Badge>
+                  )}
+                  {selected.isCaptacao && (
+                    <Badge tone="blue">Captação</Badge>
+                  )}
+                </span>
               </span>
             ) : (
               <span className="text-slate-400">Buscar cliente...</span>
@@ -311,34 +359,66 @@ export function ClienteSelect({
                   {results.map((c, i) => {
                     const idx = podeCriarLead ? i + 1 : i;
                     const isCaptacao = isContatoCaptacao(c.ci);
+                    const isGrupo = c.kind === "grupo";
+                    const grupoLabel = labelGrupoCliente(c.grupo_cliente);
                     return (
                       <button
-                        key={c.ci}
+                        key={`${c.kind ?? "empresa"}-${c.ci}-${c.grupo_cliente ?? ""}`}
                         type="button"
                         data-idx={idx}
                         onClick={() => pick(c)}
                         onMouseEnter={() => setActive(idx)}
                         className={clsx(
-                          "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left",
+                          "flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left",
                           idx === active && "bg-slate-100"
                         )}
                       >
-                        <Building2
-                          size={15}
-                          className="mt-0.5 shrink-0 text-slate-400"
-                        />
-                        <span className="min-w-0">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="block truncate text-sm text-slate-800">
-                              {c.nome}
-                            </span>
-                            {isCaptacao && <Badge tone="blue">Captação</Badge>}
-                          </span>
-                          <span className="block truncate text-xs text-slate-400">
-                            {[c.cpf_cnpj, c.grupo_cliente]
-                              .filter(Boolean)
-                              .join(" · ") || "—"}
-                          </span>
+                        {isGrupo ? (
+                          <Layers
+                            size={16}
+                            className="mt-0.5 shrink-0 text-brand-600"
+                          />
+                        ) : (
+                          <Building2
+                            size={15}
+                            className="mt-0.5 shrink-0 text-slate-400"
+                          />
+                        )}
+                        <span className="min-w-0 flex-1">
+                          {isGrupo ? (
+                            <>
+                              <span className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-slate-800">
+                                  {grupoLabel}
+                                </span>
+                                <Badge tone="blue">Grupo</Badge>
+                              </span>
+                              <span className="mt-0.5 block text-xs text-slate-500">
+                                {(c.total_empresas ?? 0) === 1
+                                  ? "1 empresa neste grupo"
+                                  : `${c.total_empresas ?? 0} empresas neste grupo`}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-medium text-slate-800">
+                                  {c.nome}
+                                </span>
+                                {grupoLabel && (
+                                  <Badge tone="gray">{grupoLabel}</Badge>
+                                )}
+                                {isCaptacao && (
+                                  <Badge tone="blue">Captação</Badge>
+                                )}
+                              </span>
+                              {c.cpf_cnpj && (
+                                <span className="mt-0.5 block text-xs text-slate-400">
+                                  {c.cpf_cnpj}
+                                </span>
+                              )}
+                            </>
+                          )}
                         </span>
                       </button>
                     );

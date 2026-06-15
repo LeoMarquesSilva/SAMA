@@ -31,6 +31,7 @@ export function AtividadeForm({
   pessoas,
   podeEscolherPessoa,
   pessoaAtualId,
+  tipoOptions,
 }: {
   open: boolean;
   onClose: () => void;
@@ -41,13 +42,17 @@ export function AtividadeForm({
   pessoas: { id: string; nome: string; avatar_url?: string | null }[];
   podeEscolherPessoa: boolean;
   pessoaAtualId: string | null;
+  tipoOptions?: { value: string; label: string }[];
 }) {
   const editing = Boolean(atividade);
   const src = atividade ?? prefill ?? null;
+  const opcoesTipo = tipoOptions ?? atividadeTipoOptions();
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
-  const [tipo, setTipo] = useState(src?.tipo ?? "DESPACHO");
+  const [tipo, setTipo] = useState(
+    src?.tipo ?? (opcoesTipo[0]?.value as TipoAtividade) ?? "DESPACHO"
+  );
   const [status, setStatus] = useState(src?.status ?? "REALIZADA");
 
   const mostraComQuem = TIPOS_COM_QUEM.includes(tipo);
@@ -154,7 +159,7 @@ export function AtividadeForm({
             label="Tipo"
             value={tipo}
             onChange={(v) => setTipo(v as typeof tipo)}
-            options={atividadeTipoOptions()}
+            options={opcoesTipo}
           />
           <SelectMenu
             name="status"

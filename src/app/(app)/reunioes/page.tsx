@@ -4,6 +4,7 @@ import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { ReunioesClient } from "@/components/reunioes/ReunioesClient";
 import { CalendarioPendenteBanner } from "@/components/calendario/CalendarioPendenteBanner";
 import { countEventosPendentes } from "@/lib/calendario";
+import { fellowConfigurado } from "@/lib/fellow";
 import type { ReuniaoComRelacoes } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function ReunioesPage({
     supabase
       .from("reunioes")
       .select(
-        "*, cliente:pessoas(ci, nome), participantes:reuniao_participantes(colaborador_id, papel, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
+        "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
       )
       .order("data_hora_inicio", { ascending: false }),
     supabase
@@ -35,11 +36,15 @@ export default async function ReunioesPage({
   ]);
 
   // Pré-seleção de cliente vinda da ficha do cliente (?cliente=<ci>).
-  let prefillCliente: { ci: string; nome: string } | null = null;
+  let prefillCliente: {
+    ci: string;
+    nome: string;
+    grupo_cliente: string | null;
+  } | null = null;
   if (cliente) {
     const { data: c } = await supabase
       .from("pessoas")
-      .select("ci, nome")
+      .select("ci, nome, grupo_cliente")
       .eq("ci", cliente)
       .maybeSingle();
     if (c) prefillCliente = c;
@@ -58,6 +63,7 @@ export default async function ReunioesPage({
         colaboradores={colaboradores ?? []}
         autoNew={novo === "1"}
         prefillCliente={prefillCliente}
+        fellowAtivo={fellowConfigurado()}
       />
     </div>
   );

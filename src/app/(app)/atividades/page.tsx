@@ -23,7 +23,8 @@ export default async function AtividadesPage({
     .select(
       "*, pessoa:usuarios!atividades_internas_pessoa_id_fkey(id, nome, avatar_url), com_pessoa:usuarios!atividades_internas_com_pessoa_id_fkey(id, nome, avatar_url)"
     )
-    .order("data_hora_inicio", { ascending: false });
+    .order("data_hora_inicio", { ascending: false })
+    .neq("tipo", "CIENCIA_NF");
 
   if (!isAdmin && pessoa?.id) {
     query = query.eq("pessoa_id", pessoa.id);

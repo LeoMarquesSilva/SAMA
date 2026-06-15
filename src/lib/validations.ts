@@ -70,7 +70,6 @@ export const reuniaoSchema = z
       .trim()
       .min(1, "Selecione ou crie um cliente."),
     link_online: z.string().optional().or(z.literal("")),
-    gravacao_url: z.string().optional().or(z.literal("")),
     local: z.string().optional(),
     tema: z.string().trim().min(1, "Informe o tema / pauta."),
     objetivos: z.string().optional(),
@@ -104,28 +103,11 @@ export const reuniaoSchema = z
       });
     }
 
-    const gravacao = data.gravacao_url?.trim();
-    if (gravacao && !isUrl(gravacao)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "URL inválida — use http(s)://...",
-        path: ["gravacao_url"],
-      });
-    }
-
     if (data.modalidade === "PRESENCIAL_EXTERNO" && !data.local?.trim()) {
       ctx.addIssue({
         code: "custom",
         message: "Informe o local.",
         path: ["local"],
-      });
-    }
-
-    if (data.modalidade === "ONLINE" && !data.ata_texto?.trim()) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Informe a ata.",
-        path: ["ata_texto"],
       });
     }
 

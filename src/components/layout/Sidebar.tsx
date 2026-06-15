@@ -13,7 +13,9 @@ import {
   CalendarDays,
   BarChart3,
   Target,
+  ListTodo,
 } from "lucide-react";
+import { APP_FULL_NAME, APP_NAME } from "@/lib/constants";
 
 type NavItem = {
   href: string;
@@ -26,6 +28,7 @@ const items: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/reunioes", label: "Reuniões", icon: CalendarClock },
   { href: "/atividades", label: "Atividades", icon: ClipboardList },
+  { href: "/tarefas", label: "Tarefas VIOS", icon: ListTodo },
   { href: "/timesheet", label: "Timesheet", icon: Clock },
   { href: "/pessoas", label: "Usuários", icon: Users, adminOnly: true },
   { href: "/clientes", label: "Clientes", icon: Building2 },
@@ -60,9 +63,9 @@ export function Sidebar({
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/30">
             <Target size={18} />
           </div>
-          <div className="ml-3 overflow-hidden whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <p className="text-sm font-bold leading-tight text-slate-800">SAMA</p>
-            <p className="text-[11px] text-slate-400">Metas &amp; Atividades</p>
+          <div className="ml-3 overflow-hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <p className="text-sm font-bold leading-tight text-slate-800">{APP_NAME}</p>
+            <p className="text-[11px] leading-snug text-slate-400">{APP_FULL_NAME}</p>
           </div>
         </div>
 

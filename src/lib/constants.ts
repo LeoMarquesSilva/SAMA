@@ -1,5 +1,9 @@
 // Enums de domínio — espelham os CHECK constraints da migration SQL.
 
+export const APP_NAME = "SAMA";
+export const APP_FULL_NAME = "Sistema de Análise de Metas e Atividades";
+export const APP_TITLE = `${APP_NAME} — ${APP_FULL_NAME}`;
+
 export const CARGO_PESSOA = {
   SOCIO: "Sócio",
   SOCIO_AREA: "Sócio de Área",
@@ -84,11 +88,13 @@ export const STATUS_REUNIAO = {
 export const TIPO_ATIVIDADE_INTERNA = {
   PARECER: "Parecer",
   DESPACHO: "Despacho",
-  REVISAO_PRAZO: "Revisão de prazo (Revisar)",
+  REVISAO_PRAZO: "Revisão",
   ELABORACAO_PRAZO: "Elaboração de Prazo (Enviar)",
   AUDIENCIA: "Audiência",
   SUSTENTACAO_ORAL: "Sustentação Oral",
   PALESTRAS_EVENTOS: "Palestras / Eventos",
+  CIENCIA_NF: "Ciência NF",
+  LEVANTAMENTO_DUE_PROPOSTA_CONTRATO: "Levantamento de Due / Proposta / Contrato",
 } as const;
 
 export type TipoAtividadeKey = keyof typeof TIPO_ATIVIDADE_INTERNA;
@@ -98,4 +104,9 @@ export function atividadeTipoOptions() {
     value: k,
     label: TIPO_ATIVIDADE_INTERNA[k],
   }));
+}
+
+/** Opções da página Atividades (sem Ciência NF). */
+export function atividadeTipoOptionsAtividades() {
+  return atividadeTipoOptions().filter((o) => o.value !== "CIENCIA_NF");
 }

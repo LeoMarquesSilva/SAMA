@@ -102,7 +102,9 @@ export type TipoAtividade =
   | "ELABORACAO_PRAZO"
   | "AUDIENCIA"
   | "SUSTENTACAO_ORAL"
-  | "PALESTRAS_EVENTOS";
+  | "PALESTRAS_EVENTOS"
+  | "CIENCIA_NF"
+  | "LEVANTAMENTO_DUE_PROPOSTA_CONTRATO";
 
 export type Reuniao = {
   id: string;
@@ -133,7 +135,11 @@ export type Reuniao = {
 
 // Reunião com dados agregados para listagem.
 export type ReuniaoComRelacoes = Reuniao & {
-  cliente?: { ci: string; nome: string } | null;
+  cliente?: {
+    ci?: string;
+    nome: string;
+    grupo_cliente?: string | null;
+  } | null;
   participantes?: {
     colaborador_id: string;
     papel: string;
@@ -220,6 +226,48 @@ export type OutlookEventoComPessoa = OutlookEvento & {
     email: string;
     avatar_url?: string | null;
   } | null;
+};
+
+/** Status de categorização — mesmo conjunto de outlook_eventos. */
+export type ViosTarefaStatus = OutlookEventoStatus;
+
+/** Tarefa processual espelhada do VIOS (API BP). */
+export type ViosTarefaRow = {
+  id: string;
+  ci: string;
+  ci_do_processo: string | null;
+  data_para_conclusao: string | null;
+  data_limite: string | null;
+  horario: string | null;
+  nro_cnj: string | null;
+  area_do_processo: string | null;
+  objeto_do_processo: string | null;
+  pasta: string | null;
+  pasta_cliente: string | null;
+  tarefa_pai: string | null;
+  tarefa: string | null;
+  descricao: string | null;
+  cliente: string | null;
+  grupo_cliente: string | null;
+  partes_ativas: unknown[];
+  partes_passivas: unknown[];
+  comentarios: string[];
+  historico: string[];
+  responsaveis: string[];
+  auxiliares: string[];
+  usuario_id: string | null;
+  vios_status: string | null;
+  usuario_concluiu: string | null;
+  usuario_concluiu_id: string | null;
+  data_conclusao: string | null;
+  hora_conclusao: string | null;
+  status: ViosTarefaStatus;
+  atividade_id: string | null;
+  reuniao_id: string | null;
+  categorizado_em: string | null;
+  sincronizado_em: string;
+  created_at: string;
+  updated_at: string;
 };
 
 // Payloads de criação/edição (sem campos gerados pelo banco).
