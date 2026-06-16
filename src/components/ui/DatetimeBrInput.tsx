@@ -3,6 +3,7 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -39,6 +40,8 @@ export const DatetimeBrInput = forwardRef<HTMLInputElement, DatetimeBrInputProps
     { label, error, name, id, defaultValue, required, onChange },
     ref
   ) {
+    const autoId = useId();
+    const inputId = id ?? (label ? autoId : undefined);
     const hiddenRef = useRef<HTMLInputElement>(null);
     const displayRef = useRef("");
     useImperativeHandle(ref, () => hiddenRef.current!);
@@ -94,8 +97,11 @@ export const DatetimeBrInput = forwardRef<HTMLInputElement, DatetimeBrInputProps
       const hidden = hiddenRef.current;
       if (!hidden?.form) return;
 
-      function onSubmit() {
-        commit(displayRef.current, !required);
+      function onSubmit(e: Event) {
+        const ok = commit(displayRef.current, !required);
+        if (!ok && required) {
+          e.preventDefault();
+        }
       }
 
       const form = hidden.form;
@@ -119,10 +125,13 @@ export const DatetimeBrInput = forwardRef<HTMLInputElement, DatetimeBrInputProps
 
     return (
       <div className="flex flex-col gap-1">
-        {label && (
-          <label htmlFor={id} className="text-sm font-medium text-slate-700">
+        {label && inputId && (
+          <label htmlFor={inputId} className="text-sm font-medium text-slate-700">
             {label}
           </label>
+        )}
+        {label && !inputId && (
+          <span className="text-sm font-medium text-slate-700">{label}</span>
         )}
         <input
           ref={hiddenRef}
@@ -131,7 +140,7 @@ export const DatetimeBrInput = forwardRef<HTMLInputElement, DatetimeBrInputProps
           defaultValue={initialLocal}
         />
         <input
-          id={id}
+          id={inputId}
           type="text"
           inputMode="numeric"
           lang="pt-BR"

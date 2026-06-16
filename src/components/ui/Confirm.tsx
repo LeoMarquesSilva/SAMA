@@ -131,13 +131,17 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
 
             {opts.input && (
               <div className="mt-4">
-                <label className="mb-1 block text-sm font-medium text-slate-600">
+                <label
+                  htmlFor="confirm-input"
+                  className="mb-1 block text-sm font-medium text-slate-600"
+                >
                   {opts.input.label}
                   {opts.input.required && (
                     <span className="text-red-500"> *</span>
                   )}
                 </label>
                 <textarea
+                  id="confirm-input"
                   autoFocus
                   rows={2}
                   value={text}

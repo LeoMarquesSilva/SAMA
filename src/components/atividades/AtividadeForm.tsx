@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent } from "react";
+import { useRef, useId, useState, useTransition, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
 import { DatetimeBrInput } from "@/components/ui/DatetimeBrInput";
@@ -47,6 +47,8 @@ export function AtividadeForm({
 }) {
   const editing = Boolean(atividade);
   const src = atividade ?? prefill ?? null;
+  const formFieldId = useId();
+  const fieldId = (name: string) => `${formFieldId}-${name}`;
   const opcoesTipo = tipoOptions ?? atividadeTipoOptions();
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -128,7 +130,18 @@ export function AtividadeForm({
         ? await updateAtividade(atividade!.id, values, pessoaOverride)
         : await createAtividade(values, pessoaOverride);
       if (r.ok) {
-        if (!editing && r.id && afterCreate) await afterCreate(r.id);
+        if (!editing && r.id && afterCreate) {
+          try {
+            await afterCreate(r.id);
+          } catch (err) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Erro ao vincular o evento do calendário."
+            );
+            return;
+          }
+        }
         onSaved();
         onClose();
       } else {
@@ -146,7 +159,7 @@ export function AtividadeForm({
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <Input
-          id="titulo"
+          id={fieldId("titulo")}
           name="titulo"
           label="Título"
           defaultValue={src?.titulo}
@@ -186,7 +199,7 @@ export function AtividadeForm({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <DatetimeBrInput
-            id="data_hora_inicio"
+            id={fieldId("data_hora_inicio")}
             name="data_hora_inicio"
             label="Início"
             defaultValue={toDatetimeLocal(src?.data_hora_inicio)}
@@ -195,7 +208,7 @@ export function AtividadeForm({
             required
           />
           <DatetimeBrInput
-            id="data_hora_fim"
+            id={fieldId("data_hora_fim")}
             name="data_hora_fim"
             label="Fim (opcional)"
             defaultValue={toDatetimeLocal(src?.data_hora_fim)}
@@ -203,7 +216,7 @@ export function AtividadeForm({
             onChange={autoFillDuracao}
           />
           <Input
-            id="duracao_minutos"
+            id={fieldId("duracao_minutos")}
             name="duracao_minutos"
             type="number"
             min={0}
@@ -224,7 +237,7 @@ export function AtividadeForm({
               error={fieldErrors.com_pessoa_id}
             />
             <Input
-              id="com_pessoa_nome"
+              id={fieldId("com_pessoa_nome")}
               name="com_pessoa_nome"
               label="Ou nome livre"
               defaultValue={src?.com_pessoa_nome ?? ""}
@@ -233,13 +246,13 @@ export function AtividadeForm({
         )}
 
         <Textarea
-          id="tema"
+          id={fieldId("tema")}
           name="tema"
           label="Tema (opcional)"
           defaultValue={src?.tema ?? ""}
         />
         <Textarea
-          id="descricao"
+          id={fieldId("descricao")}
           name="descricao"
           label="Descrição (opcional)"
           defaultValue={src?.descricao ?? ""}
@@ -247,7 +260,7 @@ export function AtividadeForm({
 
         {status === "CANCELADA" && (
           <Textarea
-            id="motivo_cancelamento"
+            id={fieldId("motivo_cancelamento")}
             name="motivo_cancelamento"
             label="Motivo do cancelamento"
             defaultValue={src?.motivo_cancelamento ?? ""}

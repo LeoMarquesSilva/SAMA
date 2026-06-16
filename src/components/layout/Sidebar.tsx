@@ -3,69 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  CalendarDays,
-  BarChart3,
-  Target,
-  ListTodo,
-} from "lucide-react";
 import { APP_FULL_NAME, APP_NAME } from "@/lib/constants";
-import {
-  canAccessClientes,
-  canAccessRelatorios,
-  canAccessTarefas,
-  canAccessUsuarios,
-  type NavContext,
-} from "@/lib/nav-access";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number }>;
-  visible: (ctx: NavContext) => boolean;
-};
-
-const items: NavItem[] = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    visible: () => true,
-  },
-  {
-    href: "/calendario",
-    label: "Calendário",
-    icon: CalendarDays,
-    visible: () => true,
-  },
-  {
-    href: "/pessoas",
-    label: "Usuários",
-    icon: Users,
-    visible: canAccessUsuarios,
-  },
-  {
-    href: "/clientes",
-    label: "Clientes",
-    icon: Building2,
-    visible: canAccessClientes,
-  },
-  {
-    href: "/relatorios",
-    label: "Relatórios",
-    icon: BarChart3,
-    visible: canAccessRelatorios,
-  },
-  {
-    href: "/tarefas",
-    label: "Tarefas VIOS",
-    icon: ListTodo,
-    visible: canAccessTarefas,
-  },
-];
+import { NAV_BRAND, visibleNavItems } from "@/lib/nav-items";
+import type { NavContext } from "@/lib/nav-access";
 
 export function Sidebar({
   badges = {},
@@ -75,7 +15,8 @@ export function Sidebar({
   navContext: NavContext;
 }) {
   const pathname = usePathname();
-  const visibleItems = items.filter((item) => item.visible(navContext));
+  const visibleItems = visibleNavItems(navContext);
+  const BrandIcon = NAV_BRAND.icon;
 
   return (
     <>
@@ -91,11 +32,15 @@ export function Sidebar({
       >
         <div className="flex h-16 items-center px-[18px]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/30">
-            <Target size={18} />
+            <BrandIcon size={18} />
           </div>
           <div className="ml-3 overflow-hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <p className="text-sm font-bold leading-tight text-slate-800">{APP_NAME}</p>
-            <p className="text-[11px] leading-snug text-slate-400">{APP_FULL_NAME}</p>
+            <p className="text-sm font-bold leading-tight text-slate-800">
+              {APP_NAME}
+            </p>
+            <p className="text-[11px] leading-snug text-slate-400">
+              {APP_FULL_NAME}
+            </p>
           </div>
         </div>
 

@@ -79,6 +79,8 @@ export const reuniaoSchema = z
     participantes: z
       .array(z.string().uuid())
       .min(1, "Selecione ao menos um participante."),
+    /** Dono do calendário Outlook (não persiste — só define organizador ao categorizar). */
+    dono_calendario_id: z.string().uuid().optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     if (
@@ -108,23 +110,6 @@ export const reuniaoSchema = z
         message: "Informe o local.",
         path: ["local"],
       });
-    }
-
-    if (data.status === "REALIZADA") {
-      if (!data.resultado?.trim()) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Informe o resultado.",
-          path: ["resultado"],
-        });
-      }
-      if (!data.proximos_passos?.trim()) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Informe os próximos passos.",
-          path: ["proximos_passos"],
-        });
-      }
     }
 
     if (data.status === "CANCELADA" && !data.motivo_cancelamento?.trim()) {

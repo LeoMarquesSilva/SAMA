@@ -259,6 +259,8 @@ export function CalendarioMobileView({
         </button>
       </div>
 
+      <CalendarioLegenda />
+
       {gridMode !== "dia" && (
         <div className="grid grid-cols-7 border-b border-slate-100">
           {WEEKDAYS.map((d, i) => (
@@ -305,36 +307,41 @@ export function CalendarioMobileView({
         />
       )}
 
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-slate-100 px-3 py-2">
-        {(
-          [
-            ["PENDENTE", "Pendente"],
-            ["CATEGORIZADO_REUNIAO", "Reunião"],
-            ["ATIVIDADE", "Atividade"],
-            ["IGNORADO", "Ignorado"],
-          ] as const
-        ).map(([key, label]) => (
+    </div>
+  );
+}
+
+function CalendarioLegenda() {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 border-b border-slate-100 px-3 py-2">
+      {(
+        [
+          ["PENDENTE", "Não categorizado"],
+          ["CATEGORIZADO_REUNIAO", "Reunião"],
+          ["ATIVIDADE", "Atividade"],
+          ["IGNORADO", "Ignorado"],
+        ] as const
+      ).map(([key, label]) => (
+        <span
+          key={key}
+          className="inline-flex items-center gap-1 text-[10px] text-slate-500"
+        >
           <span
-            key={key}
-            className="inline-flex items-center gap-1 text-[10px] text-slate-500"
-          >
-            <span
-              className={clsx(
-                "h-2 w-2 rounded-sm",
-                key === "ATIVIDADE"
-                  ? calendarioItemColor({
-                      status: "CATEGORIZADO_ATIVIDADE",
-                      itemKind: "atividade",
-                    }).chipBg
-                  : calendarioItemColor({
-                      status: key as "PENDENTE" | "CATEGORIZADO_REUNIAO" | "IGNORADO",
-                    }).chipBg
-              )}
-            />
-            {label}
-          </span>
-        ))}
-      </div>
+            className={clsx(
+              "h-2 w-2 rounded-sm",
+              key === "ATIVIDADE"
+                ? calendarioItemColor({
+                    status: "CATEGORIZADO_ATIVIDADE",
+                    itemKind: "atividade",
+                  }).chipBg
+                : calendarioItemColor({
+                    status: key as "PENDENTE" | "CATEGORIZADO_REUNIAO" | "IGNORADO",
+                  }).chipBg
+            )}
+          />
+          {label}
+        </span>
+      ))}
     </div>
   );
 }

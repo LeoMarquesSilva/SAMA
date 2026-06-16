@@ -1,6 +1,7 @@
 "use server";
 
 import { isGrupoSemNome, labelGrupoCliente } from "@/lib/clientes";
+import { GRUPO_CLIENTE_GESTAO_EQUIPE } from "@/lib/constants";
 import {
   candidatosTituloReuniao,
   pontuarClienteNoTitulo,
@@ -369,4 +370,19 @@ export async function criarLeadCaptacao(
   }
 
   return { ok: true, cliente: data as ClienteBusca };
+}
+
+/** Grupo padrão para reuniões de Gestão de Equipe (interno do escritório). */
+export async function resolverGrupoGestaoEquipe(): Promise<ClienteBusca | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  return montarEntradaGrupo(
+    supabase,
+    GRUPO_CLIENTE_GESTAO_EQUIPE,
+    GRUPO_CLIENTE_GESTAO_EQUIPE
+  );
 }

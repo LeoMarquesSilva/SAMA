@@ -10,6 +10,7 @@ import {
   MODALIDADE_REUNIAO,
 } from "@/lib/constants";
 import { RelatoriosBar } from "@/components/relatorios/RelatoriosBar";
+import { DesktopOnly } from "@/components/layout/DesktopOnly";
 
 export const dynamic = "force-dynamic";
 
@@ -78,19 +79,23 @@ export default async function RelatoriosPage({
   const canceladas = rows.filter((r) => r.status === "CANCELADA").length;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
-          Relatórios
-        </h1>
-        <p className="text-sm text-slate-500">
-          {podeExportar
-            ? "Exporte em CSV ou gere um PDF (Imprimir → Salvar como PDF)"
-            : "Visualização das suas reuniões no período selecionado"}
-        </p>
-      </div>
+    <DesktopOnly
+      title="Relatórios disponíveis no computador"
+      description="A exportação e a tabela de relatórios funcionam melhor em telas maiores. Abra o SAMA no desktop para acessar esta área."
+    >
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
+            Relatórios
+          </h1>
+          <p className="text-sm text-slate-500">
+            {podeExportar
+              ? "Exporte em CSV ou gere um PDF (Imprimir → Salvar como PDF)"
+              : "Visualização das suas reuniões no período selecionado"}
+          </p>
+        </div>
 
-      <RelatoriosBar
+        <RelatoriosBar
         periodo={periodo}
         tipo={tipo}
         de={de.toISOString()}
@@ -167,5 +172,6 @@ export default async function RelatoriosPage({
         </table>
       </div>
     </div>
+    </DesktopOnly>
   );
 }

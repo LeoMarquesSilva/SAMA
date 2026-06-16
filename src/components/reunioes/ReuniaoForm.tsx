@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
+import { MarkdownTextarea } from "@/components/ui/MarkdownTextarea";
 import { DatetimeBrInput } from "@/components/ui/DatetimeBrInput";
 import { Button } from "@/components/ui/Button";
 import { ParticipantesPicker } from "@/components/colaboradores/ParticipantesPicker";
@@ -26,13 +27,26 @@ import {
   createReuniao,
   updateReuniao,
 } from "@/lib/reunioes/actions";
-import { resolverClienteVios, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
+import { resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
-import { Download, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
-import { checklistTemItens } from "@/lib/proximos-passos-checklist";
+import {
+  FellowImportLabelActions,
+  fellowMotivoParaStatusImport,
+  type FellowImportStatus,
+} from "@/components/reunioes/FellowImportStatus";
+import {
+  FELLOW_MSG_PARCIAL_PASSOS,
+  FELLOW_MSG_PARCIAL_RESUMO,
+  type FellowImportMotivo,
+} from "@/lib/fellow-messages";
+
+type ReuniaoPrefill = Partial<ReuniaoComRelacoes> & {
+  dono_calendario_id?: string;
+};
 
 type ClientePrefill = {
   ci: string;
@@ -65,19 +79,29 @@ export function ReuniaoForm({
   onClose: () => void;
   onSaved: () => void;
   reuniao?: ReuniaoComRelacoes | null;
-  prefill?: Partial<ReuniaoComRelacoes> | null;
+  prefill?: ReuniaoPrefill | null;
   afterCreate?: (id: string) => Promise<void> | void;
   colaboradores: ColaboradorOpt[];
   fellowAtivo?: boolean;
 }) {
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
+  const formFieldId = useId();
+  const fieldId = (name: string) => `${formFieldId}-${name}`;
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
   const [, startFellowTransition] = useTransition();
   const [fellowBusy, setFellowBusy] = useState(false);
   const [fellowMsg, setFellowMsg] = useState<string>();
+  const [fellowResumoStatus, setFellowResumoStatus] =
+    useState<FellowImportStatus>("idle");
+  const [fellowResumoDetail, setFellowResumoDetail] = useState<string>();
+  const [fellowPassosStatus, setFellowPassosStatus] =
+    useState<FellowImportStatus>("idle");
+  const [fellowPassosDetail, setFellowPassosDetail] = useState<string>();
+  const [fellowImportMotivo, setFellowImportMotivo] =
+    useState<FellowImportMotivo>();
   const [resultadoTexto, setResultadoTexto] = useState(src?.resultado ?? "");
   const [proximosPassos, setProximosPassos] = useState(src?.proximos_passos ?? "");
   const tituloRef = useRef<HTMLInputElement>(null);
@@ -113,17 +137,32 @@ export function ReuniaoForm({
 
   const fellowAutoFetch =
     open &&
-    !editing &&
     fellowAtivo &&
-    prefill?.modalidade === "ONLINE";
+    (src?.status === "REALIZADA" || status === "REALIZADA");
+
+  const fellowSourceKey = [reuniao?.id ?? "", prefillKey].join("|");
 
   useEffect(() => {
     if (!open) {
       setFellowMsg(undefined);
       setFellowBusy(false);
+      setFellowResumoStatus("idle");
+      setFellowResumoDetail(undefined);
+      setFellowPassosStatus("idle");
+      setFellowPassosDetail(undefined);
+      setFellowImportMotivo(undefined);
       return;
     }
-    if (fellowAutoFetch) setFellowBusy(true);
+    setFellowResumoStatus("idle");
+    setFellowResumoDetail(undefined);
+    setFellowPassosStatus("idle");
+    setFellowPassosDetail(undefined);
+    setFellowImportMotivo(undefined);
+    if (fellowAutoFetch) {
+      setFellowBusy(true);
+      setFellowResumoStatus("loading");
+      setFellowPassosStatus("loading");
+    }
     setResultadoTexto(src?.resultado ?? "");
     setProximosPassos(src?.proximos_passos ?? "");
     if (prefill?.modalidade) setModalidade(prefill.modalidade);
@@ -154,7 +193,7 @@ export function ReuniaoForm({
   }
 
   function sugerirClienteDoTitulo(titulo: string) {
-    if (clienteManualRef.current) return;
+    if (clienteManualRef.current || tipo === "GESTAO_EQUIPE") return;
     const ci = src?.cliente_id ?? src?.cliente?.ci ?? "";
     if (ci) return;
 
@@ -182,8 +221,29 @@ export function ReuniaoForm({
     }, 400);
   }
 
+  function aplicarClienteGestaoEquipe() {
+    void resolverGrupoGestaoEquipe().then((c) => {
+      if (!c || clienteManualRef.current) return;
+      setClientePrefill(clienteParaPrefill(c));
+      setClienteSugerido(false);
+    });
+  }
+
+  function handleTipoChange(v: string) {
+    const next = v as TipoReuniao;
+    if (next === "GESTAO_EQUIPE") {
+      clienteManualRef.current = false;
+    }
+    setTipo(next);
+  }
+
   useEffect(() => {
     if (!open) return;
+
+    if (tipo === "GESTAO_EQUIPE") {
+      aplicarClienteGestaoEquipe();
+      return;
+    }
 
     const ci = src?.cliente_id ?? src?.cliente?.ci ?? "";
     const nome = src?.cliente?.nome ?? "";
@@ -234,6 +294,7 @@ export function ReuniaoForm({
     };
   }, [
     open,
+    tipo,
     prefillKey,
     reuniao?.id,
     src?.cliente_id,
@@ -280,10 +341,17 @@ export function ReuniaoForm({
       link_online: String(fd.get("link_online") ?? ""),
       local: String(fd.get("local") ?? ""),
       objetivos: String(fd.get("objetivos") ?? ""),
-      resultado: String(fd.get("resultado") ?? ""),
-      proximos_passos: String(fd.get("proximos_passos") ?? ""),
+      resultado:
+        status === "REALIZADA" ? resultadoTexto : String(fd.get("resultado") ?? ""),
+      proximos_passos:
+        status === "REALIZADA"
+          ? proximosPassos
+          : String(fd.get("proximos_passos") ?? ""),
       motivo_cancelamento: String(fd.get("motivo_cancelamento") ?? ""),
       participantes: fd.getAll("participantes").map(String),
+      ...(prefill?.dono_calendario_id
+        ? { dono_calendario_id: prefill.dono_calendario_id }
+        : {}),
     };
 
     const errs = validateFields(
@@ -311,12 +379,6 @@ export function ReuniaoForm({
         ...(modalidade === "PRESENCIAL_EXTERNO"
           ? { local: { required: "Informe o local." } }
           : {}),
-        ...(status === "REALIZADA"
-          ? {
-              resultado: { required: "Informe o resumo." },
-              proximos_passos: { required: "Informe os próximos passos." },
-            }
-          : {}),
         ...(status === "CANCELADA"
           ? {
               motivo_cancelamento: {
@@ -331,10 +393,6 @@ export function ReuniaoForm({
       errs.participantes = "Selecione ao menos um participante.";
     }
 
-    if (status === "REALIZADA" && !checklistTemItens(values.proximos_passos)) {
-      errs.proximos_passos = "Informe ao menos um próximo passo.";
-    }
-
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -343,7 +401,18 @@ export function ReuniaoForm({
         ? await updateReuniao(reuniao!.id, values)
         : await createReuniao(values);
       if (r.ok) {
-        if (!editing && r.id && afterCreate) await afterCreate(r.id);
+        if (!editing && r.id && afterCreate) {
+          try {
+            await afterCreate(r.id);
+          } catch (err) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Erro ao vincular o evento do calendário."
+            );
+            return;
+          }
+        }
         onSaved();
         onClose();
       } else {
@@ -356,13 +425,60 @@ export function ReuniaoForm({
     r: Awaited<ReturnType<typeof buscarConteudoFellow>>,
     origem: "auto" | "manual"
   ) {
+    const preservarConteudo = origem === "auto" && editing;
+
     if (!r.ok) {
+      const statusImport = fellowMotivoParaStatusImport(r.motivo, r.error);
+      const motivo =
+        r.motivo === "sem_gravacao" || r.motivo === "sem_conteudo_ia"
+          ? r.motivo
+          : undefined;
+      setFellowImportMotivo(motivo);
+      setFellowResumoStatus(statusImport);
+      setFellowResumoDetail(r.error);
+      setFellowPassosStatus(statusImport);
+      setFellowPassosDetail(r.error);
       setFellowMsg(r.error ?? "Não foi possível importar do Fellow.");
       return;
     }
 
-    if (r.resultado) setResultadoTexto(r.resultado);
-    if (r.proximos_passos) setProximosPassos(r.proximos_passos);
+    setFellowImportMotivo(undefined);
+
+    if (preservarConteudo) {
+      if (r.resultado && !resultadoTexto.trim()) setResultadoTexto(r.resultado);
+      if (r.proximos_passos && !proximosPassos.trim()) {
+        setProximosPassos(r.proximos_passos);
+      }
+    } else {
+      if (r.resultado) setResultadoTexto(r.resultado);
+      if (r.proximos_passos) setProximosPassos(r.proximos_passos);
+    }
+
+    if (r.resultado?.trim()) {
+      setFellowResumoStatus("success");
+      setFellowResumoDetail(undefined);
+    } else {
+      setFellowResumoStatus("not_found");
+      setFellowResumoDetail(FELLOW_MSG_PARCIAL_RESUMO);
+    }
+
+    if (r.proximos_passos?.trim()) {
+      setFellowPassosStatus("success");
+      setFellowPassosDetail(undefined);
+    } else {
+      setFellowPassosStatus("not_found");
+      setFellowPassosDetail(FELLOW_MSG_PARCIAL_PASSOS);
+    }
+
+    if (preservarConteudo) {
+      if (
+        !r.resultado?.trim() &&
+        !r.proximos_passos?.trim()
+      ) {
+        setFellowMsg(undefined);
+      }
+      return;
+    }
 
     const partes = [
       origem === "auto"
@@ -391,16 +507,22 @@ export function ReuniaoForm({
   }
 
   useEffect(() => {
-    if (!fellowAutoFetch || !prefill) return;
+    if (!fellowAutoFetch || !src) return;
 
     let cancelled = false;
     startFellowTransition(async () => {
       setFellowMsg(undefined);
+      if (fellowAtivo) {
+        setFellowResumoStatus("loading");
+        setFellowResumoDetail(undefined);
+        setFellowPassosStatus("loading");
+        setFellowPassosDetail(undefined);
+      }
       try {
         const r = await buscarConteudoFellow({
-          outlook_event_id: prefill.outlook_event_id,
-          titulo: prefill.titulo,
-          data_hora_inicio: prefill.data_hora_inicio,
+          outlook_event_id: src.outlook_event_id,
+          titulo: src.titulo,
+          data_hora_inicio: src.data_hora_inicio,
         });
         if (!cancelled) aplicarFellow(r, "auto");
       } finally {
@@ -411,11 +533,23 @@ export function ReuniaoForm({
     return () => {
       cancelled = true;
     };
-  }, [fellowAutoFetch, prefillKey, prefill?.outlook_event_id, prefill?.titulo, prefill?.data_hora_inicio]);
+  }, [
+    fellowAutoFetch,
+    fellowSourceKey,
+    src?.outlook_event_id,
+    src?.titulo,
+    src?.data_hora_inicio,
+  ]);
 
   function handleImportarFellow() {
     setFellowMsg(undefined);
     setFellowBusy(true);
+    if (fellowAtivo) {
+      setFellowResumoStatus("loading");
+      setFellowResumoDetail(undefined);
+      setFellowPassosStatus("loading");
+      setFellowPassosDetail(undefined);
+    }
     startFellowTransition(async () => {
       try {
         const r = await buscarConteudoFellow(parametrosFellow());
@@ -468,7 +602,7 @@ export function ReuniaoForm({
         aria-hidden={fellowBusy}
       >
         <Input
-          id="titulo"
+          id={fieldId("titulo")}
           name="titulo"
           label="Título"
           ref={tituloRef}
@@ -487,7 +621,7 @@ export function ReuniaoForm({
             <SelectMenu
               name="tipo"
               value={tipo}
-              onChange={(v) => setTipo(v as TipoReuniao)}
+              onChange={handleTipoChange}
               options={tipoReuniaoOptions()}
             />
           </div>
@@ -540,7 +674,7 @@ export function ReuniaoForm({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <DatetimeBrInput
-            id="data_hora_inicio"
+            id={fieldId("data_hora_inicio")}
             name="data_hora_inicio"
             label="Início"
             ref={inicioRef}
@@ -550,7 +684,7 @@ export function ReuniaoForm({
             required
           />
           <DatetimeBrInput
-            id="data_hora_fim"
+            id={fieldId("data_hora_fim")}
             name="data_hora_fim"
             label="Fim"
             defaultValue={toDatetimeLocal(src?.data_hora_fim)}
@@ -559,7 +693,7 @@ export function ReuniaoForm({
             required
           />
           <Input
-            id="duracao_minutos"
+            id={fieldId("duracao_minutos")}
             name="duracao_minutos"
             type="number"
             min={1}
@@ -572,20 +706,54 @@ export function ReuniaoForm({
 
         {status === "REALIZADA" && (
           <>
-            <Textarea
-              id="resultado"
+            {fellowAtivo && fellowMsg && (
+              <p
+                className={clsx(
+                  "rounded-lg px-3 py-2 text-xs leading-relaxed",
+                  fellowResumoStatus === "error"
+                    ? "bg-red-50 text-red-800"
+                    : fellowResumoStatus === "not_found"
+                      ? "bg-orange-50 text-orange-900"
+                      : "bg-brand-50 text-brand-800"
+                )}
+              >
+                {fellowMsg}
+              </p>
+            )}
+            <MarkdownTextarea
+              id={fieldId("resultado")}
               name="resultado"
               label="Resumo"
+              labelAdornment={
+                fellowAtivo ? (
+                  <FellowImportLabelActions
+                    status={fellowResumoStatus}
+                    detail={fellowResumoDetail}
+                    motivo={fellowImportMotivo}
+                    onRefresh={handleImportarFellow}
+                    busy={fellowBusy}
+                    showRefresh
+                  />
+                ) : undefined
+              }
               value={resultadoTexto}
-              onChange={(e) => setResultadoTexto(e.target.value)}
+              onChange={setResultadoTexto}
               error={fieldErrors.resultado}
-              required
             />
             <ProximosPassosChecklist
               value={proximosPassos}
               onChange={setProximosPassos}
               error={fieldErrors.proximos_passos}
-              required
+              labelAdornment={
+                fellowAtivo ? (
+                  <FellowImportLabelActions
+                    status={fellowPassosStatus}
+                    detail={fellowPassosDetail}
+                    motivo={fellowImportMotivo}
+                    reserveRefreshSpace
+                  />
+                ) : undefined
+              }
             />
           </>
         )}
@@ -593,7 +761,7 @@ export function ReuniaoForm({
         {/* Condicional: PRESENCIAL EXTERNO */}
         {modalidade === "PRESENCIAL_EXTERNO" && (
           <Input
-            id="local"
+            id={fieldId("local")}
             name="local"
             label="Local (endereço ou nome)"
             defaultValue={src?.local ?? ""}
@@ -605,7 +773,7 @@ export function ReuniaoForm({
         {/* Condicional: CANCELADA */}
         {status === "CANCELADA" && (
           <Textarea
-            id="motivo_cancelamento"
+            id={fieldId("motivo_cancelamento")}
             name="motivo_cancelamento"
             label="Motivo do cancelamento"
             defaultValue={src?.motivo_cancelamento ?? ""}
@@ -615,6 +783,7 @@ export function ReuniaoForm({
         )}
 
         <ParticipantesPicker
+          key={prefillKey || reuniao?.id || "novo"}
           colaboradores={colaboradores}
           defaultSelected={participantesIniciais}
           error={fieldErrors.participantes}
@@ -622,32 +791,8 @@ export function ReuniaoForm({
 
         {modalidade === "ONLINE" && (
           <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
-            {fellowAtivo && (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-slate-500">
-                  {prefill && !editing
-                    ? "Ao abrir, o SAMA busca resumo e ações no Fellow."
-                    : "Importa resumo e ações da gravação Fellow vinculada ao evento do Outlook."}
-                </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={fellowBusy}
-                  onClick={handleImportarFellow}
-                >
-                  <Download size={14} />
-                  {fellowBusy ? "Buscando..." : "Buscar novamente"}
-                </Button>
-              </div>
-            )}
-            {fellowMsg && (
-              <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800">
-                {fellowMsg}
-              </p>
-            )}
             <Input
-              id="link_online"
+              id={fieldId("link_online")}
               name="link_online"
               label="Link da reunião (opcional)"
               placeholder="https://teams.microsoft.com/..."

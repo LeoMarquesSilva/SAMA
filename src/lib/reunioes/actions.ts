@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoSchema, type ReuniaoFormValues } from "@/lib/validations";
 import { colaboradorIdPorEmail } from "@/lib/colaborador-email";
@@ -13,12 +13,17 @@ import {
   fellowConfigurado,
   FellowApiError,
 } from "@/lib/fellow";
+import {
+  FELLOW_MSG_SEM_GRAVACAO,
+  FELLOW_MSG_SEM_IA,
+} from "@/lib/fellow-messages";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
 
 export type FellowImportResult = {
   ok: boolean;
   error?: string;
+  motivo?: "sem_gravacao" | "sem_conteudo_ia" | "config" | "api" | "parcial";
   resultado?: string;
   proximos_passos?: string;
   titulo_fellow?: string | null;
@@ -31,6 +36,7 @@ function revalidateReunioes() {
   revalidatePath("/clientes");
   revalidatePath("/relatorios");
   revalidatePath("/tarefas");
+  revalidatePath("/proximos-passos");
 }
 
 function toIso(local?: string | null): string | null {
@@ -85,16 +91,49 @@ async function colaboradorIdDoUsuario(
   return colaboradorIdPorEmail(supabase, u.email);
 }
 
+function adminOuErro(): ReturnType<typeof createAdminClient> | { error: string } {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      error:
+        "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor — necessária para salvar reuniões.",
+    };
+  }
+  return createAdminClient();
+}
+
+async function assertPodeGerirReuniao(
+  reuniaoId: string,
+  pessoa: NonNullable<Awaited<ReturnType<typeof getPessoaAtual>>>
+): Promise<string | null> {
+  if (pessoa.is_admin) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("reunioes")
+    .select("criado_por_id")
+    .eq("id", reuniaoId)
+    .maybeSingle();
+
+  if (!data) return "Reunião não encontrada.";
+  if (data.criado_por_id !== pessoa.id) {
+    return "Sem permissão para editar esta reunião.";
+  }
+  return null;
+}
+
 async function syncParticipantes(
   reuniaoId: string,
   participantes: string[],
   organizadorUsuarioId: string | null
-) {
-  const supabase = await createClient();
-  await supabase
+): Promise<string | null> {
+  const adminOrErr = adminOuErro();
+  if ("error" in adminOrErr) return adminOrErr.error;
+  const supabase = adminOrErr;
+  const { error: delErr } = await supabase
     .from("reuniao_participantes")
     .delete()
     .eq("reuniao_id", reuniaoId);
+  if (delErr) return "Erro ao salvar participantes da reunião.";
 
   const ids = new Set(participantes ?? []);
   const organizadorColabId = await colaboradorIdDoUsuario(
@@ -102,7 +141,7 @@ async function syncParticipantes(
     organizadorUsuarioId
   );
   if (organizadorColabId) ids.add(organizadorColabId);
-  if (ids.size === 0) return;
+  if (ids.size === 0) return null;
 
   const rows = Array.from(ids).map((colaboradorId) => ({
     reuniao_id: reuniaoId,
@@ -110,7 +149,22 @@ async function syncParticipantes(
     papel:
       colaboradorId === organizadorColabId ? "ORGANIZADOR" : "PARTICIPANTE",
   }));
-  await supabase.from("reuniao_participantes").insert(rows);
+  const { error: insErr } = await supabase
+    .from("reuniao_participantes")
+    .insert(rows);
+  if (insErr) return "Erro ao salvar participantes da reunião.";
+  return null;
+}
+
+function mapReuniaoDbError(error: { message?: string; code?: string } | null): string {
+  const msg = error?.message ?? "";
+  if (msg.includes("row-level security")) {
+    return "Sem permissão para registrar a reunião. Contate o administrador.";
+  }
+  if (msg.includes("reunioes_cliente_id_fkey")) {
+    return "Cliente inválido ou não encontrado na base.";
+  }
+  return "Erro ao salvar a reunião.";
 }
 
 export async function createReuniao(values: unknown): Promise<ActionResult> {
@@ -120,22 +174,37 @@ export async function createReuniao(values: unknown): Promise<ActionResult> {
   }
 
   const pessoa = await getPessoaAtual();
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  if (!pessoa?.id) {
+    return {
+      ok: false,
+      error: "Usuário não vinculado ao cadastro. Contate o administrador.",
+    };
+  }
+
+  const adminOrErr = adminOuErro();
+  if ("error" in adminOrErr) {
+    return { ok: false, error: adminOrErr.error };
+  }
+
+  const { data, error } = await adminOrErr
     .from("reunioes")
-    .insert({ ...buildRow(parsed.data), criado_por_id: pessoa?.id ?? null })
+    .insert({ ...buildRow(parsed.data), criado_por_id: pessoa.id })
     .select("id")
     .single();
 
   if (error || !data) {
-    return { ok: false, error: "Erro ao salvar a reunião." };
+    return { ok: false, error: mapReuniaoDbError(error) };
   }
 
-  await syncParticipantes(
+  const donoCalendarioId = parsed.data.dono_calendario_id?.trim() || null;
+  const partErr = await syncParticipantes(
     data.id,
     parsed.data.participantes ?? [],
-    pessoa?.id ?? null
+    donoCalendarioId ?? pessoa.id
   );
+  if (partErr) {
+    return { ok: false, error: partErr };
+  }
 
   revalidateReunioes();
   return { ok: true, id: data.id };
@@ -150,15 +219,30 @@ export async function updateReuniao(
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
+  const pessoa = await getPessoaAtual();
+  if (!pessoa?.id) {
+    return {
+      ok: false,
+      error: "Usuário não vinculado ao cadastro. Contate o administrador.",
+    };
+  }
+
+  const permErr = await assertPodeGerirReuniao(id, pessoa);
+  if (permErr) return { ok: false, error: permErr };
+
+  const adminOrErr = adminOuErro();
+  if ("error" in adminOrErr) {
+    return { ok: false, error: adminOrErr.error };
+  }
+
+  const { error } = await adminOrErr
     .from("reunioes")
     .update(buildRow(parsed.data))
     .eq("id", id);
 
-  if (error) return { ok: false, error: "Erro ao atualizar a reunião." };
+  if (error) return { ok: false, error: mapReuniaoDbError(error) };
 
-  const { data: org } = await supabase
+  const { data: org } = await adminOrErr
     .from("reuniao_participantes")
     .select("colaborador_id, colaborador:colaboradores(usuario_id)")
     .eq("reuniao_id", id)
@@ -169,7 +253,12 @@ export async function updateReuniao(
     (org?.colaborador as { usuario_id?: string | null } | null)?.usuario_id ??
     null;
 
-  await syncParticipantes(id, parsed.data.participantes ?? [], orgUsuarioId);
+  const partErr = await syncParticipantes(
+    id,
+    parsed.data.participantes ?? [],
+    orgUsuarioId
+  );
+  if (partErr) return { ok: false, error: partErr };
 
   revalidateReunioes();
   return { ok: true, id };
@@ -224,19 +313,41 @@ export async function buscarConteudoFellow(input: {
   data_hora_inicio?: string | null;
 }): Promise<FellowImportResult> {
   if (!fellowConfigurado()) {
-    return { ok: false, error: "Integração Fellow não configurada no servidor." };
+    return {
+      ok: false,
+      motivo: "config",
+      error: "Integração Fellow não configurada no servidor.",
+    };
   }
 
   try {
-    const conteudo = await buscarGravacaoFellow(input);
-    if (!conteudo) {
+    const resultado = await buscarGravacaoFellow(input);
+    if (!resultado) {
       return {
         ok: false,
-        error:
-          "Nenhuma gravação Fellow encontrada para esta reunião. Verifique se foi gravada e se a conta da API tem acesso.",
+        motivo: "config",
+        error: "Integração Fellow não configurada no servidor.",
       };
     }
 
+    if (resultado.status === "sem_gravacao") {
+      return {
+        ok: false,
+        motivo: "sem_gravacao",
+        error: FELLOW_MSG_SEM_GRAVACAO,
+      };
+    }
+
+    if (resultado.status === "sem_conteudo_ia") {
+      return {
+        ok: false,
+        motivo: "sem_conteudo_ia",
+        error: FELLOW_MSG_SEM_IA,
+        titulo_fellow: resultado.tituloFellow,
+      };
+    }
+
+    const conteudo = resultado.conteudo;
     return {
       ok: true,
       resultado: conteudo.resumo || undefined,
@@ -246,9 +357,9 @@ export async function buscarConteudoFellow(input: {
     };
   } catch (e) {
     if (e instanceof FellowApiError) {
-      return { ok: false, error: `Fellow: ${e.message}` };
+      return { ok: false, motivo: "api", error: `Fellow: ${e.message}` };
     }
-    return { ok: false, error: "Erro ao consultar a API Fellow." };
+    return { ok: false, motivo: "api", error: "Erro ao consultar a API Fellow." };
   }
 }
 
@@ -262,9 +373,6 @@ export async function importarFellowReuniao(id: string): Promise<FellowImportRes
 
   if (error || !reuniao) {
     return { ok: false, error: "Reunião não encontrada." };
-  }
-  if (reuniao.modalidade !== "ONLINE") {
-    return { ok: false, error: "Importação Fellow disponível só para reuniões online." };
   }
 
   const resultado = await buscarConteudoFellow({

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FormattedText } from "@/lib/text-format";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, CalendarClock, Users } from "lucide-react";
 import { requireClientesAccess } from "@/lib/auth";
@@ -192,7 +193,7 @@ export default async function ClienteDetalhePage({
                   {r.resultado && (
                     <p className="mt-2 text-sm text-slate-600">
                       <span className="font-medium">Resultado:</span>{" "}
-                      {r.resultado}
+                      <FormattedText text={r.resultado} />
                     </p>
                   )}
                   {r.proximos_passos && (

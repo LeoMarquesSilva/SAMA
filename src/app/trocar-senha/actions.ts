@@ -2,6 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { countEventosPendentes } from "@/lib/calendario";
+import { countPassosPendentes } from "@/lib/proximos-passos";
+import { setAlertasLoginCookie } from "@/lib/alertas-login";
 
 export type TrocaSenhaState = { error?: string };
 
@@ -39,6 +42,29 @@ export async function trocarSenha(
       error:
         "Senha alterada, mas não foi possível concluir a ativação. Contate o administrador.",
     };
+  }
+
+  const { data: perfil } = await supabase
+    .from("usuarios")
+    .select("id, is_admin")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (perfil) {
+    const [pendentes, passosPendentes] = await Promise.all([
+      countEventosPendentes(supabase, {
+        pessoaId: perfil.id,
+        isAdmin: perfil.is_admin,
+      }),
+      countPassosPendentes(supabase, {
+        pessoaId: perfil.id,
+        isAdmin: perfil.is_admin,
+      }),
+    ]);
+
+    if (pendentes > 0 || passosPendentes > 0) {
+      await setAlertasLoginCookie();
+    }
   }
 
   redirect("/dashboard");

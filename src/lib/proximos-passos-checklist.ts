@@ -45,3 +45,11 @@ export function serializeChecklist(items: ChecklistItem[]): string {
 export function checklistTemItens(raw: string | null | undefined): boolean {
   return parseChecklist(raw).some((item) => item.text.trim().length > 0);
 }
+
+export function contarProximosPassosPendentes(
+  raw: string | null | undefined
+): number {
+  return parseChecklist(raw).filter(
+    (item) => item.text.trim().length > 0 && !item.done
+  ).length;
+}

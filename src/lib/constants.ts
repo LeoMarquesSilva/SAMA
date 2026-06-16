@@ -54,6 +54,9 @@ export const TIPO_REUNIAO = {
   GESTAO_OPERACIONAL: "Gestão Operacional",
 } as const;
 
+/** Grupo VIOS vinculado automaticamente a reuniões de Gestão de Equipe. */
+export const GRUPO_CLIENTE_GESTAO_EQUIPE = "Grupo Bismarchi Pires";
+
 export type TipoReuniaoKey = keyof typeof TIPO_REUNIAO;
 
 export const TIPO_REUNIAO_DESCRICAO: Record<TipoReuniaoKey, string> = {

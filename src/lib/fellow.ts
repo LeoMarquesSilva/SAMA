@@ -50,6 +50,11 @@ export type FellowConteudo = {
   temResumoIa: boolean;
 };
 
+export type FellowBuscaResult =
+  | { status: "ok"; conteudo: FellowConteudo }
+  | { status: "sem_gravacao" }
+  | { status: "sem_conteudo_ia"; tituloFellow: string | null };
+
 export class FellowApiError extends Error {
   status: number;
 
@@ -195,7 +200,7 @@ export async function buscarGravacaoFellow(input: {
   outlook_event_id?: string | null;
   titulo?: string | null;
   data_hora_inicio?: string | null;
-}): Promise<FellowConteudo | null> {
+}): Promise<FellowBuscaResult | null> {
   if (!fellowConfigurado()) return null;
 
   let recording: FellowRecording | null = null;
@@ -224,16 +229,21 @@ export async function buscarGravacaoFellow(input: {
     }
   }
 
-  if (!recording) return null;
+  if (!recording) return { status: "sem_gravacao" };
 
   const { resumo, proximos_passos } = extrairAiNotes(recording.ai_notes);
-  if (!resumo.trim() && !proximos_passos.trim()) return null;
+  if (!resumo.trim() && !proximos_passos.trim()) {
+    return { status: "sem_conteudo_ia", tituloFellow: recording.title };
+  }
 
   return {
-    recordingId: recording.id,
-    tituloFellow: recording.title,
-    resumo,
-    proximos_passos,
-    temResumoIa: Boolean(resumo.trim()),
+    status: "ok",
+    conteudo: {
+      recordingId: recording.id,
+      tituloFellow: recording.title,
+      resumo,
+      proximos_passos,
+      temResumoIa: Boolean(resumo.trim()),
+    },
   };
 }

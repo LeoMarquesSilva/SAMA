@@ -3,7 +3,12 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { calendarioEventQueryRange } from "@/lib/calendario";
-import { mergeCalendarioItems } from "@/lib/calendario-items";
+import { parseCalendarioFiltroInicial } from "@/lib/dashboard-filtros";
+import {
+  buildDonoCalendarioMap,
+  mergeCalendarioItems,
+  reuniaoVisivelParaUsuario,
+} from "@/lib/calendario-items";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
 import type {
@@ -14,7 +19,14 @@ import type {
 
 export const dynamic = "force-dynamic";
 
-export default async function CalendarioPage() {
+export default async function CalendarioPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const sp = await searchParams;
+  const filtroInicial = parseCalendarioFiltroInicial(sp);
+
   await ensureColaboradoresSync();
 
   const supabase = await createClient();
@@ -74,19 +86,22 @@ export default async function CalendarioPage() {
       .order("nome"),
   ]);
 
-  let reunioes = (reunioesRaw as ReuniaoComRelacoes[]) ?? [];
+  const eventosOutlook = (eventos as OutlookEventoComPessoa[]) ?? [];
+  const reunioesAll = (reunioesRaw as ReuniaoComRelacoes[]) ?? [];
+  const donoPorReuniao = buildDonoCalendarioMap(eventosOutlook, reunioesAll);
+
+  let reunioes = reunioesAll;
   if (!isAdmin && pessoa?.id) {
     reunioes = reunioes.filter((r) =>
-      (r.participantes ?? []).some(
-        (p) => p.colaborador?.usuario_id === pessoa.id
-      )
+      reuniaoVisivelParaUsuario(r, pessoa.id, donoPorReuniao)
     );
   }
 
   const items = mergeCalendarioItems(
-    (eventos as OutlookEventoComPessoa[]) ?? [],
+    eventosOutlook,
     reunioes,
-    (atividadesRaw as AtividadeComPessoa[]) ?? []
+    (atividadesRaw as AtividadeComPessoa[]) ?? [],
+    donoPorReuniao
   );
 
   return (
@@ -104,6 +119,7 @@ export default async function CalendarioPage() {
         isAdmin={isAdmin}
         pessoaAtualId={pessoa?.id ?? null}
         fellowAtivo={fellowConfigurado()}
+        filtroInicial={filtroInicial}
       />
     </div>
   );

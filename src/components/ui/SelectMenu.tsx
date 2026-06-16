@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check, Search, X } from "lucide-react";
 import { clsx } from "clsx";
@@ -46,6 +46,7 @@ export function SelectMenu({
   error,
   className,
   disabled,
+  id,
 }: {
   options: SelectOption[];
   value?: string;
@@ -61,7 +62,10 @@ export function SelectMenu({
   error?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }) {
+  const autoId = useId();
+  const buttonId = id ?? (label ? autoId : undefined);
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState(defaultValue);
@@ -235,7 +239,12 @@ export function SelectMenu({
       className={clsx("flex flex-col gap-1", className)}
       onKeyDown={onKeyDown}
     >
-      {label && (
+      {label && buttonId && (
+        <label htmlFor={buttonId} className="text-sm font-medium text-slate-700">
+          {label}
+        </label>
+      )}
+      {label && !buttonId && (
         <span className="text-sm font-medium text-slate-700">{label}</span>
       )}
       {name && <input type="hidden" name={name} value={selectedValue} />}
@@ -243,6 +252,7 @@ export function SelectMenu({
       <div className="relative">
         <button
           ref={btnRef}
+          id={buttonId}
           type="button"
           disabled={disabled}
           onClick={() => (open ? setOpen(false) : abrir())}

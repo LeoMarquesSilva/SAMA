@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sincronizarCalendarioAutomatico } from "@/app/(app)/calendario/actions";
 import { countEventosPendentes, landingPath } from "@/lib/calendario";
+import { countPassosPendentes } from "@/lib/proximos-passos";
+import { setAlertasLoginCookie } from "@/lib/alertas-login";
 
 export type LoginState = { error?: string };
 
@@ -64,6 +66,14 @@ export async function login(
     pessoaId: perfil.id,
     isAdmin: perfil.is_admin,
   });
+  const passosPendentes = await countPassosPendentes(supabase, {
+    pessoaId: perfil.id,
+    isAdmin: perfil.is_admin,
+  });
+
+  if (pendentes > 0 || passosPendentes > 0) {
+    await setAlertasLoginCookie();
+  }
 
   redirect(landingPath(perfil.cargo, pendentes));
 }

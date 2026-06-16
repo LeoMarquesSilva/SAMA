@@ -45,12 +45,21 @@ import {
   type CalendarioTipoFiltro,
   isOutlookPendente,
   itemMatchesTipo,
+  colaboradorIdsDeEnvolvidos,
+  emailsEnvolvidosOutlook,
+  reuniaoVisivelParaUsuario,
 } from "@/lib/calendario-items";
+import {
+  itemNoPeriodoDashboard,
+  parseCalendarioFiltroInicial,
+  parseDashboardDayKey,
+  type CalendarioFiltroInicial,
+  type DashboardPeriodo,
+} from "@/lib/dashboard-filtros";
 import { TIPO_ATIVIDADE_INTERNA, TIPO_REUNIAO, STATUS_REUNIAO } from "@/lib/constants";
 import {
   buscarNoMapaPorEmail,
   emailExisteNoMapa,
-  emailsEscritorioIguais,
   registrarEmailNoMapa,
 } from "@/lib/email-escritorio";
 import {
@@ -68,11 +77,35 @@ type PessoaOpt = {
 };
 
 const statusInfo: Record<string, { label: string; tone: "gray" | "green" | "blue" | "amber" | "purple" }> = {
-  PENDENTE: { label: "Pendente", tone: "amber" },
+  PENDENTE: { label: "Não categorizado", tone: "amber" },
   CATEGORIZADO_REUNIAO: { label: "Reunião", tone: "green" },
   CATEGORIZADO_ATIVIDADE: { label: "Atividade", tone: "purple" },
   IGNORADO: { label: "Ignorado", tone: "gray" },
 };
+
+function estadoInicialFiltro(f: CalendarioFiltroInicial) {
+  const periodo = (["dia", "mes", "3m", "6m", "ano"].includes(f.p)
+    ? f.p
+    : "") as DashboardPeriodo | "";
+  const fTipo: CalendarioTipoFiltro =
+    f.kind === "atividade"
+      ? "ATIVIDADES"
+      : f.kind === "reuniao"
+        ? "REUNIOES"
+        : "TODOS";
+
+  return {
+    fStatus: "TODOS" as const,
+    fTipo,
+    fPessoa: f.pessoa,
+    fKind: f.kind === "reuniao" || f.kind === "atividade" ? f.kind : "",
+    fTipoDetalhe: f.tipo,
+    fStatusDetalhe: f.status === "REALIZADA" ? f.status : "",
+    fPeriodo: periodo,
+    fDataDia: f.data,
+    viewMode: f.view === "lista" ? ("lista" as const) : ("calendario" as const),
+  };
+}
 
 export function OutlookClient({
   items,
@@ -81,6 +114,7 @@ export function OutlookClient({
   isAdmin,
   pessoaAtualId,
   fellowAtivo = false,
+  filtroInicial,
 }: {
   items: CalendarioItem[];
   pessoas: PessoaOpt[];
@@ -88,14 +122,24 @@ export function OutlookClient({
   isAdmin: boolean;
   pessoaAtualId: string | null;
   fellowAtivo?: boolean;
+  filtroInicial?: CalendarioFiltroInicial;
 }) {
   const router = useRouter();
+  const inicial = useMemo(
+    () => estadoInicialFiltro(filtroInicial ?? parseCalendarioFiltroInicial({})),
+    [filtroInicial]
+  );
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string>();
-  const [fStatus, setFStatus] = useState<string>("TODOS");
-  const [fTipo, setFTipo] = useState<CalendarioTipoFiltro>("TODOS");
-  const [fPessoa, setFPessoa] = useState<string>("");
+  const [fStatus, setFStatus] = useState<string>(inicial.fStatus);
+  const [fTipo, setFTipo] = useState<CalendarioTipoFiltro>(inicial.fTipo);
+  const [fPessoa, setFPessoa] = useState<string>(inicial.fPessoa);
   const [fModalidade, setFModalidade] = useState<string>("");
+  const [fKind, setFKind] = useState(inicial.fKind);
+  const [fTipoDetalhe, setFTipoDetalhe] = useState(inicial.fTipoDetalhe);
+  const [fStatusDetalhe, setFStatusDetalhe] = useState(inicial.fStatusDetalhe);
+  const [fPeriodo, setFPeriodo] = useState(inicial.fPeriodo);
+  const [fDataDia, setFDataDia] = useState(inicial.fDataDia);
   const [busca, setBusca] = useState<string>("");
   const [reuniaoEvento, setReuniaoEvento] =
     useState<CalendarioItem | null>(null);
@@ -104,7 +148,7 @@ export function OutlookClient({
   const [editReuniao, setEditReuniao] = useState<ReuniaoComRelacoes | null>(null);
   const [editAtividade, setEditAtividade] = useState<AtividadeComPessoa | null>(null);
   const [novaAtividade, setNovaAtividade] = useState(false);
-  const [viewMode, setViewMode] = useState<CalendarioViewMode>("calendario");
+  const [viewMode, setViewMode] = useState<CalendarioViewMode>(inicial.viewMode);
   const [sheetEvento, setSheetEvento] =
     useState<CalendarioItem | null>(null);
 
@@ -128,11 +172,81 @@ export function OutlookClient({
     return pessoas.filter((p) => ids.has(p.id));
   }, [items, pessoas]);
 
+  const donoPorReuniao = useMemo(() => {
+    const map = new Map<
+      string,
+      { pessoa_id: string; pessoa: PessoaOpt | null }
+    >();
+    for (const e of items) {
+      if (e.itemKind === "reuniao" && e.reuniao && e.pessoa_id) {
+        map.set(e.reuniao.id, {
+          pessoa_id: e.pessoa_id,
+          pessoa: e.pessoa
+            ? {
+                id: e.pessoa.id,
+                nome: e.pessoa.nome,
+                email: e.pessoa.email ?? "",
+                avatar_url: e.pessoa.avatar_url,
+              }
+            : null,
+        });
+      }
+    }
+    return map;
+  }, [items]);
+
   const filtradoBase = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return items.filter((e) => {
+      if (fPeriodo) {
+        if (
+          !itemNoPeriodoDashboard(
+            e.inicio,
+            fPeriodo as DashboardPeriodo,
+            fDataDia || parseDashboardDayKey()
+          )
+        ) {
+          return false;
+        }
+      }
+
+      if (fStatusDetalhe === "PENDENTE" && !isOutlookPendente(e)) return false;
+
+      if (fStatusDetalhe === "REALIZADA") {
+        if (e.itemKind === "outlook") return false;
+        if (e.itemKind === "reuniao" && e.reuniao?.status !== "REALIZADA") {
+          return false;
+        }
+        if (e.itemKind === "atividade" && e.atividade?.status !== "REALIZADA") {
+          return false;
+        }
+      }
+
+      if (fKind === "reuniao" && e.itemKind !== "reuniao") return false;
+      if (fKind === "atividade" && e.itemKind !== "atividade") return false;
+
+      if (fTipoDetalhe) {
+        if (e.itemKind === "reuniao" && e.reuniao?.tipo !== fTipoDetalhe) {
+          return false;
+        }
+        if (e.itemKind === "atividade" && e.atividade?.tipo !== fTipoDetalhe) {
+          return false;
+        }
+        if (e.itemKind === "outlook") return false;
+      }
+
       if (!itemMatchesTipo(e, fTipo)) return false;
-      if (isAdmin && fPessoa && e.pessoa_id !== fPessoa) return false;
+      if (isAdmin && fPessoa) {
+        if (e.itemKind === "reuniao" && e.reuniao) {
+          if (!reuniaoVisivelParaUsuario(e.reuniao, fPessoa, donoPorReuniao)) {
+            return false;
+          }
+        } else if (e.itemKind === "atividade") {
+          if (e.atividade?.pessoa_id !== fPessoa) return false;
+        } else if (e.pessoa_id !== fPessoa) {
+          return false;
+        }
+      }
       if (fModalidade === "ONLINE" && !e.online) return false;
       if (fModalidade === "PRESENCIAL" && e.online) return false;
       if (q) {
@@ -153,15 +267,32 @@ export function OutlookClient({
       }
       return true;
     });
-  }, [items, fTipo, fPessoa, fModalidade, busca, isAdmin]);
+  }, [
+    items,
+    fPeriodo,
+    fDataDia,
+    fStatusDetalhe,
+    fKind,
+    fTipoDetalhe,
+    fTipo,
+    fPessoa,
+    fModalidade,
+    busca,
+    isAdmin,
+    donoPorReuniao,
+  ]);
 
-  const lista = useMemo(
-    () =>
+  const lista = useMemo(() => {
+    const base =
       fStatus === "PENDENTE"
         ? filtradoBase.filter(isOutlookPendente)
-        : filtradoBase,
-    [filtradoBase, fStatus]
-  );
+        : filtradoBase;
+    return [...base].sort((a, b) => {
+      const ta = a.inicio ? new Date(a.inicio).getTime() : Number.POSITIVE_INFINITY;
+      const tb = b.inicio ? new Date(b.inicio).getTime() : Number.POSITIVE_INFINITY;
+      return ta - tb;
+    });
+  }, [filtradoBase, fStatus]);
 
   const counts = useMemo(() => {
     let pendentes = 0;
@@ -189,7 +320,16 @@ export function OutlookClient({
   }, [filtradoBase]);
 
   const pendentes = items.filter(isOutlookPendente).length;
-  const filtrosAtivos = Boolean(fPessoa || fModalidade || busca || fTipo !== "TODOS");
+  const filtrosAtivos = Boolean(
+    fPessoa ||
+      fModalidade ||
+      busca ||
+      fTipo !== "TODOS" ||
+      fKind ||
+      fTipoDetalhe ||
+      fStatusDetalhe ||
+      fPeriodo
+  );
 
   function onSelectItem(item: CalendarioItem) {
     if (item.itemKind === "reuniao" && item.reuniao) {
@@ -236,19 +376,20 @@ export function OutlookClient({
   }
 
   // Pré-preenchimento dos formulários a partir do evento.
-  function prefillReuniao(e: CalendarioItem): Partial<ReuniaoComRelacoes> {
-    const matchIds = colaboradores
-      .filter((c) =>
-        (e.participantes ?? []).some((a) =>
-          emailsEscritorioIguais(a.email ?? "", c.email)
-        )
-      )
-      .map((c) => ({ colaborador_id: c.id, papel: "PARTICIPANTE" }));
+  function prefillReuniao(
+    e: CalendarioItem
+  ): Partial<ReuniaoComRelacoes> & { dono_calendario_id?: string } {
+    const ids = colaboradorIdsDeEnvolvidos(colaboradores, e);
+    const matchIds = ids.map((id) => ({
+      colaborador_id: id,
+      papel: "PARTICIPANTE" as const,
+    }));
     const passada =
       e.inicio && new Date(e.inicio).getTime() < Date.now();
     return {
       titulo: e.titulo ?? "",
       outlook_event_id: e.outlook_event_id,
+      dono_calendario_id: e.pessoa_id,
       data_hora_inicio: e.inicio ?? "",
       data_hora_fim: e.fim,
       duracao_minutos: e.duracao_minutos,
@@ -276,30 +417,41 @@ export function OutlookClient({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
             Calendário
           </h1>
           <p className="text-sm text-slate-500">
-            {pendentes} pendente(s) · reuniões e atividades no calendário
+            {pendentes} não categorizado(s) · reuniões e atividades no calendário
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CalendarioViewToggle value={viewMode} onChange={setViewMode} />
-          <Button variant="secondary" onClick={() => setNovaAtividade(true)}>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="col-span-2 sm:col-span-1">
+            <CalendarioViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
+          <Button
+            variant="secondary"
+            className="w-full justify-center sm:w-auto"
+            onClick={() => setNovaAtividade(true)}
+          >
             <ClipboardList size={16} /> Nova atividade
           </Button>
           <Button
             variant="secondary"
+            className="w-full justify-center sm:w-auto"
             disabled={pending}
             onClick={() => sincronizar("eu")}
           >
             <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
-            Atualizar calendário
+            Atualizar
           </Button>
           {isAdmin && (
-            <Button disabled={pending} onClick={() => sincronizar("todos")}>
+            <Button
+              className="col-span-2 w-full justify-center sm:col-span-1 sm:w-auto"
+              disabled={pending}
+              onClick={() => sincronizar("todos")}
+            >
               <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
               Sincronizar todos
             </Button>
@@ -314,18 +466,18 @@ export function OutlookClient({
       )}
 
       {/* Pills de status com contagem */}
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {(
           [
             { key: "TODOS", label: "Todos" },
-            { key: "PENDENTE", label: "Pendentes" },
+            { key: "PENDENTE", label: "Não categorizados" },
           ] as const
         ).map((f) => (
           <button
             key={f.key}
             onClick={() => setFStatus(f.key)}
             className={
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
               (fStatus === f.key
                 ? "bg-brand-600 text-white"
                 : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")
@@ -346,7 +498,7 @@ export function OutlookClient({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {(
           [
             { key: "TODOS", label: "Todos os tipos" },
@@ -358,7 +510,7 @@ export function OutlookClient({
             key={f.key}
             onClick={() => setFTipo(f.key)}
             className={
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
               (fTipo === f.key
                 ? "border border-brand-600 bg-brand-50 text-brand-700"
                 : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")
@@ -425,6 +577,12 @@ export function OutlookClient({
               setFPessoa("");
               setFModalidade("");
               setFTipo("TODOS");
+              setFStatus("TODOS");
+              setFKind("");
+              setFTipoDetalhe("");
+              setFStatusDetalhe("");
+              setFPeriodo("");
+              setFDataDia("");
             }}
             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           >
@@ -522,7 +680,11 @@ export function OutlookClient({
           onSaved={() => router.refresh()}
           prefill={prefillReuniao(reuniaoEvento)}
           afterCreate={async (id) => {
-            await vincularCategorizado(reuniaoEvento.id, "REUNIAO", id);
+            const v = await vincularCategorizado(reuniaoEvento.id, "REUNIAO", id);
+            if (!v.ok) {
+              throw new Error(v.error ?? "Erro ao vincular evento.");
+            }
+            setFStatus("TODOS");
           }}
           colaboradores={colaboradores}
           fellowAtivo={fellowAtivo}
@@ -537,7 +699,15 @@ export function OutlookClient({
           onSaved={() => router.refresh()}
           prefill={prefillAtividade(atividadeEvento)}
           afterCreate={async (id) => {
-            await vincularCategorizado(atividadeEvento.id, "ATIVIDADE", id);
+            const v = await vincularCategorizado(
+              atividadeEvento.id,
+              "ATIVIDADE",
+              id
+            );
+            if (!v.ok) {
+              throw new Error(v.error ?? "Erro ao vincular evento.");
+            }
+            setFStatus("TODOS");
           }}
           pessoas={pessoas}
           podeEscolherPessoa={isAdmin}
@@ -655,29 +825,8 @@ function EventoCard({
   const s = statusInfo[e.status];
   const corpo = limparCorpoOutlook(e.corpo_preview);
 
-  // Organizador + participantes, sem duplicar por e-mail.
-  const porEmail = new Map<
-    string,
-    { nome: string; email: string; organizador: boolean }
-  >();
-  if (e.organizador_email) {
-    porEmail.set(e.organizador_email.toLowerCase(), {
-      nome: e.organizador_nome || e.organizador_email,
-      email: e.organizador_email,
-      organizador: true,
-    });
-  }
-  for (const p of e.participantes ?? []) {
-    const key = p.email?.toLowerCase();
-    if (key && !porEmail.has(key)) {
-      porEmail.set(key, {
-        nome: p.nome || p.email,
-        email: p.email,
-        organizador: false,
-      });
-    }
-  }
-  const envolvidos = [...porEmail.values()];
+  // Organizador + participantes + dono do calendário, sem duplicar por e-mail.
+  const envolvidos = emailsEnvolvidosOutlook(e);
 
   function ModIcon() {
     if (e.online) return <Video size={13} />;
@@ -819,7 +968,7 @@ function EventoCard({
       ) : (
         <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
           <Button size="sm" variant="ghost" disabled={pending} onClick={onReverter}>
-            <Undo2 size={15} /> Voltar para pendente
+            <Undo2 size={15} /> Voltar para não categorizado
           </Button>
         </div>
       )}

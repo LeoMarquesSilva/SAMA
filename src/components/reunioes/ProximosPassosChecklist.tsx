@@ -13,12 +13,14 @@ export function ProximosPassosChecklist({
   onChange,
   error,
   label = "Próximos passos",
+  labelAdornment,
   required,
 }: {
   value: string;
   onChange: (value: string) => void;
   error?: string;
   label?: string;
+  labelAdornment?: React.ReactNode;
   required?: boolean;
 }) {
   const items = parseChecklist(value);
@@ -45,10 +47,13 @@ export function ProximosPassosChecklist({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-slate-700">
-        {label}
-        {required && <span className="text-red-500"> *</span>}
-      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-slate-700">
+          {label}
+          {required && <span className="text-red-500"> *</span>}
+        </span>
+        {labelAdornment}
+      </div>
 
       <ul className="space-y-2">
         {displayItems.map((item, index) => (

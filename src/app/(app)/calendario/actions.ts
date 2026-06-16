@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { getCalendarEvents, outlookConfigurado } from "@/lib/graph";
+import { clearAlertasLoginCookie } from "@/lib/alertas-login";
 import { CALENDARIO_PATH } from "@/lib/calendario";
 
 export type ActionResult = { ok: boolean; error?: string };
@@ -159,26 +160,49 @@ export async function vincularCategorizado(
   tipo: "REUNIAO" | "ATIVIDADE",
   registroId: string
 ): Promise<ActionResult> {
+  const pessoa = await getPessoaAtual();
+  if (!pessoa?.id) {
+    return {
+      ok: false,
+      error: "Usuário não vinculado ao cadastro. Contate o administrador.",
+    };
+  }
+
   const supabase = await createClient();
+  const { data: ev } = await supabase
+    .from("outlook_eventos")
+    .select("pessoa_id, outlook_event_id")
+    .eq("id", eventoId)
+    .maybeSingle();
+
+  if (!ev) return { ok: false, error: "Evento não encontrado." };
+  if (!pessoa.is_admin && ev.pessoa_id !== pessoa.id) {
+    return { ok: false, error: "Sem permissão para categorizar este evento." };
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      ok: false,
+      error:
+        "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor — necessária para categorizar.",
+    };
+  }
+
+  const admin = createAdminClient();
   const patch =
     tipo === "REUNIAO"
       ? { status: "CATEGORIZADO_REUNIAO", reuniao_id: registroId }
       : { status: "CATEGORIZADO_ATIVIDADE", atividade_id: registroId };
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("outlook_eventos")
     .update({ ...patch, categorizado_em: new Date().toISOString() })
     .eq("id", eventoId);
   if (error) return { ok: false, error: "Erro ao vincular evento." };
 
-  const { data: ev } = await supabase
-    .from("outlook_eventos")
-    .select("outlook_event_id")
-    .eq("id", eventoId)
-    .single();
-  if (ev?.outlook_event_id) {
+  if (ev.outlook_event_id) {
     const tabela = tipo === "REUNIAO" ? "reunioes" : "atividades_internas";
-    await supabase
+    await admin
       .from(tabela)
       .update({ outlook_event_id: ev.outlook_event_id })
       .eq("id", registroId);
@@ -186,4 +210,8 @@ export async function vincularCategorizado(
 
   revalidateCalendario();
   return { ok: true };
+}
+
+export async function dismissAlertasLoginBanner(): Promise<void> {
+  await clearAlertasLoginCookie();
 }

@@ -33,10 +33,11 @@ export function Header({
         <form action="/auth/signout" method="post">
           <button
             type="submit"
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Sair"
           >
             <LogOut size={16} />
-            Sair
+            <span className="hidden sm:inline">Sair</span>
           </button>
         </form>
       </div>

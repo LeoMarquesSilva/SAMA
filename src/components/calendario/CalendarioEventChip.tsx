@@ -6,6 +6,7 @@ import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBad
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
 import { calendarioItemColor, formatTimeRange } from "@/lib/calendario-events";
 import type { CalendarioItem } from "@/lib/calendario-items";
+import { contarProximosPassosPendentes } from "@/lib/proximos-passos-checklist";
 
 const MAX_VISIBLE = 3;
 
@@ -29,6 +30,23 @@ export function CalendarioEventChip({
     ? formatTimeRange(evento.inicio, evento.fim, evento.duracao_minutos)
     : null;
   const socio = evento.pessoa?.nome;
+  const passosPendentes =
+    evento.itemKind === "reuniao"
+      ? contarProximosPassosPendentes(evento.reuniao?.proximos_passos)
+      : 0;
+
+  const tituloBase =
+    time && socio
+      ? `${time} · ${socio} · ${evento.titulo ?? ""}`
+      : time
+        ? `${time} · ${evento.titulo ?? ""}`
+        : socio
+          ? `${socio} · ${evento.titulo ?? ""}`
+          : (evento.titulo ?? undefined);
+  const title =
+    passosPendentes > 0 && tituloBase
+      ? `${tituloBase} · ${passosPendentes} passo(s) pendente(s)`
+      : tituloBase;
 
   return (
     <button
@@ -43,15 +61,7 @@ export function CalendarioEventChip({
         c.chipText,
         size === "sm" ? "gap-0.5 px-1 py-1" : "gap-0.5 px-1.5 py-1.5"
       )}
-      title={
-        time && socio
-          ? `${time} · ${socio} · ${evento.titulo ?? ""}`
-          : time
-            ? `${time} · ${evento.titulo ?? ""}`
-            : socio
-              ? `${socio} · ${evento.titulo ?? ""}`
-              : (evento.titulo ?? undefined)
-      }
+      title={title}
     >
       {hideTimeBadgeOnMobile ? (
         <>

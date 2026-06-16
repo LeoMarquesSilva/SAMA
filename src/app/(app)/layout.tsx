@@ -7,8 +7,11 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/Confirm";
 
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
+import { AlertasPendentesOverlay } from "@/components/layout/AlertasPendentesOverlay";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
 import { CALENDARIO_PATH, countEventosPendentes } from "@/lib/calendario";
+import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
+import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
 import type { CargoPessoa } from "@/lib/constants";
 
 export default async function AppLayout({
@@ -50,6 +53,15 @@ export default async function AppLayout({
     pessoaId: pessoaRow?.id,
     isAdmin,
   });
+  const passosPendentes = await countPassosPendentes(supabase, {
+    pessoaId: pessoaRow?.id,
+    isAdmin,
+  });
+  const showAlertasLogin = await shouldShowAlertasLoginBanner();
+
+  const badges: Record<string, number> = {};
+  if (pendentes) badges[CALENDARIO_PATH] = pendentes;
+  if (passosPendentes) badges[PROXIMOS_PASSOS_PATH] = passosPendentes;
 
   return (
     <ToastProvider>
@@ -67,10 +79,13 @@ export default async function AppLayout({
           ]}
         />
         <div className="flex h-screen overflow-hidden">
-          <Sidebar
-            badges={pendentes ? { [CALENDARIO_PATH]: pendentes } : {}}
-            navContext={navContext}
+          <AlertasPendentesOverlay
+            showInitially={showAlertasLogin}
+            nome={pessoa?.nome ?? null}
+            naoCategorizados={pendentes}
+            passosPendentes={passosPendentes}
           />
+          <Sidebar badges={badges} navContext={navContext} />
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header
               nome={pessoa?.nome ?? null}
@@ -81,7 +96,11 @@ export default async function AppLayout({
               {children}
             </main>
           </div>
-          <MobileNav isAdmin={isAdmin} />
+          <MobileNav
+            isAdmin={isAdmin}
+            navContext={navContext}
+            badges={badges}
+          />
         </div>
       </ConfirmProvider>
     </ToastProvider>
