@@ -8,7 +8,7 @@ import {
   LayoutDashboard,
   Building2,
   Plus,
-  CalendarClock,
+  CalendarDays,
   ClipboardList,
   Clock,
   UserPlus,
@@ -17,8 +17,7 @@ import {
 
 const tabs = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
-  { href: "/reunioes", label: "Reuniões", icon: CalendarClock },
-  { href: "/atividades", label: "Atividades", icon: ClipboardList },
+  { href: "/calendario", label: "Calendário", icon: CalendarDays },
   { href: "/timesheet", label: "Horas", icon: Clock },
 ];
 
@@ -51,11 +50,11 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <QuickAction
-                icon={CalendarClock}
+                icon={CalendarDays}
                 label="Registrar reunião"
                 onClick={() => {
                   setSheetOpen(false);
-                  router.push("/reunioes?novo=1");
+                  router.push("/calendario");
                 }}
               />
               <QuickAction
@@ -63,7 +62,7 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
                 label="Registrar atividade"
                 onClick={() => {
                   setSheetOpen(false);
-                  router.push("/atividades?novo=1");
+                  router.push("/calendario");
                 }}
               />
               <QuickAction
@@ -103,7 +102,6 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
         </button>
 
         <TabLink {...tabs[2]} active={isActive(pathname, tabs[2].href)} />
-        <TabLink {...tabs[3]} active={isActive(pathname, tabs[3].href)} />
       </nav>
     </>
   );

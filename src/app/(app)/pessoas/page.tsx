@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireUsuariosAccess } from "@/lib/auth";
 import { PessoasClient } from "@/components/pessoas/PessoasClient";
 import type { Pessoa } from "@/types/database";
 
@@ -10,7 +10,7 @@ export default async function PessoasPage({
 }: {
   searchParams: Promise<{ novo?: string }>;
 }) {
-  await requireAdmin();
+  await requireUsuariosAccess();
 
   const { novo } = await searchParams;
   const supabase = await createClient();

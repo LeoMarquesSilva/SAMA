@@ -9,6 +9,7 @@ import { ConfirmProvider } from "@/components/ui/Confirm";
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
 import { CALENDARIO_PATH, countEventosPendentes } from "@/lib/calendario";
+import type { CargoPessoa } from "@/lib/constants";
 
 export default async function AppLayout({
   children,
@@ -35,11 +36,15 @@ export default async function AppLayout({
 
   const { data: pessoaRow } = await supabase
     .from("usuarios")
-    .select("id, is_admin")
+    .select("id, is_admin, cargo")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   const isAdmin = pessoaRow?.is_admin ?? false;
+  const navContext = {
+    cargo: (pessoaRow?.cargo ?? "COLABORADOR") as CargoPessoa,
+    isAdmin,
+  };
 
   const pendentes = await countEventosPendentes(supabase, {
     pessoaId: pessoaRow?.id,
@@ -64,7 +69,7 @@ export default async function AppLayout({
         <div className="flex h-screen overflow-hidden">
           <Sidebar
             badges={pendentes ? { [CALENDARIO_PATH]: pendentes } : {}}
-            isAdmin={isAdmin}
+            navContext={navContext}
           />
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header

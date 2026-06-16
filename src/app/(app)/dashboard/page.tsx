@@ -385,7 +385,7 @@ export default async function DashboardPage({
               Próximas reuniões · 7 dias
             </h2>
             <Link
-              href="/reunioes"
+              href="/calendario"
               className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
             >
               Ver todas <ArrowRight size={13} />
@@ -446,7 +446,7 @@ export default async function DashboardPage({
               Atividades recentes
             </h2>
             <Link
-              href="/atividades"
+              href="/calendario"
               className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
             >
               Ver todas <ArrowRight size={13} />

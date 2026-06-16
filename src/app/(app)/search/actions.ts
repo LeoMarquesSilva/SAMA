@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { subtituloCliente } from "@/lib/clientes";
+import { formatDate } from "@/lib/format";
 
 export type SearchResult = {
   tipo: "reuniao" | "cliente" | "pessoa" | "atividade";
@@ -53,14 +54,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
       .limit(5),
   ]);
 
-  const fmtData = (iso: string | null) =>
-    iso
-      ? new Date(iso).toLocaleDateString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        })
-      : null;
+  const fmtData = (iso: string | null) => (iso ? formatDate(iso) : null);
 
   const results: SearchResult[] = [
     ...(clientes.data ?? [])
@@ -86,7 +80,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
       id: r.id,
       titulo: r.titulo,
       subtitulo: fmtData(r.data_hora_inicio),
-      href: "/reunioes",
+      href: "/calendario",
       avatar_url: null,
     })),
     ...(atividades.data ?? []).map((a) => ({
@@ -94,7 +88,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
       id: a.id,
       titulo: a.titulo,
       subtitulo: fmtData(a.data_hora_inicio),
-      href: "/atividades",
+      href: "/calendario",
       avatar_url: null,
     })),
   ];

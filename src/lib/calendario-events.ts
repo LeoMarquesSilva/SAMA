@@ -9,6 +9,7 @@ import {
   startOfDayInstantInTz,
   timePartsInTz,
 } from "@/lib/timezone";
+import type { CalendarioItemKind } from "@/lib/calendario-items";
 import type { OutlookEventoComPessoa, OutlookEventoStatus } from "@/types/database";
 
 /** Chave yyyy-MM-dd (São Paulo) para agrupamento. */
@@ -87,10 +88,10 @@ export function isMultiDayEvent(
 }
 
 /** Agrupa apenas eventos de um dia (multi-dia ficam nas barras contínuas). */
-export function groupSingleDayEventsByDay(
-  eventos: OutlookEventoComPessoa[]
-): Map<string, OutlookEventoComPessoa[]> {
-  const map = new Map<string, OutlookEventoComPessoa[]>();
+export function groupSingleDayEventsByDay<T extends { inicio: string | null; fim: string | null; duracao_minutos: number | null }>(
+  eventos: T[]
+): Map<string, T[]> {
+  const map = new Map<string, T[]>();
   for (const e of eventos) {
     if (isMultiDayEvent(e.inicio, e.fim, e.duracao_minutos)) continue;
     const key = eventDayKey(e.inicio);
@@ -115,10 +116,10 @@ export function groupEventsByDay(
   return groupSingleDayEventsByDay(eventos);
 }
 
-export function eventsOnDay(
-  eventos: OutlookEventoComPessoa[],
+export function eventsOnDay<T extends { inicio: string | null; fim: string | null; duracao_minutos: number | null }>(
+  eventos: T[],
   date: Date
-): OutlookEventoComPessoa[] {
+): T[] {
   return eventos
     .filter((e) =>
       eventCoversDay(e.inicio, e.fim, date, e.duracao_minutos)
@@ -143,6 +144,13 @@ export function daysWithEvents(
     .sort()
     .map((k) => new Date(startOfDayInstantInTz(k) + 12 * 60 * 60 * 1000));
 }
+
+export const atividadeCalendarColor = {
+  dot: "bg-violet-500",
+  chipBg: "bg-violet-500",
+  chipText: "text-white",
+  timeBadge: "bg-white text-black ring-1 ring-black/15 shadow-sm",
+};
 
 export const statusCalendarColor: Record<
   OutlookEventoStatus,
@@ -173,6 +181,16 @@ export const statusCalendarColor: Record<
     timeBadge: "bg-white text-black ring-1 ring-black/15 shadow-sm",
   },
 };
+
+export type CalendarioColor = (typeof statusCalendarColor)[OutlookEventoStatus];
+
+export function calendarioItemColor(item: {
+  status: OutlookEventoStatus;
+  itemKind?: CalendarioItemKind;
+}): CalendarioColor {
+  if (item.itemKind === "atividade") return atividadeCalendarColor;
+  return statusCalendarColor[item.status];
+}
 
 export function formatTimeShort(iso: string | null | undefined): string {
   return formatTimeInTz(iso);

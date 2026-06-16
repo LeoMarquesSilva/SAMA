@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, CalendarClock, Users } from "lucide-react";
+import { requireClientesAccess } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
@@ -34,6 +35,7 @@ export default async function ClienteDetalhePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await requireClientesAccess();
   const supabase = await createClient();
 
   const { data: cliente } = await supabase
@@ -107,7 +109,7 @@ export default async function ClienteDetalhePage({
             </Badge>
             {c.grupo_cliente && <Badge tone="gray">{c.grupo_cliente}</Badge>}
             <Link
-              href={`/reunioes?novo=1&cliente=${encodeURIComponent(c.ci ?? "")}`}
+              href="/calendario"
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
             >
               <CalendarClock size={14} /> Nova reunião

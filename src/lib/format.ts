@@ -1,30 +1,26 @@
-import { formatTimeInTz, APP_TIMEZONE, toDatetimeLocalInTz } from "@/lib/timezone";
+import {
+  dayKeyInTz,
+  formatDayKeyBr,
+  formatTimeInTz,
+  toDatetimeLocalInTz,
+} from "@/lib/timezone";
+import { normalizeDatetimeLocal } from "@/lib/datetime-br";
 
-export function formatDateTime(iso: string | null | undefined): string {
+/** Data no padrão brasileiro: DD/MM/AAAA (fuso SP). */
+export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
-    const time = formatTimeInTz(iso);
-    const date = new Intl.DateTimeFormat("pt-BR", {
-      timeZone: APP_TIMEZONE,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
-    return `${date} ${time}`;
+    return formatDayKeyBr(dayKeyInTz(iso));
   } catch {
     return "—";
   }
 }
 
-export function formatDate(iso: string | null | undefined): string {
+/** Data e hora no padrão brasileiro: DD/MM/AAAA HH:mm (fuso SP). */
+export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("pt-BR", {
-      timeZone: APP_TIMEZONE,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date(iso));
+    return `${formatDayKeyBr(dayKeyInTz(iso))} ${formatTimeInTz(iso)}`;
   } catch {
     return "—";
   }
@@ -63,8 +59,11 @@ export function diffMinutos(
   fim?: string | null
 ): number | null {
   if (!inicio || !fim) return null;
-  const a = new Date(inicio).getTime();
-  const b = new Date(fim).getTime();
+  const aLocal = normalizeDatetimeLocal(inicio);
+  const bLocal = normalizeDatetimeLocal(fim);
+  if (!aLocal || !bLocal) return null;
+  const a = new Date(aLocal).getTime();
+  const b = new Date(bLocal).getTime();
   if (Number.isNaN(a) || Number.isNaN(b) || b <= a) return null;
   return Math.round((b - a) / 60000);
 }

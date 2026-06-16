@@ -13,6 +13,7 @@ import {
   type ViosTarefa,
   type ViosTarefasFiltro,
 } from "@/lib/vios";
+import { CALENDARIO_PATH } from "@/lib/calendario";
 import {
   avaliarSyncVios,
   getViosSyncEstado,
@@ -286,7 +287,7 @@ export async function importarTarefasViosCsv(
 
   await registrarImportCsvSucesso(rows.length);
   revalidateTarefas();
-  revalidatePath("/atividades");
+  revalidatePath(CALENDARIO_PATH);
   revalidatePath("/timesheet");
   revalidatePath("/dashboard");
 

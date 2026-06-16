@@ -666,7 +666,7 @@ function TarefaCard({
         {status === "CATEGORIZADO_ATIVIDADE" && t.atividade_id && (
           <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
             <Link
-              href="/atividades"
+              href="/calendario"
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
             >
               Ver atividade registrada
@@ -678,10 +678,10 @@ function TarefaCard({
         {status === "CATEGORIZADO_REUNIAO" && t.reuniao_id && (
           <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
             <Link
-              href="/reunioes"
+              href="/calendario"
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
             >
-              Ver reuniões
+              Ver no calendário
               <ArrowUpRight size={14} />
             </Link>
           </div>

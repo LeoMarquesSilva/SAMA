@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { createResponsumClient } from "@/lib/responsum";
+import { variantesEmailEscritorio } from "@/lib/email-escritorio";
 
 const STALE_MS = 6 * 60 * 60 * 1000; // 6h
 
@@ -38,9 +39,12 @@ export async function sincronizarColaboradores(): Promise<{
 
   const admin = createAdminClient();
   const { data: usuarios } = await admin.from("usuarios").select("id, email");
-  const usuarioPorEmail = new Map(
-    (usuarios ?? []).map((u) => [u.email.toLowerCase(), u.id])
-  );
+  const usuarioPorEmail = new Map<string, string>();
+  for (const u of usuarios ?? []) {
+    for (const v of variantesEmailEscritorio(u.email)) {
+      usuarioPorEmail.set(v.toLowerCase(), u.id);
+    }
+  }
 
   const now = new Date().toISOString();
   const upsertRows = rows.map((r) => ({
@@ -50,7 +54,10 @@ export async function sincronizarColaboradores(): Promise<{
     departamento: r.department ?? null,
     avatar_url: r.avatar_url ?? null,
     ativo: true,
-    usuario_id: usuarioPorEmail.get(r.email.toLowerCase()) ?? null,
+    usuario_id:
+      variantesEmailEscritorio(r.email)
+        .map((v) => usuarioPorEmail.get(v.toLowerCase()))
+        .find(Boolean) ?? null,
     sincronizado_em: now,
   }));
 

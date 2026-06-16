@@ -20,8 +20,7 @@ function revalidateCalendario() {
   revalidatePath(CALENDARIO_PATH);
   revalidatePath("/outlook");
   revalidatePath("/dashboard");
-  revalidatePath("/reunioes");
-  revalidatePath("/atividades");
+  revalidatePath("/tarefas");
 }
 
 /** Sincroniza o calendário da pessoa logada (chamado no login ou pelo client). */

@@ -4,12 +4,12 @@ import { clsx } from "clsx";
 import {
   formatMultiDayDuration,
   formatTimeRange,
-  statusCalendarColor,
+  calendarioItemColor,
 } from "@/lib/calendario-events";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
 import type { MultiDayPlacement } from "@/lib/calendario-layout";
-import type { OutlookEventoComPessoa } from "@/types/database";
+import type { CalendarioItem } from "@/lib/calendario-items";
 
 /** Barra contínua que atravessa várias colunas do calendário. */
 export function CalendarioMultiDayBar({
@@ -18,13 +18,13 @@ export function CalendarioMultiDayBar({
   hideBadgesOnMobile = false,
 }: {
   placement: MultiDayPlacement;
-  onClick: (e: OutlookEventoComPessoa) => void;
+  onClick: (e: CalendarioItem) => void;
   /** Oculta badges de duração/horário em telas pequenas (ex.: mês no celular). */
   hideBadgesOnMobile?: boolean;
 }) {
   const { event, startCol, span, lane, continuesFrom, continuesTo } =
     placement;
-  const c = statusCalendarColor[event.status];
+  const c = calendarioItemColor(event);
   const duration = formatMultiDayDuration(
     event.inicio,
     event.fim,
@@ -65,12 +65,12 @@ export function CalendarioMultiDayBar({
             <div className="flex items-start justify-between gap-0.5">
               <div className="flex min-w-0 flex-wrap items-center gap-0.5">
                 {duration && (
-                  <CalendarioEventBadge status={event.status} size="sm">
+                  <CalendarioEventBadge status={event.status} itemKind={event.itemKind} size="sm">
                     {duration}
                   </CalendarioEventBadge>
                 )}
                 {time && (
-                  <CalendarioEventBadge status={event.status} size="sm">
+                  <CalendarioEventBadge status={event.status} itemKind={event.itemKind} size="sm">
                     {time}
                   </CalendarioEventBadge>
                 )}
@@ -87,12 +87,12 @@ export function CalendarioMultiDayBar({
           <div className="flex items-start justify-between gap-0.5">
             <div className="flex min-w-0 flex-wrap items-center gap-0.5">
               {duration && (
-                <CalendarioEventBadge status={event.status} size="sm">
+                <CalendarioEventBadge status={event.status} itemKind={event.itemKind} size="sm">
                   {duration}
                 </CalendarioEventBadge>
               )}
               {time && (
-                <CalendarioEventBadge status={event.status} size="sm">
+                <CalendarioEventBadge status={event.status} itemKind={event.itemKind} size="sm">
                   {time}
                 </CalendarioEventBadge>
               )}

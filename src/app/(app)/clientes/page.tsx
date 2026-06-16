@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { requireClientesAccess } from "@/lib/auth";
 import { ClientesClient } from "@/components/clientes/ClientesClient";
 import type { GrupoClienteResumo } from "@/types/database";
 
@@ -11,6 +12,8 @@ export default async function ClientesPage({
 }: {
   searchParams: Promise<{ q?: string; pagina?: string }>;
 }) {
+  await requireClientesAccess();
+
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const pagina = Math.max(1, parseInt(sp.pagina ?? "1", 10) || 1);

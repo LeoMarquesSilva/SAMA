@@ -180,12 +180,17 @@ export function daysInMonthGrid(cursorDate: Date): Date[] {
   return eachDayKeyInRange(gridStartKey, gridEndKey).map(dateFromDayKey);
 }
 
+/** DD/MM/AAAA a partir de yyyy-MM-dd (chave de dia em SP). */
+export function formatDayKeyBr(dayKey: string): string {
+  const [y, m, d] = dayKey.split("-");
+  if (!y || !m || !d) return dayKey;
+  return `${d}/${m}/${y}`;
+}
+
 export function formatDayMonthInTz(dayKey: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: APP_TIMEZONE,
-    day: "numeric",
-    month: "short",
-  }).format(dateFromDayKey(dayKey));
+  const [, m, d] = dayKey.split("-");
+  if (!m || !d) return dayKey;
+  return `${d}/${m}`;
 }
 
 export function formatDayInTz(date: Date): string {
@@ -240,21 +245,15 @@ export function formatMonthShortInTz(date: Date): string {
 }
 
 export function formatWeekdayLongInTz(date: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", {
+  const weekday = new Intl.DateTimeFormat("pt-BR", {
     timeZone: APP_TIMEZONE,
     weekday: "long",
-    day: "numeric",
-    month: "long",
   }).format(date);
+  return `${weekday}, ${formatDayKeyBr(dayKeyInTz(date))}`;
 }
 
 export function formatWeekRangeEndInTz(date: Date): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: APP_TIMEZONE,
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return formatDayKeyBr(dayKeyInTz(date));
 }
 
 /** Converte ISO UTC → datetime-local no fuso SP. */

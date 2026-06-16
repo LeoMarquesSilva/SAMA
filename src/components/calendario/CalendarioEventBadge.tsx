@@ -3,20 +3,23 @@
 import type { ReactNode } from "react";
 import { clsx } from "clsx";
 import type { OutlookEventoStatus } from "@/types/database";
-import { statusCalendarColor } from "@/lib/calendario-events";
+import type { CalendarioItemKind } from "@/lib/calendario-items";
+import { calendarioItemColor } from "@/lib/calendario-events";
 
 export function CalendarioEventBadge({
   status,
+  itemKind,
   children,
   size = "sm",
   className,
 }: {
   status: OutlookEventoStatus;
+  itemKind?: CalendarioItemKind;
   children: ReactNode;
   size?: "sm" | "md";
   className?: string;
 }) {
-  const c = statusCalendarColor[status];
+  const c = calendarioItemColor({ status, itemKind });
   return (
     <span
       className={clsx(

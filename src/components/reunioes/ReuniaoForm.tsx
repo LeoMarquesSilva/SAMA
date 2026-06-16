@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
+import { DatetimeBrInput } from "@/components/ui/DatetimeBrInput";
 import { Button } from "@/components/ui/Button";
 import { ParticipantesPicker } from "@/components/colaboradores/ParticipantesPicker";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
@@ -23,12 +25,12 @@ import {
   buscarConteudoFellow,
   createReuniao,
   updateReuniao,
-} from "@/app/(app)/reunioes/actions";
+} from "@/lib/reunioes/actions";
 import { resolverClienteVios, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
 import { checklistTemItens } from "@/lib/proximos-passos-checklist";
 
@@ -73,7 +75,8 @@ export function ReuniaoForm({
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
-  const [fellowPending, startFellowTransition] = useTransition();
+  const [, startFellowTransition] = useTransition();
+  const [fellowBusy, setFellowBusy] = useState(false);
   const [fellowMsg, setFellowMsg] = useState<string>();
   const [resultadoTexto, setResultadoTexto] = useState(src?.resultado ?? "");
   const [proximosPassos, setProximosPassos] = useState(src?.proximos_passos ?? "");
@@ -108,16 +111,33 @@ export function ReuniaoForm({
     prefill?.data_hora_inicio,
   ].join("|");
 
+  const fellowAutoFetch =
+    open &&
+    !editing &&
+    fellowAtivo &&
+    prefill?.modalidade === "ONLINE";
+
   useEffect(() => {
     if (!open) {
       setFellowMsg(undefined);
+      setFellowBusy(false);
       return;
     }
+    if (fellowAutoFetch) setFellowBusy(true);
     setResultadoTexto(src?.resultado ?? "");
     setProximosPassos(src?.proximos_passos ?? "");
     if (prefill?.modalidade) setModalidade(prefill.modalidade);
     if (prefill?.status) setStatus(prefill.status);
-  }, [open, prefillKey, reuniao?.id, src?.resultado, src?.proximos_passos, prefill?.modalidade, prefill?.status]);
+  }, [
+    open,
+    fellowAutoFetch,
+    prefillKey,
+    reuniao?.id,
+    src?.resultado,
+    src?.proximos_passos,
+    prefill?.modalidade,
+    prefill?.status,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -259,7 +279,6 @@ export function ReuniaoForm({
       cliente_id: String(fd.get("cliente_id") ?? ""),
       link_online: String(fd.get("link_online") ?? ""),
       local: String(fd.get("local") ?? ""),
-      tema: String(fd.get("tema") ?? ""),
       objetivos: String(fd.get("objetivos") ?? ""),
       resultado: String(fd.get("resultado") ?? ""),
       proximos_passos: String(fd.get("proximos_passos") ?? ""),
@@ -288,7 +307,6 @@ export function ReuniaoForm({
           min: { value: 1, message: "Duração deve ser maior que zero." },
         },
         cliente_id: { required: "Selecione ou crie um cliente." },
-        tema: { required: "Informe o tema / pauta." },
         link_online: { url: "Link inválido — use http(s)://..." },
         ...(modalidade === "PRESENCIAL_EXTERNO"
           ? { local: { required: "Informe o local." } }
@@ -373,41 +391,82 @@ export function ReuniaoForm({
   }
 
   useEffect(() => {
-    if (!open || editing || !fellowAtivo || !prefill) return;
-    if (prefill.modalidade !== "ONLINE") return;
+    if (!fellowAutoFetch || !prefill) return;
 
     let cancelled = false;
     startFellowTransition(async () => {
       setFellowMsg(undefined);
-      const r = await buscarConteudoFellow({
-        outlook_event_id: prefill.outlook_event_id,
-        titulo: prefill.titulo,
-        data_hora_inicio: prefill.data_hora_inicio,
-      });
-      if (!cancelled) aplicarFellow(r, "auto");
+      try {
+        const r = await buscarConteudoFellow({
+          outlook_event_id: prefill.outlook_event_id,
+          titulo: prefill.titulo,
+          data_hora_inicio: prefill.data_hora_inicio,
+        });
+        if (!cancelled) aplicarFellow(r, "auto");
+      } finally {
+        if (!cancelled) setFellowBusy(false);
+      }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [open, editing, fellowAtivo, prefillKey, prefill?.modalidade]);
+  }, [fellowAutoFetch, prefillKey, prefill?.outlook_event_id, prefill?.titulo, prefill?.data_hora_inicio]);
 
   function handleImportarFellow() {
     setFellowMsg(undefined);
+    setFellowBusy(true);
     startFellowTransition(async () => {
-      const r = await buscarConteudoFellow(parametrosFellow());
-      aplicarFellow(r, "manual");
+      try {
+        const r = await buscarConteudoFellow(parametrosFellow());
+        aplicarFellow(r, "manual");
+      } finally {
+        setFellowBusy(false);
+      }
     });
+  }
+
+  function handleClose() {
+    if (fellowBusy) return;
+    onClose();
   }
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
+      closeDisabled={fellowBusy}
       title={editing ? "Editar Reclassificação Reunião" : "Reclassificação Reunião"}
       size="xl"
     >
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <div className="relative">
+        {fellowBusy && (
+          <div
+            className="absolute inset-0 z-10 flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-xl bg-white/90 px-6 text-center backdrop-blur-[2px]"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 size={32} className="animate-spin text-brand-600" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-slate-800">
+                Buscando conteúdo no Fellow…
+              </p>
+              <p className="text-xs text-slate-500">
+                Aguarde o carregamento para preencher o formulário.
+              </p>
+            </div>
+          </div>
+        )}
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className={clsx(
+          "flex flex-col gap-4",
+          fellowBusy && "pointer-events-none select-none opacity-50"
+        )}
+        aria-hidden={fellowBusy}
+      >
         <Input
           id="titulo"
           name="titulo"
@@ -480,10 +539,9 @@ export function ReuniaoForm({
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Input
+          <DatetimeBrInput
             id="data_hora_inicio"
             name="data_hora_inicio"
-            type="datetime-local"
             label="Início"
             ref={inicioRef}
             defaultValue={toDatetimeLocal(src?.data_hora_inicio)}
@@ -491,10 +549,9 @@ export function ReuniaoForm({
             onChange={autoFillDuracao}
             required
           />
-          <Input
+          <DatetimeBrInput
             id="data_hora_fim"
             name="data_hora_fim"
-            type="datetime-local"
             label="Fim"
             defaultValue={toDatetimeLocal(src?.data_hora_fim)}
             error={fieldErrors.data_hora_fim}
@@ -563,15 +620,6 @@ export function ReuniaoForm({
           error={fieldErrors.participantes}
         />
 
-        <Textarea
-          id="tema"
-          name="tema"
-          label="Tema / pauta"
-          defaultValue={src?.tema ?? ""}
-          error={fieldErrors.tema}
-          required
-        />
-
         {modalidade === "ONLINE" && (
           <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
             {fellowAtivo && (
@@ -585,18 +633,13 @@ export function ReuniaoForm({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  disabled={fellowPending}
+                  disabled={fellowBusy}
                   onClick={handleImportarFellow}
                 >
                   <Download size={14} />
-                  {fellowPending ? "Buscando..." : "Buscar novamente"}
+                  {fellowBusy ? "Buscando..." : "Buscar novamente"}
                 </Button>
               </div>
-            )}
-            {fellowPending && !fellowMsg && (
-              <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
-                Buscando conteúdo no Fellow…
-              </p>
             )}
             {fellowMsg && (
               <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800">
@@ -621,14 +664,20 @@ export function ReuniaoForm({
         )}
 
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={fellowBusy}
+            onClick={handleClose}
+          >
             Cancelar
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || fellowBusy}>
             {pending ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </form>
+      </div>
     </Modal>
   );
 }

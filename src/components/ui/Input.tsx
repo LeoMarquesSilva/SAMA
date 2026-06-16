@@ -11,10 +11,13 @@ type FieldProps = {
   error?: string;
 };
 
+const LOCALE_DATE_TYPES = new Set(["date", "datetime-local", "time"]);
+
 export const Input = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement> & FieldProps
->(function Input({ label, error, className, id, ...props }, ref) {
+>(function Input({ label, error, className, id, lang, type, ...props }, ref) {
+  const localeDate = type && LOCALE_DATE_TYPES.has(type);
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -25,6 +28,8 @@ export const Input = forwardRef<
       <input
         id={id}
         ref={ref}
+        type={type}
+        lang={lang ?? (localeDate ? "pt-BR" : undefined)}
         className={clsx(
           "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500",
           error && "border-red-400 focus:border-red-500 focus:ring-red-500",

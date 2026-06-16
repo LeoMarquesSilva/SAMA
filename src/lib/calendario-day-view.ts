@@ -1,4 +1,4 @@
-import type { OutlookEventoComPessoa } from "@/types/database";
+import type { CalendarioItem } from "@/lib/calendario-items";
 import {
   eventsOnDay,
   formatTimeRange,
@@ -20,7 +20,7 @@ export const DAY_VIEW_HOUR_PX_MAX = 96;
 export const DAY_VIEW_HOUR_PX_STEP = 8;
 
 export type DayTimedBlock = {
-  event: OutlookEventoComPessoa;
+  event: CalendarioItem;
   topMin: number;
   heightMin: number;
   continuesFrom: boolean;
@@ -124,7 +124,7 @@ export function clampDayViewHourPx(px: number): number {
   );
 }
 
-function isAllDayEvent(e: OutlookEventoComPessoa): boolean {
+function isAllDayEvent(e: CalendarioItem): boolean {
   if (isMultiDayEvent(e.inicio, e.fim, e.duracao_minutos)) return true;
   if (e.duracao_minutos && e.duracao_minutos >= 1440) return true;
   if (!e.inicio) return false;
@@ -152,7 +152,7 @@ function isAllDayEvent(e: OutlookEventoComPessoa): boolean {
 }
 
 function clipEventToDay(
-  e: OutlookEventoComPessoa,
+  e: CalendarioItem,
   date: Date
 ): DayTimedBlock | null {
   if (!e.inicio) return null;
@@ -194,11 +194,11 @@ function clipEventToDay(
 }
 
 export function buildDaySchedule(
-  eventos: OutlookEventoComPessoa[],
+  eventos: CalendarioItem[],
   date: Date
-): { allDay: OutlookEventoComPessoa[]; timed: DayTimedBlock[] } {
+): { allDay: CalendarioItem[]; timed: DayTimedBlock[] } {
   const covering = eventsOnDay(eventos, date);
-  const allDay: OutlookEventoComPessoa[] = [];
+  const allDay: CalendarioItem[] = [];
   const timed: DayTimedBlock[] = [];
 
   for (const e of covering) {

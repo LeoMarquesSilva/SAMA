@@ -5,12 +5,22 @@ import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { atividadeSchema, type AtividadeFormValues } from "@/lib/validations";
 import { diffMinutos } from "@/lib/format";
+import { normalizeDatetimeLocal } from "@/lib/datetime-br";
+import { CALENDARIO_PATH } from "@/lib/calendario";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
 
+function revalidateAtividades() {
+  revalidatePath(CALENDARIO_PATH);
+  revalidatePath("/timesheet");
+  revalidatePath("/dashboard");
+}
+
 function toIso(local?: string | null): string | null {
   if (!local) return null;
-  const d = new Date(local);
+  const normalized = normalizeDatetimeLocal(local);
+  if (!normalized) return null;
+  const d = new Date(normalized);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -64,8 +74,7 @@ export async function createAtividade(
 
   if (error || !data) return { ok: false, error: "Erro ao salvar atividade." };
 
-  revalidatePath("/atividades");
-  revalidatePath("/timesheet");
+  revalidateAtividades();
   return { ok: true, id: data.id };
 }
 
@@ -80,7 +89,6 @@ export async function updateAtividade(
   }
 
   const supabase = await createClient();
-  // Mantém a pessoa responsável atual, salvo override explícito.
   let pessoaId = pessoaIdOverride;
   if (!pessoaId) {
     const { data: atual } = await supabase
@@ -99,8 +107,7 @@ export async function updateAtividade(
 
   if (error) return { ok: false, error: "Erro ao atualizar atividade." };
 
-  revalidatePath("/atividades");
-  revalidatePath("/timesheet");
+  revalidateAtividades();
   return { ok: true, id };
 }
 
@@ -111,7 +118,6 @@ export async function deleteAtividade(id: string): Promise<ActionResult> {
     .delete()
     .eq("id", id);
   if (error) return { ok: false, error: "Erro ao excluir atividade." };
-  revalidatePath("/atividades");
-  revalidatePath("/timesheet");
+  revalidateAtividades();
   return { ok: true };
 }

@@ -1,6 +1,7 @@
 import { startOfMonth, startOfYear, subMonths } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
-import { getPessoaAtual } from "@/lib/currentPessoa";
+import { requireRelatoriosAccess } from "@/lib/auth";
+import { canExportRelatorios } from "@/lib/nav-access";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
 import {
@@ -33,9 +34,13 @@ export default async function RelatoriosPage({
   const { de, ate } = intervalo(periodo);
   const tipo = sp.tipo || "";
 
+  const eu = await requireRelatoriosAccess();
+  const podeExportar = canExportRelatorios({
+    cargo: eu.cargo,
+    isAdmin: eu.is_admin,
+  });
+
   const supabase = await createClient();
-  const eu = await getPessoaAtual();
-  const isAdmin = eu?.is_admin ?? false;
 
   let q = supabase
     .from("reunioes")
@@ -62,7 +67,8 @@ export default async function RelatoriosPage({
     }[];
   };
   let rows = (data as Row[]) ?? [];
-  if (!isAdmin && eu?.id) {
+  const visaoCompleta = podeExportar;
+  if (!visaoCompleta && eu.id) {
     rows = rows.filter((r) =>
       (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
     );
@@ -78,7 +84,9 @@ export default async function RelatoriosPage({
           Relatórios
         </h1>
         <p className="text-sm text-slate-500">
-          Exporte em CSV ou gere um PDF (Imprimir → Salvar como PDF)
+          {podeExportar
+            ? "Exporte em CSV ou gere um PDF (Imprimir → Salvar como PDF)"
+            : "Visualização das suas reuniões no período selecionado"}
         </p>
       </div>
 
@@ -87,6 +95,7 @@ export default async function RelatoriosPage({
         tipo={tipo}
         de={de.toISOString()}
         ate={ate.toISOString()}
+        podeExportar={podeExportar}
       />
 
       {/* Área imprimível */}

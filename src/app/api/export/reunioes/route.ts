@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { formatDateTime } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
+import { canExportRelatorios } from "@/lib/nav-access";
 import {
   TIPO_REUNIAO,
   MODALIDADE_REUNIAO,
@@ -27,12 +28,17 @@ export async function GET(request: Request) {
   if (!user) return new Response("Não autorizado", { status: 401 });
 
   const eu = await getPessoaAtual();
-  const isAdmin = eu?.is_admin ?? false;
+  if (
+    !eu ||
+    !canExportRelatorios({ cargo: eu.cargo, isAdmin: eu.is_admin ?? false })
+  ) {
+    return new Response("Não autorizado", { status: 403 });
+  }
 
   let q = supabase
     .from("reunioes")
     .select(
-      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, tema, resultado, criado_em, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
+      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, resultado, criado_em, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
     )
     .order("data_hora_inicio", { ascending: false });
   if (de) q = q.gte("data_hora_inicio", de);
@@ -50,7 +56,6 @@ export async function GET(request: Request) {
     duracao_minutos: number | null;
     local: string | null;
     link_online: string | null;
-    tema: string | null;
     resultado: string | null;
     criado_em: string;
     cliente?: { nome?: string; grupo_cliente?: string | null } | null;
@@ -60,11 +65,6 @@ export async function GET(request: Request) {
     }[];
   };
   let rows = (data as Row[]) ?? [];
-  if (!isAdmin && eu?.id) {
-    rows = rows.filter((r) =>
-      (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
-    );
-  }
 
   const header = [
     "Título",
@@ -76,7 +76,6 @@ export async function GET(request: Request) {
     "Duração (min)",
     "Cliente",
     "Participantes",
-    "Tema",
     "Resultado",
     "Local",
     "Link",
@@ -102,7 +101,6 @@ export async function GET(request: Request) {
         .map((p) => p.colaborador?.nome)
         .filter(Boolean)
         .join(", "),
-      r.tema ?? "",
       r.resultado ?? "",
       r.local ?? "",
       r.link_online ?? "",

@@ -71,7 +71,7 @@ export const reuniaoSchema = z
       .min(1, "Selecione ou crie um cliente."),
     link_online: z.string().optional().or(z.literal("")),
     local: z.string().optional(),
-    tema: z.string().trim().min(1, "Informe o tema / pauta."),
+    tema: z.string().optional(),
     objetivos: z.string().optional(),
     resultado: z.string().optional(),
     proximos_passos: z.string().optional(),

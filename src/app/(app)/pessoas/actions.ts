@@ -5,6 +5,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { isAdminCargo } from "@/lib/constants";
 import { pessoaSchema } from "@/lib/validations";
+import { emailsEscritorioIguais } from "@/lib/email-escritorio";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -29,12 +30,11 @@ async function findAuthUserByEmail(
   admin: ReturnType<typeof createAdminClient>,
   email: string
 ): Promise<string | null> {
-  const target = email.trim().toLowerCase();
   for (let page = 1; page <= 10; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
     if (error || !data.users.length) break;
     const match = data.users.find(
-      (u) => u.email?.trim().toLowerCase() === target
+      (u) => u.email && emailsEscritorioIguais(u.email, email)
     );
     if (match) return match.id;
     if (data.users.length < 200) break;

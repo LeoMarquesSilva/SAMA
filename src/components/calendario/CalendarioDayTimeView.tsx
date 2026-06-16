@@ -21,11 +21,11 @@ import {
 import {
   formatMultiDayDuration,
   formatTimeRange,
-  statusCalendarColor,
+  calendarioItemColor,
 } from "@/lib/calendario-events";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
-import type { OutlookEventoComPessoa } from "@/types/database";
+import type { CalendarioItem } from "@/lib/calendario-items";
 
 const COLUMN_GAP_PX = 3;
 
@@ -35,8 +35,8 @@ export function CalendarioDayTimeView({
   onSelectEvento,
 }: {
   date: Date;
-  eventos: OutlookEventoComPessoa[];
-  onSelectEvento: (e: OutlookEventoComPessoa) => void;
+  eventos: CalendarioItem[];
+  onSelectEvento: (e: CalendarioItem) => void;
 }) {
   const [hourPx, setHourPx] = useState(DAY_VIEW_HOUR_PX);
 
@@ -177,10 +177,10 @@ function AllDayRow({
   evento: e,
   onClick,
 }: {
-  evento: OutlookEventoComPessoa;
+  evento: CalendarioItem;
   onClick: () => void;
 }) {
-  const c = statusCalendarColor[e.status];
+  const c = calendarioItemColor(e);
   const duration = formatMultiDayDuration(
     e.inicio,
     e.fim,
@@ -232,7 +232,7 @@ function TimedEventBlock({
   onClick: () => void;
 }) {
   const e = block.event;
-  const c = statusCalendarColor[e.status];
+  const c = calendarioItemColor(e);
   const time = formatTimedBlockRange(block);
   const top = minutesToTopPx(block.topMin, startHour, hourPx);
   const height = minutesToHeightPx(block.heightMin, hourPx);

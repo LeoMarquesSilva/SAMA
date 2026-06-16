@@ -37,8 +37,22 @@ import type {
   OutlookEventoComPessoa,
   ReuniaoComRelacoes,
   AtividadeInterna,
+  AtividadeComPessoa,
 } from "@/types/database";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
+import {
+  type CalendarioItem,
+  type CalendarioTipoFiltro,
+  isOutlookPendente,
+  itemMatchesTipo,
+} from "@/lib/calendario-items";
+import { TIPO_ATIVIDADE_INTERNA, TIPO_REUNIAO, STATUS_REUNIAO } from "@/lib/constants";
+import {
+  buscarNoMapaPorEmail,
+  emailExisteNoMapa,
+  emailsEscritorioIguais,
+  registrarEmailNoMapa,
+} from "@/lib/email-escritorio";
 import {
   CalendarioViewToggle,
   type CalendarioViewMode,
@@ -53,22 +67,22 @@ type PessoaOpt = {
   avatar_url?: string | null;
 };
 
-const statusInfo: Record<string, { label: string; tone: "gray" | "green" | "blue" | "amber" }> = {
+const statusInfo: Record<string, { label: string; tone: "gray" | "green" | "blue" | "amber" | "purple" }> = {
   PENDENTE: { label: "Pendente", tone: "amber" },
-  CATEGORIZADO_REUNIAO: { label: "Virou reunião", tone: "green" },
-  CATEGORIZADO_ATIVIDADE: { label: "Virou atividade", tone: "blue" },
+  CATEGORIZADO_REUNIAO: { label: "Reunião", tone: "green" },
+  CATEGORIZADO_ATIVIDADE: { label: "Atividade", tone: "purple" },
   IGNORADO: { label: "Ignorado", tone: "gray" },
 };
 
 export function OutlookClient({
-  eventos,
+  items,
   pessoas,
   colaboradores,
   isAdmin,
   pessoaAtualId,
   fellowAtivo = false,
 }: {
-  eventos: OutlookEventoComPessoa[];
+  items: CalendarioItem[];
   pessoas: PessoaOpt[];
   colaboradores: ColaboradorOpt[];
   isAdmin: boolean;
@@ -78,41 +92,46 @@ export function OutlookClient({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string>();
-  const [fStatus, setFStatus] = useState<string>("PENDENTE");
+  const [fStatus, setFStatus] = useState<string>("TODOS");
+  const [fTipo, setFTipo] = useState<CalendarioTipoFiltro>("TODOS");
   const [fPessoa, setFPessoa] = useState<string>("");
   const [fModalidade, setFModalidade] = useState<string>("");
   const [busca, setBusca] = useState<string>("");
   const [reuniaoEvento, setReuniaoEvento] =
-    useState<OutlookEventoComPessoa | null>(null);
+    useState<CalendarioItem | null>(null);
   const [atividadeEvento, setAtividadeEvento] =
-    useState<OutlookEventoComPessoa | null>(null);
+    useState<CalendarioItem | null>(null);
+  const [editReuniao, setEditReuniao] = useState<ReuniaoComRelacoes | null>(null);
+  const [editAtividade, setEditAtividade] = useState<AtividadeComPessoa | null>(null);
+  const [novaAtividade, setNovaAtividade] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarioViewMode>("calendario");
   const [sheetEvento, setSheetEvento] =
-    useState<OutlookEventoComPessoa | null>(null);
+    useState<CalendarioItem | null>(null);
 
   // Avatar real para participantes internos (casado por e-mail).
   const avatarPorEmail = useMemo(() => {
     const m = new Map<string, string | null>();
     for (const c of colaboradores) {
-      m.set(c.email.toLowerCase(), c.avatar_url ?? null);
+      registrarEmailNoMapa(m, c.email, c.avatar_url ?? null);
     }
     for (const p of pessoas) {
-      const k = p.email.toLowerCase();
-      if (!m.has(k)) m.set(k, p.avatar_url ?? null);
+      if (!buscarNoMapaPorEmail(m, p.email)) {
+        registrarEmailNoMapa(m, p.email, p.avatar_url ?? null);
+      }
     }
     return m;
   }, [colaboradores, pessoas]);
 
   // Pessoas que de fato têm eventos importados (para o seletor).
   const pessoasComEventos = useMemo(() => {
-    const ids = new Set(eventos.map((e) => e.pessoa_id));
+    const ids = new Set(items.map((e) => e.pessoa_id).filter(Boolean));
     return pessoas.filter((p) => ids.has(p.id));
-  }, [eventos, pessoas]);
+  }, [items, pessoas]);
 
-  // Aplica todos os filtros, exceto status (para contar por status).
-  const filtradoSemStatus = useMemo(() => {
+  const filtradoBase = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return eventos.filter((e) => {
+    return items.filter((e) => {
+      if (!itemMatchesTipo(e, fTipo)) return false;
       if (isAdmin && fPessoa && e.pessoa_id !== fPessoa) return false;
       if (fModalidade === "ONLINE" && !e.online) return false;
       if (fModalidade === "PRESENCIAL" && e.online) return false;
@@ -123,6 +142,8 @@ export function OutlookClient({
           e.organizador_email,
           e.local,
           e.corpo_preview,
+          e.atividade?.tipo ? TIPO_ATIVIDADE_INTERNA[e.atividade.tipo] : "",
+          e.reuniao?.tipo ? TIPO_REUNIAO[e.reuniao.tipo] : "",
           ...(e.participantes ?? []).flatMap((p) => [p.nome, p.email]),
         ]
           .filter(Boolean)
@@ -132,30 +153,55 @@ export function OutlookClient({
       }
       return true;
     });
-  }, [eventos, fPessoa, fModalidade, busca, isAdmin]);
+  }, [items, fTipo, fPessoa, fModalidade, busca, isAdmin]);
 
   const lista = useMemo(
     () =>
-      fStatus === "TODOS"
-        ? filtradoSemStatus
-        : filtradoSemStatus.filter((e) => e.status === fStatus),
-    [filtradoSemStatus, fStatus]
+      fStatus === "PENDENTE"
+        ? filtradoBase.filter(isOutlookPendente)
+        : filtradoBase,
+    [filtradoBase, fStatus]
   );
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = {
-      PENDENTE: 0,
-      CATEGORIZADO_REUNIAO: 0,
-      CATEGORIZADO_ATIVIDADE: 0,
-      IGNORADO: 0,
-      TODOS: filtradoSemStatus.length,
+    let pendentes = 0;
+    for (const e of filtradoBase) {
+      if (isOutlookPendente(e)) pendentes++;
+    }
+    return {
+      PENDENTE: pendentes,
+      TODOS: filtradoBase.length,
     };
-    for (const e of filtradoSemStatus) c[e.status] = (c[e.status] ?? 0) + 1;
-    return c;
-  }, [filtradoSemStatus]);
+  }, [filtradoBase]);
 
-  const pendentes = eventos.filter((e) => e.status === "PENDENTE").length;
-  const filtrosAtivos = Boolean(fPessoa || fModalidade || busca);
+  const tipoCounts = useMemo(() => {
+    let reunioes = 0;
+    let atividades = 0;
+    for (const e of filtradoBase) {
+      if (e.itemKind === "reuniao" || e.itemKind === "outlook") reunioes++;
+      if (e.itemKind === "atividade") atividades++;
+    }
+    return {
+      TODOS: filtradoBase.length,
+      REUNIOES: reunioes,
+      ATIVIDADES: atividades,
+    };
+  }, [filtradoBase]);
+
+  const pendentes = items.filter(isOutlookPendente).length;
+  const filtrosAtivos = Boolean(fPessoa || fModalidade || busca || fTipo !== "TODOS");
+
+  function onSelectItem(item: CalendarioItem) {
+    if (item.itemKind === "reuniao" && item.reuniao) {
+      setEditReuniao(item.reuniao);
+      return;
+    }
+    if (item.itemKind === "atividade" && item.atividade) {
+      setEditAtividade(item.atividade);
+      return;
+    }
+    setSheetEvento(item);
+  }
 
   function sincronizar(escopo: "eu" | "todos") {
     setMsg(undefined);
@@ -190,11 +236,11 @@ export function OutlookClient({
   }
 
   // Pré-preenchimento dos formulários a partir do evento.
-  function prefillReuniao(e: OutlookEventoComPessoa): Partial<ReuniaoComRelacoes> {
+  function prefillReuniao(e: CalendarioItem): Partial<ReuniaoComRelacoes> {
     const matchIds = colaboradores
       .filter((c) =>
-        (e.participantes ?? []).some(
-          (a) => a.email?.toLowerCase() === c.email.toLowerCase()
+        (e.participantes ?? []).some((a) =>
+          emailsEscritorioIguais(a.email ?? "", c.email)
         )
       )
       .map((c) => ({ colaborador_id: c.id, papel: "PARTICIPANTE" }));
@@ -214,11 +260,10 @@ export function OutlookClient({
       status: passada ? "REALIZADA" : "AGENDADA",
       link_online: e.link_online,
       local: e.local,
-      tema: limparCorpoOutlook(e.corpo_preview),
       participantes: matchIds as ReuniaoComRelacoes["participantes"],
     };
   }
-  function prefillAtividade(e: OutlookEventoComPessoa): Partial<AtividadeInterna> {
+  function prefillAtividade(e: CalendarioItem): Partial<AtividadeInterna> {
     return {
       titulo: e.titulo ?? "",
       data_hora_inicio: e.inicio ?? "",
@@ -237,11 +282,14 @@ export function OutlookClient({
             Calendário
           </h1>
           <p className="text-sm text-slate-500">
-            {pendentes} evento(s) pendente(s) de categorização
+            {pendentes} pendente(s) · reuniões e atividades no calendário
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CalendarioViewToggle value={viewMode} onChange={setViewMode} />
+          <Button variant="secondary" onClick={() => setNovaAtividade(true)}>
+            <ClipboardList size={16} /> Nova atividade
+          </Button>
           <Button
             variant="secondary"
             disabled={pending}
@@ -269,11 +317,8 @@ export function OutlookClient({
       <div className="flex flex-wrap gap-2">
         {(
           [
-            { key: "PENDENTE", label: "Pendentes" },
-            { key: "CATEGORIZADO_REUNIAO", label: "Reuniões" },
-            { key: "CATEGORIZADO_ATIVIDADE", label: "Atividades" },
-            { key: "IGNORADO", label: "Ignorados" },
             { key: "TODOS", label: "Todos" },
+            { key: "PENDENTE", label: "Pendentes" },
           ] as const
         ).map((f) => (
           <button
@@ -296,6 +341,39 @@ export function OutlookClient({
               }
             >
               {counts[f.key] ?? 0}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            { key: "TODOS", label: "Todos os tipos" },
+            { key: "REUNIOES", label: "Reuniões" },
+            { key: "ATIVIDADES", label: "Atividades" },
+          ] as const
+        ).map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFTipo(f.key)}
+            className={
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
+              (fTipo === f.key
+                ? "border border-brand-600 bg-brand-50 text-brand-700"
+                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")
+            }
+          >
+            {f.label}
+            <span
+              className={
+                "rounded-full px-1.5 text-[11px] font-semibold " +
+                (fTipo === f.key
+                  ? "bg-brand-100 text-brand-700"
+                  : "bg-slate-100 text-slate-500")
+              }
+            >
+              {tipoCounts[f.key] ?? 0}
             </span>
           </button>
         ))}
@@ -346,6 +424,7 @@ export function OutlookClient({
               setBusca("");
               setFPessoa("");
               setFModalidade("");
+              setFTipo("TODOS");
             }}
             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           >
@@ -358,14 +437,14 @@ export function OutlookClient({
         <>
           {lista.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
-              {eventos.length === 0
-                ? "Nenhum evento importado. O calendário é atualizado automaticamente ao entrar — ou clique em “Atualizar calendário”."
-                : "Nenhum evento corresponde aos filtros."}
+              {items.length === 0
+                ? "Nenhum item no calendário. Sincronize o Outlook ou registre uma atividade."
+                : "Nenhum item corresponde aos filtros."}
             </p>
           ) : (
             <CalendarioMobileView
               eventos={lista}
-              onSelectEvento={setSheetEvento}
+              onSelectEvento={onSelectItem}
             />
           )}
 
@@ -373,7 +452,7 @@ export function OutlookClient({
             evento={sheetEvento}
             onClose={() => setSheetEvento(null)}
           >
-            {sheetEvento && (
+            {sheetEvento && sheetEvento.itemKind === "outlook" && (
               <EventoCard
                 e={sheetEvento}
                 isAdmin={isAdmin}
@@ -388,11 +467,11 @@ export function OutlookClient({
                   setSheetEvento(null);
                 }}
                 onIgnorar={() => {
-                  ignorar(sheetEvento.id);
+                  ignorar(sheetEvento.sourceId);
                   setSheetEvento(null);
                 }}
                 onReverter={() => {
-                  reverter(sheetEvento.id);
+                  reverter(sheetEvento.sourceId);
                   setSheetEvento(null);
                 }}
                 compact
@@ -404,25 +483,34 @@ export function OutlookClient({
         <div className="space-y-3">
           {lista.length === 0 && (
             <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
-              {eventos.length === 0
-                ? "Nenhum evento importado. O calendário é atualizado automaticamente ao entrar — ou clique em “Atualizar calendário”."
-                : "Nenhum evento corresponde aos filtros."}
+              {items.length === 0
+                ? "Nenhum item no calendário."
+                : "Nenhum item corresponde aos filtros."}
             </p>
           )}
 
-          {lista.map((e) => (
-            <EventoCard
-              key={e.id}
-              e={e}
-              isAdmin={isAdmin}
-              pending={pending}
-              avatarPorEmail={avatarPorEmail}
-              onReuniao={() => setReuniaoEvento(e)}
-              onAtividade={() => setAtividadeEvento(e)}
-              onIgnorar={() => ignorar(e.id)}
-              onReverter={() => reverter(e.id)}
-            />
-          ))}
+          {lista.map((e) =>
+            e.itemKind === "outlook" ? (
+              <EventoCard
+                key={e.id}
+                e={e}
+                isAdmin={isAdmin}
+                pending={pending}
+                avatarPorEmail={avatarPorEmail}
+                onReuniao={() => setReuniaoEvento(e)}
+                onAtividade={() => setAtividadeEvento(e)}
+                onIgnorar={() => ignorar(e.sourceId)}
+                onReverter={() => reverter(e.sourceId)}
+              />
+            ) : (
+              <RegistroCard
+                key={e.id}
+                item={e}
+                isAdmin={isAdmin}
+                onEditar={() => onSelectItem(e)}
+              />
+            )
+          )}
         </div>
       )}
 
@@ -456,11 +544,91 @@ export function OutlookClient({
           pessoaAtualId={pessoaAtualId}
         />
       )}
+      {novaAtividade && (
+        <AtividadeForm
+          open={true}
+          onClose={() => setNovaAtividade(false)}
+          onSaved={() => router.refresh()}
+          pessoas={pessoas}
+          podeEscolherPessoa={isAdmin}
+          pessoaAtualId={pessoaAtualId}
+        />
+      )}
+
+      {editReuniao && (
+        <ReuniaoForm
+          open={true}
+          onClose={() => setEditReuniao(null)}
+          onSaved={() => router.refresh()}
+          reuniao={editReuniao}
+          colaboradores={colaboradores}
+          fellowAtivo={fellowAtivo}
+        />
+      )}
+
+      {editAtividade && (
+        <AtividadeForm
+          open={true}
+          onClose={() => setEditAtividade(null)}
+          onSaved={() => router.refresh()}
+          atividade={editAtividade}
+          pessoas={pessoas}
+          podeEscolherPessoa={isAdmin}
+          pessoaAtualId={pessoaAtualId}
+        />
+      )}
     </div>
   );
 }
 
-// ── Card de evento com descrição limpa e envolvidos expansíveis ──
+function RegistroCard({
+  item,
+  isAdmin,
+  onEditar,
+}: {
+  item: CalendarioItem;
+  isAdmin: boolean;
+  onEditar: () => void;
+}) {
+  const isReuniao = item.itemKind === "reuniao";
+  const label = isReuniao
+    ? TIPO_REUNIAO[item.reuniao!.tipo]
+    : TIPO_ATIVIDADE_INTERNA[item.atividade!.tipo];
+  const statusLabel = isReuniao
+    ? STATUS_REUNIAO[item.reuniao!.status]
+    : item.atividade!.status === "REALIZADA"
+      ? "Realizada"
+      : "Cancelada";
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-semibold leading-snug text-slate-800">{item.titulo}</h3>
+        <Badge tone={isReuniao ? "green" : "purple"}>
+          {isReuniao ? "Reunião" : "Atividade"}
+        </Badge>
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-1">
+          <CalendarClock size={13} /> {formatDateTime(item.inicio)}
+          {item.duracao_minutos ? ` · ${formatDuration(item.duracao_minutos)}` : ""}
+        </span>
+        <span>{label}</span>
+        <span>{statusLabel}</span>
+        {isAdmin && item.pessoa?.nome && (
+          <PersonTag nome={item.pessoa.nome} src={item.pessoa.avatar_url} size={18} />
+        )}
+      </div>
+      <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+        <Button size="sm" variant="secondary" onClick={onEditar}>
+          Editar
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+// ── Card de evento Outlook (pendente / ignorado) ──
 function EventoCard({
   e,
   isAdmin,
@@ -472,7 +640,7 @@ function EventoCard({
   onReverter,
   compact = false,
 }: {
-  e: OutlookEventoComPessoa;
+  e: CalendarioItem;
   isAdmin: boolean;
   pending: boolean;
   avatarPorEmail: Map<string, string | null>;
@@ -584,7 +752,7 @@ function EventoCard({
               max={6}
               pessoas={envolvidos.map((p) => ({
                 nome: p.nome,
-                avatar_url: avatarPorEmail.get(p.email.toLowerCase()),
+                avatar_url: buscarNoMapaPorEmail(avatarPorEmail, p.email) ?? null,
               }))}
             />
             <span className="text-xs font-medium text-slate-500">
@@ -602,8 +770,8 @@ function EventoCard({
           {showEnvolvidos && (
             <ul className="mt-2 grid grid-cols-1 gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
               {envolvidos.map((p) => {
-                const avatar = avatarPorEmail.get(p.email.toLowerCase());
-                const interno = avatarPorEmail.has(p.email.toLowerCase());
+                const avatar = buscarNoMapaPorEmail(avatarPorEmail, p.email) ?? null;
+                const interno = emailExisteNoMapa(avatarPorEmail, p.email);
                 return (
                   <li key={p.email} className="flex items-start gap-2">
                     <Avatar nome={p.nome} src={avatar} size={30} />

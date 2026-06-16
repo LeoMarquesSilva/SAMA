@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoSchema, type ReuniaoFormValues } from "@/lib/validations";
+import { colaboradorIdPorEmail } from "@/lib/colaborador-email";
 import { diffMinutos } from "@/lib/format";
+import { normalizeDatetimeLocal } from "@/lib/datetime-br";
+import { CALENDARIO_PATH } from "@/lib/calendario";
 import {
   buscarGravacaoFellow,
   fellowConfigurado,
@@ -22,9 +25,19 @@ export type FellowImportResult = {
   tem_resumo_ia?: boolean;
 };
 
+function revalidateReunioes() {
+  revalidatePath(CALENDARIO_PATH);
+  revalidatePath("/dashboard");
+  revalidatePath("/clientes");
+  revalidatePath("/relatorios");
+  revalidatePath("/tarefas");
+}
+
 function toIso(local?: string | null): string | null {
   if (!local) return null;
-  const d = new Date(local);
+  const normalized = normalizeDatetimeLocal(local);
+  if (!normalized) return null;
+  const d = new Date(normalized);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -69,12 +82,7 @@ async function colaboradorIdDoUsuario(
     .eq("id", usuarioId)
     .maybeSingle();
   if (!u?.email) return null;
-  const { data: c } = await supabase
-    .from("colaboradores")
-    .select("id")
-    .ilike("email", u.email)
-    .maybeSingle();
-  return c?.id ?? null;
+  return colaboradorIdPorEmail(supabase, u.email);
 }
 
 async function syncParticipantes(
@@ -129,7 +137,7 @@ export async function createReuniao(values: unknown): Promise<ActionResult> {
     pessoa?.id ?? null
   );
 
-  revalidatePath("/reunioes");
+  revalidateReunioes();
   return { ok: true, id: data.id };
 }
 
@@ -150,7 +158,6 @@ export async function updateReuniao(
 
   if (error) return { ok: false, error: "Erro ao atualizar a reunião." };
 
-  // Preserva o organizador atual (não força o editor como organizador).
   const { data: org } = await supabase
     .from("reuniao_participantes")
     .select("colaborador_id, colaborador:colaboradores(usuario_id)")
@@ -164,7 +171,7 @@ export async function updateReuniao(
 
   await syncParticipantes(id, parsed.data.participantes ?? [], orgUsuarioId);
 
-  revalidatePath("/reunioes");
+  revalidateReunioes();
   return { ok: true, id };
 }
 
@@ -185,7 +192,7 @@ export async function cancelarReuniao(
     })
     .eq("id", id);
   if (error) return { ok: false, error: "Erro ao cancelar." };
-  revalidatePath("/reunioes");
+  revalidateReunioes();
   return { ok: true };
 }
 
@@ -199,7 +206,7 @@ export async function mudarStatusReuniao(
     .update({ status })
     .eq("id", id);
   if (error) return { ok: false, error: "Erro ao mudar status." };
-  revalidatePath("/reunioes");
+  revalidateReunioes();
   return { ok: true };
 }
 
@@ -207,7 +214,7 @@ export async function deleteReuniao(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("reunioes").delete().eq("id", id);
   if (error) return { ok: false, error: "Erro ao excluir." };
-  revalidatePath("/reunioes");
+  revalidateReunioes();
   return { ok: true };
 }
 
@@ -285,6 +292,6 @@ export async function importarFellowReuniao(id: string): Promise<FellowImportRes
     .eq("id", id);
   if (upErr) return { ok: false, error: "Erro ao salvar conteúdo importado." };
 
-  revalidatePath("/reunioes");
+  revalidateReunioes();
   return resultado;
 }

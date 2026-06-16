@@ -17,20 +17,27 @@ export function Modal({
   title,
   children,
   size = "md",
+  closeDisabled = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   size?: keyof typeof panelSizes;
+  closeDisabled?: boolean;
 }) {
+  function tryClose() {
+    if (closeDisabled) return;
+    onClose();
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") tryClose();
     }
     if (open) document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, closeDisabled, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -50,7 +57,7 @@ export function Modal({
     >
       <div
         className="absolute inset-0 bg-slate-900/40"
-        onClick={onClose}
+        onClick={tryClose}
         aria-hidden
       />
       <div
@@ -67,8 +74,15 @@ export function Modal({
             {title}
           </h2>
           <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            type="button"
+            onClick={tryClose}
+            disabled={closeDisabled}
+            className={clsx(
+              "rounded-lg p-1 text-slate-400",
+              closeDisabled
+                ? "cursor-not-allowed opacity-40"
+                : "hover:bg-slate-100 hover:text-slate-600"
+            )}
             aria-label="Fechar"
           >
             <X size={18} />

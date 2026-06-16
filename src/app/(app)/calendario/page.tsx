@@ -3,9 +3,14 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { calendarioEventQueryRange } from "@/lib/calendario";
+import { mergeCalendarioItems } from "@/lib/calendario-items";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
-import type { OutlookEventoComPessoa } from "@/types/database";
+import type {
+  AtividadeComPessoa,
+  OutlookEventoComPessoa,
+  ReuniaoComRelacoes,
+} from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -15,28 +20,74 @@ export default async function CalendarioPage() {
   const supabase = await createClient();
   const pessoa = await getPessoaAtual();
   const isAdmin = pessoa?.is_admin ?? false;
-
   const { start, end } = calendarioEventQueryRange();
 
-  let query = supabase
+  let outlookQuery = supabase
     .from("outlook_eventos")
     .select("*, pessoa:usuarios(id, nome, email, avatar_url)")
     .gte("inicio", start)
     .lte("inicio", end)
     .order("inicio", { ascending: true, nullsFirst: false });
 
-  if (!isAdmin && pessoa?.id) query = query.eq("pessoa_id", pessoa.id);
+  if (!isAdmin && pessoa?.id) {
+    outlookQuery = outlookQuery.eq("pessoa_id", pessoa.id);
+  }
 
-  const [{ data: eventos }, { data: pessoas }, { data: colaboradores }] =
-    await Promise.all([
-      query,
-      supabase.from("usuarios").select("id, nome, email, avatar_url").order("nome"),
-      supabase
-        .from("colaboradores")
-        .select("id, nome, email, departamento, avatar_url, usuario_id")
-        .eq("ativo", true)
-        .order("nome"),
-    ]);
+  let reunioesQuery = supabase
+    .from("reunioes")
+    .select(
+      "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
+    )
+    .gte("data_hora_inicio", start)
+    .lte("data_hora_inicio", end)
+    .order("data_hora_inicio", { ascending: true });
+
+  let atividadesQuery = supabase
+    .from("atividades_internas")
+    .select(
+      "*, pessoa:usuarios!atividades_internas_pessoa_id_fkey(id, nome, avatar_url), com_pessoa:usuarios!atividades_internas_com_pessoa_id_fkey(id, nome, avatar_url)"
+    )
+    .gte("data_hora_inicio", start)
+    .lte("data_hora_inicio", end)
+    .neq("tipo", "CIENCIA_NF")
+    .order("data_hora_inicio", { ascending: true });
+
+  if (!isAdmin && pessoa?.id) {
+    atividadesQuery = atividadesQuery.eq("pessoa_id", pessoa.id);
+  }
+
+  const [
+    { data: eventos },
+    { data: reunioesRaw },
+    { data: atividadesRaw },
+    { data: pessoas },
+    { data: colaboradores },
+  ] = await Promise.all([
+    outlookQuery,
+    reunioesQuery,
+    atividadesQuery,
+    supabase.from("usuarios").select("id, nome, email, avatar_url").order("nome"),
+    supabase
+      .from("colaboradores")
+      .select("id, nome, email, departamento, avatar_url, usuario_id")
+      .eq("ativo", true)
+      .order("nome"),
+  ]);
+
+  let reunioes = (reunioesRaw as ReuniaoComRelacoes[]) ?? [];
+  if (!isAdmin && pessoa?.id) {
+    reunioes = reunioes.filter((r) =>
+      (r.participantes ?? []).some(
+        (p) => p.colaborador?.usuario_id === pessoa.id
+      )
+    );
+  }
+
+  const items = mergeCalendarioItems(
+    (eventos as OutlookEventoComPessoa[]) ?? [],
+    reunioes,
+    (atividadesRaw as AtividadeComPessoa[]) ?? []
+  );
 
   return (
     <div className="space-y-4">
@@ -47,7 +98,7 @@ export default async function CalendarioPage() {
         </p>
       )}
       <OutlookClient
-        eventos={(eventos as OutlookEventoComPessoa[]) ?? []}
+        items={items}
         pessoas={pessoas ?? []}
         colaboradores={colaboradores ?? []}
         isAdmin={isAdmin}

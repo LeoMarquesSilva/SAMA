@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { statusCalendarColor, formatTimeRange } from "@/lib/calendario-events";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
-import type { OutlookEventoComPessoa } from "@/types/database";
+import { calendarioItemColor, formatTimeRange } from "@/lib/calendario-events";
+import type { CalendarioItem } from "@/lib/calendario-items";
 
 const MAX_VISIBLE = 3;
 
@@ -17,14 +17,14 @@ export function CalendarioEventChip({
   hideTimeBadgeOnMobile = false,
   size = "sm",
 }: {
-  evento: OutlookEventoComPessoa;
+  evento: CalendarioItem;
   onClick: () => void;
   showTime?: boolean;
   /** Oculta badge de horário em telas pequenas (ex.: mês no celular). */
   hideTimeBadgeOnMobile?: boolean;
   size?: "sm" | "md";
 }) {
-  const c = statusCalendarColor[evento.status];
+  const c = calendarioItemColor(evento);
   const time = showTime
     ? formatTimeRange(evento.inicio, evento.fim, evento.duracao_minutos)
     : null;
@@ -66,7 +66,11 @@ export function CalendarioEventChip({
           <div className="hidden flex-col gap-0.5 sm:flex">
             <div className="flex items-start justify-between gap-0.5">
               {time ? (
-                <CalendarioEventBadge status={evento.status} size={size}>
+                <CalendarioEventBadge
+                  status={evento.status}
+                  itemKind={evento.itemKind}
+                  size={size}
+                >
                   {time}
                 </CalendarioEventBadge>
               ) : (
@@ -91,7 +95,11 @@ export function CalendarioEventChip({
         <>
           <div className="flex items-start justify-between gap-0.5">
             {time ? (
-              <CalendarioEventBadge status={evento.status} size={size}>
+              <CalendarioEventBadge
+                status={evento.status}
+                itemKind={evento.itemKind}
+                size={size}
+              >
                 {time}
               </CalendarioEventBadge>
             ) : (
@@ -123,8 +131,8 @@ export function CalendarioDayEvents({
   hideTimeBadgeOnMobile = false,
   size = "sm",
 }: {
-  eventos: OutlookEventoComPessoa[];
-  onSelectEvento: (e: OutlookEventoComPessoa) => void;
+  eventos: CalendarioItem[];
+  onSelectEvento: (e: CalendarioItem) => void;
   showTime?: boolean;
   hideTimeBadgeOnMobile?: boolean;
   size?: "sm" | "md";

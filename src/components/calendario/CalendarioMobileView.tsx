@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { dayKey, groupSingleDayEventsByDay } from "@/lib/calendario-events";
-import { statusCalendarColor } from "@/lib/calendario-events";
+import { calendarioItemColor } from "@/lib/calendario-events";
+import type { CalendarioItem } from "@/lib/calendario-items";
 import {
   computeMultiDayPlacements,
   countMultiDayLanes,
@@ -33,7 +34,6 @@ import {
 import { CalendarioDayEvents } from "@/components/calendario/CalendarioEventChip";
 import { CalendarioMultiDayBar } from "@/components/calendario/CalendarioMultiDayBar";
 import { CalendarioDayTimeView } from "@/components/calendario/CalendarioDayTimeView";
-import type { OutlookEventoComPessoa } from "@/types/database";
 
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
@@ -43,8 +43,8 @@ export function CalendarioMobileView({
   eventos,
   onSelectEvento,
 }: {
-  eventos: OutlookEventoComPessoa[];
-  onSelectEvento: (e: OutlookEventoComPessoa) => void;
+  eventos: CalendarioItem[];
+  onSelectEvento: (e: CalendarioItem) => void;
 }) {
   const [gridMode, setGridMode] = useState<GridMode>("mes");
   const [cursorDate, setCursorDate] = useState(() => todayDateInTz());
@@ -310,18 +310,25 @@ export function CalendarioMobileView({
           [
             ["PENDENTE", "Pendente"],
             ["CATEGORIZADO_REUNIAO", "Reunião"],
-            ["CATEGORIZADO_ATIVIDADE", "Atividade"],
+            ["ATIVIDADE", "Atividade"],
             ["IGNORADO", "Ignorado"],
           ] as const
-        ).map(([status, label]) => (
+        ).map(([key, label]) => (
           <span
-            key={status}
+            key={key}
             className="inline-flex items-center gap-1 text-[10px] text-slate-500"
           >
             <span
               className={clsx(
                 "h-2 w-2 rounded-sm",
-                statusCalendarColor[status].chipBg
+                key === "ATIVIDADE"
+                  ? calendarioItemColor({
+                      status: "CATEGORIZADO_ATIVIDADE",
+                      itemKind: "atividade",
+                    }).chipBg
+                  : calendarioItemColor({
+                      status: key as "PENDENTE" | "CATEGORIZADO_REUNIAO" | "IGNORADO",
+                    }).chipBg
               )}
             />
             {label}
@@ -342,10 +349,10 @@ function WeekRow({
   height,
 }: {
   days: Date[];
-  eventos: OutlookEventoComPessoa[];
-  singleByDay: Map<string, OutlookEventoComPessoa[]>;
+  eventos: CalendarioItem[];
+  singleByDay: Map<string, CalendarioItem[]>;
   inMonth: (day: Date) => boolean;
-  onSelectEvento: (e: OutlookEventoComPessoa) => void;
+  onSelectEvento: (e: CalendarioItem) => void;
   onSelectDay: (day: Date) => void;
   height: "month" | "week";
 }) {
@@ -407,9 +414,9 @@ function DayCell({
   minHeight,
 }: {
   day: Date;
-  events: OutlookEventoComPessoa[];
+  events: CalendarioItem[];
   inMonth: boolean;
-  onSelectEvento: (e: OutlookEventoComPessoa) => void;
+  onSelectEvento: (e: CalendarioItem) => void;
   onSelectDay: (day: Date) => void;
   height: "month" | "week";
   lanesHeight: number;

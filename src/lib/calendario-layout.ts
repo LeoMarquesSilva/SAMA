@@ -1,4 +1,4 @@
-import type { OutlookEventoComPessoa } from "@/types/database";
+import type { CalendarioItem } from "@/lib/calendario-items";
 import {
   dayKey,
   eventSpanDays,
@@ -6,7 +6,7 @@ import {
 } from "@/lib/calendario-events";
 
 export type MultiDayPlacement = {
-  event: OutlookEventoComPessoa;
+  event: CalendarioItem;
   startCol: number;
   span: number;
   lane: number;
@@ -26,7 +26,7 @@ export function splitIntoWeeks(days: Date[]): Date[][] {
 /** Posiciona barras multi-dia numa semana (estilo Google Calendar). */
 export function computeMultiDayPlacements(
   weekDays: Date[],
-  eventos: OutlookEventoComPessoa[]
+  eventos: CalendarioItem[]
 ): MultiDayPlacement[] {
   type Candidate = Omit<MultiDayPlacement, "lane">;
   const candidates: Candidate[] = [];

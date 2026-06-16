@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
+import { DatetimeBrInput } from "@/components/ui/DatetimeBrInput";
 import { Button } from "@/components/ui/Button";
 import { PersonSelect } from "@/components/ui/PersonSelect";
 import { SelectMenu } from "@/components/ui/SelectMenu";
@@ -12,7 +13,7 @@ import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
   createAtividade,
   updateAtividade,
-} from "@/app/(app)/atividades/actions";
+} from "@/lib/atividades/actions";
 import type { AtividadeInterna, TipoAtividade } from "@/types/database";
 
 const TIPOS_COM_QUEM: TipoAtividade[] = [
@@ -184,20 +185,18 @@ export function AtividadeForm({
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Input
+          <DatetimeBrInput
             id="data_hora_inicio"
             name="data_hora_inicio"
-            type="datetime-local"
             label="Início"
             defaultValue={toDatetimeLocal(src?.data_hora_inicio)}
             error={fieldErrors.data_hora_inicio}
             onChange={autoFillDuracao}
             required
           />
-          <Input
+          <DatetimeBrInput
             id="data_hora_fim"
             name="data_hora_fim"
-            type="datetime-local"
             label="Fim (opcional)"
             defaultValue={toDatetimeLocal(src?.data_hora_fim)}
             error={fieldErrors.data_hora_fim}

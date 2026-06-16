@@ -19,11 +19,13 @@ export function RelatoriosBar({
   tipo,
   de,
   ate,
+  podeExportar = true,
 }: {
   periodo: string;
   tipo: string;
   de: string;
   ate: string;
+  podeExportar?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -70,21 +72,23 @@ export function RelatoriosBar({
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <a href={reunioesHref} download>
-          <Button variant="secondary" size="sm">
-            <Download size={15} /> Reuniões (CSV)
+      {podeExportar && (
+        <div className="flex flex-wrap gap-2">
+          <a href={reunioesHref} download>
+            <Button variant="secondary" size="sm">
+              <Download size={15} /> Reuniões (CSV)
+            </Button>
+          </a>
+          <a href={timesheetHref} download>
+            <Button variant="secondary" size="sm">
+              <Download size={15} /> Timesheet (CSV)
+            </Button>
+          </a>
+          <Button variant="secondary" size="sm" onClick={() => window.print()}>
+            <Printer size={15} /> Imprimir / PDF
           </Button>
-        </a>
-        <a href={timesheetHref} download>
-          <Button variant="secondary" size="sm">
-            <Download size={15} /> Timesheet (CSV)
-          </Button>
-        </a>
-        <Button variant="secondary" size="sm" onClick={() => window.print()}>
-          <Printer size={15} /> Imprimir / PDF
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

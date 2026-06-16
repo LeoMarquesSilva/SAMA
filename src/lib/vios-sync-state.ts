@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { formatDateTime } from "@/lib/format";
 
 /** Limite documentado pela API VIOS (integração BP). */
 export const VIOS_RATE_LIMIT_REQUESTS = 6;
@@ -168,11 +169,7 @@ export async function registrarSyncViosErro(
 
 function formatarProxima(iso: string): string {
   try {
-    return new Intl.DateTimeFormat("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-      timeZone: "America/Sao_Paulo",
-    }).format(new Date(iso));
+    return formatDateTime(iso);
   } catch {
     return iso;
   }

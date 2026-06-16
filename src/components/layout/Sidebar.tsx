@@ -7,47 +7,78 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  CalendarClock,
-  ClipboardList,
-  Clock,
   CalendarDays,
   BarChart3,
   Target,
   ListTodo,
 } from "lucide-react";
 import { APP_FULL_NAME, APP_NAME } from "@/lib/constants";
+import {
+  canAccessClientes,
+  canAccessRelatorios,
+  canAccessTarefas,
+  canAccessUsuarios,
+  type NavContext,
+} from "@/lib/nav-access";
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number }>;
-  adminOnly?: boolean;
+  visible: (ctx: NavContext) => boolean;
 };
 
 const items: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/reunioes", label: "Reuniões", icon: CalendarClock },
-  { href: "/atividades", label: "Atividades", icon: ClipboardList },
-  { href: "/tarefas", label: "Tarefas VIOS", icon: ListTodo },
-  { href: "/timesheet", label: "Timesheet", icon: Clock },
-  { href: "/pessoas", label: "Usuários", icon: Users, adminOnly: true },
-  { href: "/clientes", label: "Clientes", icon: Building2 },
-  { href: "/calendario", label: "Calendário", icon: CalendarDays },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    visible: () => true,
+  },
+  {
+    href: "/calendario",
+    label: "Calendário",
+    icon: CalendarDays,
+    visible: () => true,
+  },
+  {
+    href: "/pessoas",
+    label: "Usuários",
+    icon: Users,
+    visible: canAccessUsuarios,
+  },
+  {
+    href: "/clientes",
+    label: "Clientes",
+    icon: Building2,
+    visible: canAccessClientes,
+  },
+  {
+    href: "/relatorios",
+    label: "Relatórios",
+    icon: BarChart3,
+    visible: canAccessRelatorios,
+  },
+  {
+    href: "/tarefas",
+    label: "Tarefas VIOS",
+    icon: ListTodo,
+    visible: canAccessTarefas,
+  },
 ];
 
 export function Sidebar({
   badges = {},
-  isAdmin = false,
+  navContext,
 }: {
   badges?: Record<string, number>;
-  isAdmin?: boolean;
+  navContext: NavContext;
 }) {
   const pathname = usePathname();
+  const visibleItems = items.filter((item) => item.visible(navContext));
 
   return (
     <>
-      {/* Espaçador: mantém o layout estável enquanto a barra (fixa) expande por cima */}
       <div aria-hidden className="hidden w-[72px] shrink-0 md:block print:hidden" />
 
       <aside
@@ -58,7 +89,6 @@ export function Sidebar({
           "md:flex print:hidden"
         )}
       >
-        {/* Logo */}
         <div className="flex h-16 items-center px-[18px]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/30">
             <Target size={18} />
@@ -70,9 +100,7 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 space-y-1 px-2 py-3">
-          {items
-            .filter((item) => !item.adminOnly || isAdmin)
-            .map(({ href, label, icon: Icon }) => {
+          {visibleItems.map(({ href, label, icon: Icon }) => {
             const active =
               pathname === href || pathname.startsWith(href + "/");
             const badge = badges[href];
@@ -88,15 +116,12 @@ export function Sidebar({
                     : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                 )}
               >
-                {/* Indicador de ativo */}
                 {active && (
                   <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-600" />
                 )}
 
-                {/* Ícone centralizado no trilho de 56px */}
                 <span className="relative flex w-[56px] shrink-0 items-center justify-center">
                   <Icon size={20} />
-                  {/* Ponto de pendência quando recolhida */}
                   {badge ? (
                     <span className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white group-hover:hidden" />
                   ) : null}
@@ -106,7 +131,6 @@ export function Sidebar({
                   {label}
                 </span>
 
-                {/* Contagem de pendência quando expandida */}
                 {badge ? (
                   <span className="ml-auto mr-3 hidden h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white group-hover:inline-flex">
                     {badge}

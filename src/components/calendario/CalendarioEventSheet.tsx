@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal } from "@/components/ui/Modal";
-import type { OutlookEventoComPessoa } from "@/types/database";
+import type { CalendarioItem } from "@/lib/calendario-items";
 import type { ReactNode } from "react";
 
 /** Bottom sheet / modal para detalhes do evento no modo calendário. */
@@ -10,7 +10,7 @@ export function CalendarioEventSheet({
   onClose,
   children,
 }: {
-  evento: OutlookEventoComPessoa | null;
+  evento: CalendarioItem | null;
   onClose: () => void;
   children: ReactNode;
 }) {

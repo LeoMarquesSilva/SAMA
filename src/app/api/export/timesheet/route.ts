@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { formatDate } from "@/lib/format";
+import { canExportRelatorios } from "@/lib/nav-access";
 import { TIPO_ATIVIDADE_INTERNA } from "@/lib/constants";
 
 function csv(v: unknown): string {
@@ -21,8 +22,13 @@ export async function GET(request: Request) {
   if (!user) return new Response("Não autorizado", { status: 401 });
 
   const eu = await getPessoaAtual();
-  const isAdmin = eu?.is_admin ?? false;
-  const scope = isAdmin ? pessoa : eu?.id ?? "__none__";
+  if (
+    !eu ||
+    !canExportRelatorios({ cargo: eu.cargo, isAdmin: eu.is_admin ?? false })
+  ) {
+    return new Response("Não autorizado", { status: 403 });
+  }
+  const scope = pessoa || undefined;
 
   let q = supabase
     .from("timesheet_entradas")

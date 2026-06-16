@@ -82,14 +82,10 @@ export function prefillAtividadeFromTarefa(
 export function prefillReuniaoFromTarefa(
   t: ViosTarefaRow
 ): Partial<ReuniaoComRelacoes> {
-  const temaParts = [t.cliente, t.grupo_cliente, t.descricao?.slice(0, 200)]
-    .filter(Boolean)
-    .map((s) => String(s).trim());
   return {
     titulo: tituloCompletoTarefa(t),
     tipo: "GESTAO_OPERACIONAL",
     data_hora_inicio: tarefaDataHoraLocal(t),
-    tema: temaParts.length ? temaParts.join(" — ") : null,
     ...(t.cliente
       ? {
           cliente: {
