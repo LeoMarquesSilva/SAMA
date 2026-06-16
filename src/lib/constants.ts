@@ -27,7 +27,7 @@ export const DEPARTAMENTO_USUARIO = [
 
 export type DepartamentoUsuario = (typeof DEPARTAMENTO_USUARIO)[number];
 
-export function departamentoUsuarioOptions() {
+export function departamentoUsuarioOptions(): { value: string; label: string }[] {
   return DEPARTAMENTO_USUARIO.map((label) => ({ value: label, label }));
 }
 
