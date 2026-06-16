@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { SelectMenu } from "@/components/ui/SelectMenu";
-import { CARGO_PESSOA } from "@/lib/constants";
+import { CARGO_PESSOA, departamentoUsuarioOptions } from "@/lib/constants";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import { createPessoa, updatePessoa } from "@/app/(app)/pessoas/actions";
 import type { Pessoa } from "@/types/database";
@@ -26,12 +26,22 @@ export function PessoaForm({
   const [pending, startTransition] = useTransition();
   const editing = Boolean(pessoa);
 
+  const departamentoOptions = useMemo(() => {
+    const opts = departamentoUsuarioOptions();
+    const atual = pessoa?.departamento?.trim();
+    if (atual && !opts.some((o) => o.value === atual)) {
+      opts.push({ value: atual, label: `${atual} (atual)` });
+    }
+    return opts;
+  }, [pessoa?.departamento]);
+
   function handleSubmit(formData: FormData) {
     setError(undefined);
     const errs = validateFields(
       {
         nome: formData.get("nome"),
         email: formData.get("email"),
+        departamento: formData.get("departamento"),
       },
       {
         nome: { required: "Informe o nome." },
@@ -39,6 +49,7 @@ export function PessoaForm({
           required: "Informe o e-mail.",
           email: "E-mail inválido — ex.: nome@bismarchipires.com.br",
         },
+        departamento: { required: "Selecione um departamento." },
       }
     );
     setFieldErrors(errs);
@@ -90,11 +101,13 @@ export function PessoaForm({
               label,
             }))}
           />
-          <Input
-            id="departamento"
+          <SelectMenu
             name="departamento"
             label="Departamento"
+            placeholder="Selecionar departamento"
             defaultValue={pessoa?.departamento ?? ""}
+            options={departamentoOptions}
+            error={fieldErrors.departamento}
           />
         </div>
         <label className="flex items-center gap-2 text-sm text-slate-700">

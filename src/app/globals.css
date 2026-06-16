@@ -44,3 +44,54 @@ body {
 .animate-dialog-in {
   animation: dialog-in 0.16s ease-out;
 }
+
+@keyframes login-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-fade-up {
+  animation: login-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-brand-panel {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05), transparent 40%),
+    linear-gradient(145deg, #101f2e 0%, #0c1723 55%, #081018 100%);
+}
+
+.login-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 75%);
+}
+
+@keyframes login-glow-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(12px, -8px) scale(1.05);
+  }
+}
+
+.login-glow {
+  animation: login-glow-drift 12s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-fade-up,
+  .login-glow {
+    animation: none;
+  }
+}

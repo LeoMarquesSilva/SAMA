@@ -21,8 +21,7 @@ export const pessoaSchema = z.object({
   departamento: z
     .string()
     .trim()
-    .optional()
-    .transform((v) => (v === "" ? undefined : v)),
+    .min(1, "Selecione um departamento."),
   is_admin: z.boolean(),
 });
 

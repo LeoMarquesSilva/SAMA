@@ -4,6 +4,16 @@ import { variantesEmailEscritorio } from "@/lib/email-escritorio";
 
 const STALE_MS = 6 * 60 * 60 * 1000; // 6h
 
+/** URLs oficiais do site quando o espelho do Responsum está desatualizado. */
+const AVATAR_URL_OVERRIDES: Record<string, string> = {
+  "renato@bismarchipires.com.br":
+    "https://www.bismarchipires.com.br/img/team/trabalhista/renato-vallim.jpg",
+};
+
+function avatarUrlColaborador(email: string, avatarUrl: string | null): string | null {
+  return AVATAR_URL_OVERRIDES[email.trim().toLowerCase()] ?? avatarUrl;
+}
+
 export type ColaboradorOpt = {
   id: string;
   nome: string;
@@ -52,7 +62,7 @@ export async function sincronizarColaboradores(): Promise<{
     nome: r.name,
     email: r.email,
     departamento: r.department ?? null,
-    avatar_url: r.avatar_url ?? null,
+    avatar_url: avatarUrlColaborador(r.email, r.avatar_url ?? null),
     ativo: true,
     usuario_id:
       variantesEmailEscritorio(r.email)

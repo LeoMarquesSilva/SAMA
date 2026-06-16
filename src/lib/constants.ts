@@ -11,6 +11,26 @@ export const CARGO_PESSOA = {
 } as const;
 export type CargoPessoa = keyof typeof CARGO_PESSOA;
 
+/** Áreas/departamentos do escritório (cadastro de usuários). */
+export const DEPARTAMENTO_USUARIO = [
+  "Cível",
+  "Distressed Deals - Special Situations",
+  "Geral",
+  "Operações Legais",
+  "Reestruturação e Insolvência",
+  "Societário e Contratos",
+  "Sócio",
+  "T.I",
+  "Trabalhista",
+  "Tributário",
+] as const;
+
+export type DepartamentoUsuario = (typeof DEPARTAMENTO_USUARIO)[number];
+
+export function departamentoUsuarioOptions() {
+  return DEPARTAMENTO_USUARIO.map((label) => ({ value: label, label }));
+}
+
 /** Sócio fundador — acesso total ao sistema (espelha is_admin no banco). */
 export function isAdminCargo(cargo: CargoPessoa): boolean {
   return cargo === "SOCIO";

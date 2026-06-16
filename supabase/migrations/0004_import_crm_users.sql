@@ -20,7 +20,7 @@ values
   ('Leonardo Marques',           'leonardo.marques@bismarchipires.com.br',    'COLABORADOR', 'Cível',                        'https://www.bismarchipires.com.br/blog/wp-content/uploads/2026/03/Captura-de-tela-2026-03-02-174232.png', false, false),
   ('Ligia Lopes',                'ligia@bismarchipires.com.br',               'COLABORADOR', 'Reestruturação e Insolvência', 'https://www.bismarchipires.com.br/img/team/reestruturacao/ligia-gilberti-lopes.jpg', false, false),
   ('Michel Malaquias',           'michel.malaquias@bismarchipires.com.br',    'COLABORADOR', 'Distressed Deals',             'https://www.bismarchipires.com.br/img/team/distressed-deals/michel.jpg', false, false),
-  ('Renato Vallim',              'renato@bismarchipires.com.br',              'COLABORADOR', 'Trabalhista',                  'https://www.bismarchipires.com.br/img/team/trabalhista/renato-rossetti.jpg', false, false),
+  ('Renato Vallim',              'renato@bismarchipires.com.br',              'COLABORADOR', 'Trabalhista',                  'https://www.bismarchipires.com.br/img/team/trabalhista/renato-vallim.jpg', false, false),
   ('Ricardo Viscardi Pires',     'ricardo@bismarchipires.com.br',             'SOCIO',       'Sócio',                        'https://www.bismarchipires.com.br/img/team/ricardo-pires.jpg', true, false),
   ('Wagner Armani',              'wagner.armani@bismarchipires.com.br',       'COLABORADOR', 'Societário e Contratos',       'https://www.bismarchipires.com.br/img/team/reestruturacao/wagner.jpg', false, false)
 on conflict (email) do nothing;
