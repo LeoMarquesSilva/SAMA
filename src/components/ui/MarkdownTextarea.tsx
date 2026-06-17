@@ -2,11 +2,7 @@
 
 import { clsx } from "clsx";
 import { useEffect, useId, useRef, type HTMLAttributes } from "react";
-import {
-  htmlToMarkdown,
-  markdownToHtml,
-  normalizeEditorHtml,
-} from "@/lib/markdown-editor";
+import { htmlToMarkdown, markdownToHtml } from "@/lib/markdown-editor";
 
 type MarkdownTextareaProps = Omit<
   HTMLAttributes<HTMLDivElement>,
@@ -51,10 +47,12 @@ export function MarkdownTextarea({
     const el = editorRef.current;
     if (!el) return;
 
+    // Apenas extrai o markdown — NÃO reescreve o DOM a cada tecla.
+    // Reescrever o innerHTML colapsava o espaço recém-digitado (HTML colapsa
+    // espaços no fim e htmlToMarkdown faz trim), travando a barra de espaço.
+    // A conversão markdown→HTML acontece no useEffect quando o campo perde o foco.
     syncing.current = true;
-    const markdown = htmlToMarkdown(el.innerHTML);
-    normalizeEditorHtml(el, markdown);
-    onChange(markdown);
+    onChange(htmlToMarkdown(el.innerHTML));
     syncing.current = false;
   }
 
@@ -93,7 +91,7 @@ export function MarkdownTextarea({
           document.execCommand("insertText", false, text);
         }}
         className={clsx(
-          "min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500",
+          "min-w-0 whitespace-pre-wrap break-words rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500",
           "empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]",
           error && "border-red-400 focus:border-red-500 focus:ring-red-500",
           className
