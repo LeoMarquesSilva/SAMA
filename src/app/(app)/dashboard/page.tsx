@@ -150,7 +150,10 @@ export default async function DashboardPage({
   }
   let reunioes = (reunioesRaw as RRow[]) ?? [];
   const donoPorReuniao = buildDonoCalendarioMap(
-    (outlookDonoRaw ?? []) as OutlookEventoComPessoa[],
+    // Seleção parcial (reuniao_id, pessoa_id, outlook_event_id, pessoa) — únicos
+    // campos usados por buildDonoCalendarioMap. Cast via unknown pois o tipo
+    // completo exige colunas que não buscamos aqui.
+    (outlookDonoRaw ?? []) as unknown as OutlookEventoComPessoa[],
     reunioes as ReuniaoComRelacoes[]
   );
   if (pessoaScope && pessoaScope !== "__none__") {
