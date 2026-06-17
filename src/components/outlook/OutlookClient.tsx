@@ -12,7 +12,6 @@ import {
   Building2,
   Users,
   Undo2,
-  Search,
   X,
   ChevronDown,
   Crown,
@@ -21,8 +20,7 @@ import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar, PersonTag, AvatarGroup } from "@/components/ui/Avatar";
-import { PersonSelect } from "@/components/ui/PersonSelect";
-import { SelectMenu } from "@/components/ui/SelectMenu";
+import { PessoaChips } from "@/components/ui/PessoaChips";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { limparCorpoOutlook } from "@/lib/outlook";
 import { ReuniaoForm } from "@/components/reunioes/ReuniaoForm";
@@ -134,13 +132,11 @@ export function OutlookClient({
   const [fStatus, setFStatus] = useState<string>(inicial.fStatus);
   const [fTipo, setFTipo] = useState<CalendarioTipoFiltro>(inicial.fTipo);
   const [fPessoa, setFPessoa] = useState<string>(inicial.fPessoa);
-  const [fModalidade, setFModalidade] = useState<string>("");
   const [fKind, setFKind] = useState(inicial.fKind);
   const [fTipoDetalhe, setFTipoDetalhe] = useState(inicial.fTipoDetalhe);
   const [fStatusDetalhe, setFStatusDetalhe] = useState(inicial.fStatusDetalhe);
   const [fPeriodo, setFPeriodo] = useState(inicial.fPeriodo);
   const [fDataDia, setFDataDia] = useState(inicial.fDataDia);
-  const [busca, setBusca] = useState<string>("");
   const [reuniaoEvento, setReuniaoEvento] =
     useState<CalendarioItem | null>(null);
   const [atividadeEvento, setAtividadeEvento] =
@@ -196,7 +192,6 @@ export function OutlookClient({
   }, [items]);
 
   const filtradoBase = useMemo(() => {
-    const q = busca.trim().toLowerCase();
     return items.filter((e) => {
       if (fPeriodo) {
         if (
@@ -247,24 +242,6 @@ export function OutlookClient({
           return false;
         }
       }
-      if (fModalidade === "ONLINE" && !e.online) return false;
-      if (fModalidade === "PRESENCIAL" && e.online) return false;
-      if (q) {
-        const hay = [
-          e.titulo,
-          e.organizador_nome,
-          e.organizador_email,
-          e.local,
-          e.corpo_preview,
-          e.atividade?.tipo ? TIPO_ATIVIDADE_INTERNA[e.atividade.tipo] : "",
-          e.reuniao?.tipo ? TIPO_REUNIAO[e.reuniao.tipo] : "",
-          ...(e.participantes ?? []).flatMap((p) => [p.nome, p.email]),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
       return true;
     });
   }, [
@@ -276,8 +253,6 @@ export function OutlookClient({
     fTipoDetalhe,
     fTipo,
     fPessoa,
-    fModalidade,
-    busca,
     isAdmin,
     donoPorReuniao,
   ]);
@@ -322,8 +297,6 @@ export function OutlookClient({
   const pendentes = items.filter(isOutlookPendente).length;
   const filtrosAtivos = Boolean(
     fPessoa ||
-      fModalidade ||
-      busca ||
       fTipo !== "TODOS" ||
       fKind ||
       fTipoDetalhe ||
@@ -531,63 +504,33 @@ export function OutlookClient({
         ))}
       </div>
 
-      {/* Busca + selects */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:min-w-[220px]">
-          <Search
-            size={15}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-          <input
-            type="text"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por título, pessoa ou e-mail…"
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 focus:border-brand-500 focus:outline-none"
-          />
-        </div>
-
+      {/* Filtro de pessoas (chips) */}
+      <div className="space-y-2">
         {isAdmin && (
-          <PersonSelect
+          <PessoaChips
             pessoas={pessoasComEventos}
             value={fPessoa}
             onChange={setFPessoa}
-            placeholder="Todas as pessoas"
-            emptyLabel="Todas as pessoas"
-            className="min-w-[200px]"
           />
         )}
-
-        <SelectMenu
-          value={fModalidade}
-          onChange={setFModalidade}
-          emptyOption="Todas as modalidades"
-          placeholder="Todas as modalidades"
-          options={[
-            { value: "ONLINE", label: "Online" },
-            { value: "PRESENCIAL", label: "Presencial" },
-          ]}
-          className="sm:w-52"
-        />
-
         {filtrosAtivos && (
-          <button
-            onClick={() => {
-              setBusca("");
-              setFPessoa("");
-              setFModalidade("");
-              setFTipo("TODOS");
-              setFStatus("TODOS");
-              setFKind("");
-              setFTipoDetalhe("");
-              setFStatusDetalhe("");
-              setFPeriodo("");
-              setFDataDia("");
-            }}
-            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X size={14} /> Limpar
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={() => {
+                setFPessoa("");
+                setFTipo("TODOS");
+                setFStatus("TODOS");
+                setFKind("");
+                setFTipoDetalhe("");
+                setFStatusDetalhe("");
+                setFPeriodo("");
+                setFDataDia("");
+              }}
+              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X size={14} /> Limpar filtros
+            </button>
+          </div>
         )}
       </div>
 

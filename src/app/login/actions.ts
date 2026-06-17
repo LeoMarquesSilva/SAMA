@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { sincronizarCalendarioAutomatico } from "@/app/(app)/calendario/actions";
 import { countEventosPendentes, landingPath } from "@/lib/calendario";
 import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
@@ -60,8 +59,8 @@ export async function login(
     redirect("/trocar-senha");
   }
 
-  await sincronizarCalendarioAutomatico();
-
+  // A sincronização do Outlook não roda mais no login (era bloqueante).
+  // Ela acontece ao abrir a tela do calendário (CalendarioAutoSync, throttle 5 min).
   const pendentes = await countEventosPendentes(supabase, {
     pessoaId: perfil.id,
     isAdmin: perfil.is_admin,

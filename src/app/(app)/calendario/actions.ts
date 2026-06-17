@@ -134,22 +134,30 @@ export async function sincronizarOutlook(
 
 export async function ignorarEvento(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("outlook_eventos")
     .update({ status: "IGNORADO", categorizado_em: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: "Erro ao ignorar evento." };
+  if (!data?.length) {
+    return { ok: false, error: "Sem permissão para alterar este evento." };
+  }
   revalidateCalendario();
   return { ok: true };
 }
 
 export async function reverterEvento(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("outlook_eventos")
     .update({ status: "PENDENTE", categorizado_em: null })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: "Erro ao reverter evento." };
+  if (!data?.length) {
+    return { ok: false, error: "Sem permissão para alterar este evento." };
+  }
   revalidateCalendario();
   return { ok: true };
 }

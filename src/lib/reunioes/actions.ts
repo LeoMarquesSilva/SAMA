@@ -272,15 +272,19 @@ export async function cancelarReuniao(
     return { ok: false, error: "Informe o motivo do cancelamento." };
   }
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("reunioes")
     .update({
       status: "CANCELADA",
       motivo_cancelamento: motivo.trim(),
       cancelado_em: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: "Erro ao cancelar." };
+  if (!data?.length) {
+    return { ok: false, error: "Sem permissão para cancelar esta reunião." };
+  }
   revalidateReunioes();
   return { ok: true };
 }
@@ -290,19 +294,30 @@ export async function mudarStatusReuniao(
   status: string
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("reunioes")
     .update({ status })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: "Erro ao mudar status." };
+  if (!data?.length) {
+    return { ok: false, error: "Sem permissão para alterar esta reunião." };
+  }
   revalidateReunioes();
   return { ok: true };
 }
 
 export async function deleteReuniao(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.from("reunioes").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("reunioes")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: "Erro ao excluir." };
+  if (!data?.length) {
+    return { ok: false, error: "Sem permissão para excluir esta reunião." };
+  }
   revalidateReunioes();
   return { ok: true };
 }

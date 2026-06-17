@@ -8,7 +8,6 @@ import { ConfirmProvider } from "@/components/ui/Confirm";
 
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { AlertasPendentesOverlay } from "@/components/layout/AlertasPendentesOverlay";
-import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
 import { CALENDARIO_PATH, countEventosPendentes } from "@/lib/calendario";
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
 import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
@@ -66,7 +65,6 @@ export default async function AppLayout({
   return (
     <ToastProvider>
       <ConfirmProvider>
-        <CalendarioAutoSync />
         <RealtimeRefresh
           tables={[
             "outlook_eventos",

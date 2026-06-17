@@ -113,11 +113,15 @@ export async function updateAtividade(
 
 export async function deleteAtividade(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("atividades_internas")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: "Erro ao excluir atividade." };
+  if (!data?.length) {
+    return { ok: false, error: "Sem permissão para excluir esta atividade." };
+  }
   revalidateAtividades();
   return { ok: true };
 }

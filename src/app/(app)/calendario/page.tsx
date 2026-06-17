@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
+import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
 import { calendarioEventQueryRange } from "@/lib/calendario";
 import { parseCalendarioFiltroInicial } from "@/lib/dashboard-filtros";
 import {
@@ -106,6 +107,7 @@ export default async function CalendarioPage({
 
   return (
     <div className="space-y-4">
+      <CalendarioAutoSync />
       {!outlookConfigurado() && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
           Credenciais da Microsoft não detectadas no ambiente. A sincronização

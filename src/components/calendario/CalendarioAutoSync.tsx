@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import { sincronizarCalendarioAutomatico } from "@/app/(app)/calendario/actions";
 
 const STORAGE_KEY = "sama_cal_sync_at";
-const COOLDOWN_MS = 30 * 60 * 1000;
+const COOLDOWN_MS = 5 * 60 * 1000;
 
-/** Atualiza o calendário em background (throttle de 30 min por aba). */
+/**
+ * Sincroniza o calendário do Outlook ao abrir a tela do calendário.
+ * Montado na página /calendario: o efeito roda a cada vez que a tela é aberta,
+ * com throttle de 5 min por aba para evitar chamadas repetidas ao Graph.
+ */
 export function CalendarioAutoSync() {
   const router = useRouter();
   const started = useRef(false);
