@@ -697,6 +697,14 @@ export function ReuniaoForm({
           </p>
         )}
 
+        <ParticipantesPicker
+          key={prefillKey || reuniao?.id || "novo"}
+          colaboradores={colaboradores}
+          defaultSelected={participantesIniciais}
+          defaultExternos={externosIniciais}
+          error={fieldErrors.participantes}
+        />
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <DatetimeBrInput
             id={fieldId("data_hora_inicio")}
@@ -806,14 +814,6 @@ export function ReuniaoForm({
             required
           />
         )}
-
-        <ParticipantesPicker
-          key={prefillKey || reuniao?.id || "novo"}
-          colaboradores={colaboradores}
-          defaultSelected={participantesIniciais}
-          defaultExternos={externosIniciais}
-          error={fieldErrors.participantes}
-        />
 
         {modalidade === "ONLINE" && (
           <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
