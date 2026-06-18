@@ -6,6 +6,7 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { getCalendarEvents, outlookConfigurado } from "@/lib/graph";
 import { clearAlertasLoginCookie } from "@/lib/alertas-login";
 import { CALENDARIO_PATH } from "@/lib/calendario";
+import { alinharRegistrosComOutlook } from "@/lib/outlook-sync-horarios";
 
 export type ActionResult = { ok: boolean; error?: string };
 export type SyncResult = {
@@ -127,6 +128,8 @@ export async function sincronizarOutlook(
       });
     }
   }
+
+  await alinharRegistrosComOutlook(supabase);
 
   revalidateCalendario();
   return { ok: true, importados, pessoasOk, pessoasErro, detalhes };

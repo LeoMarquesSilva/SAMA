@@ -44,7 +44,9 @@ import {
   emailsEnvolvidosOutlook,
   reuniaoGrupoVisivelParaUsuario,
   itemGrupoVisivelParaUsuario,
+  itemTemGrupoCalendario,
   countPendentesNoItem,
+  statusCalendarioParaUsuario,
 } from "@/lib/calendario-items";
 import {
   itemNoPeriodoDashboard,
@@ -58,6 +60,7 @@ import {
   buscarNoMapaPorEmail,
   emailExisteNoMapa,
   emailsEscritorioIguais,
+  normalizeEscritorioEmail,
   registrarEmailNoMapa,
 } from "@/lib/email-escritorio";
 import {
@@ -239,7 +242,7 @@ export function OutlookClient({
 
       if (!itemMatchesTipo(e, fTipo)) return false;
       if (isAdmin && fPessoa) {
-        if (itemTemGrupo(e)) {
+        if (itemTemGrupoCalendario(e)) {
           if (!itemGrupoVisivelParaUsuario(e, fPessoa, outlookVinculos)) {
             return false;
           }
@@ -320,26 +323,7 @@ export function OutlookClient({
   );
 
   function onSelectItem(item: CalendarioItem) {
-    const membros =
-      (item.grupoOutlook?.length ?? 0) + (item.grupoReunioes?.length ?? 0);
-
-    if (membros > 1) {
-      if (fPessoa) {
-        const outlookMatch = item.grupoOutlook?.find(
-          (g) => g.pessoa?.id === fPessoa
-        );
-        if (outlookMatch) {
-          setSheetEvento(outlookMatch.item);
-          return;
-        }
-        const reuniaoMatch = item.grupoReunioes?.find(
-          (g) => g.pessoa?.id === fPessoa
-        );
-        if (reuniaoMatch) {
-          setEditReuniao(reuniaoMatch.reuniao);
-          return;
-        }
-      }
+    if (itemTemGrupoCalendario(item)) {
       setGrupoReuniaoItem(item);
       return;
     }
@@ -508,6 +492,7 @@ export function OutlookClient({
             <CalendarioMobileView
               eventos={lista}
               onSelectEvento={onSelectItem}
+              pessoaAtualId={pessoaAtualId}
             />
           )}
 
@@ -521,6 +506,7 @@ export function OutlookClient({
                 isAdmin={isAdmin}
                 pending={pending}
                 avatarPorEmail={avatarPorEmail}
+                pessoaAtualId={pessoaAtualId}
                 onReuniao={() => {
                   setReuniaoEvento(sheetEvento);
                   setSheetEvento(null);
@@ -560,11 +546,12 @@ export function OutlookClient({
                 isAdmin={isAdmin}
                 pending={pending}
                 avatarPorEmail={avatarPorEmail}
+                pessoaAtualId={pessoaAtualId}
                 onReuniao={() =>
-                  itemTemGrupo(e) ? onSelectItem(e) : setReuniaoEvento(e)
+                  itemTemGrupoCalendario(e) ? onSelectItem(e) : setReuniaoEvento(e)
                 }
                 onAtividade={() =>
-                  itemTemGrupo(e) ? onSelectItem(e) : setAtividadeEvento(e)
+                  itemTemGrupoCalendario(e) ? onSelectItem(e) : setAtividadeEvento(e)
                 }
                 onIgnorar={() => ignorar(e.sourceId)}
                 onReverter={() => reverter(e.sourceId)}
@@ -657,7 +644,7 @@ export function OutlookClient({
         evento={grupoReuniaoItem}
         onClose={() => setGrupoReuniaoItem(null)}
       >
-        {grupoReuniaoItem && itemTemGrupo(grupoReuniaoItem) && (
+        {grupoReuniaoItem && itemTemGrupoCalendario(grupoReuniaoItem) && (
           <div className="space-y-3">
             <p className="text-sm text-slate-600">
               Este evento aparece no calendário de cada sócio separadamente.
@@ -718,16 +705,18 @@ export function OutlookClient({
                 </li>
               ))}
             </ul>
+            {(grupoReuniaoItem.grupoOutlook?.length ?? 0) +
+              (grupoReuniaoItem.grupoReunioes?.length ?? 0) ===
+              0 && (
+              <p className="text-sm text-amber-700">
+                Não foi possível listar os calendários individuais. Tente
+                atualizar a página.
+              </p>
+            )}
           </div>
         )}
       </CalendarioEventSheet>
     </div>
-  );
-}
-
-function itemTemGrupo(item: CalendarioItem): boolean {
-  return (
-    (item.grupoOutlook?.length ?? 0) + (item.grupoReunioes?.length ?? 0) > 1
   );
 }
 
@@ -794,6 +783,7 @@ function EventoCard({
   isAdmin,
   pending,
   avatarPorEmail,
+  pessoaAtualId = null,
   onReuniao,
   onAtividade,
   onIgnorar,
@@ -804,6 +794,7 @@ function EventoCard({
   isAdmin: boolean;
   pending: boolean;
   avatarPorEmail: Map<string, string | null>;
+  pessoaAtualId?: string | null;
   onReuniao: () => void;
   onAtividade: () => void;
   onIgnorar: () => void;
@@ -812,7 +803,8 @@ function EventoCard({
 }) {
   const [showEnvolvidos, setShowEnvolvidos] = useState(false);
   const [corpoExpandido, setCorpoExpandido] = useState(false);
-  const s = statusInfo[e.status];
+  const status = statusCalendarioParaUsuario(e, pessoaAtualId);
+  const s = statusInfo[status];
   const corpo = limparCorpoOutlook(e.corpo_preview);
 
   // Organizador + participantes + dono do calendário, sem duplicar por e-mail.
@@ -922,7 +914,10 @@ function EventoCard({
                 const avatar = buscarNoMapaPorEmail(avatarPorEmail, p.email) ?? null;
                 const interno = emailExisteNoMapa(avatarPorEmail, p.email);
                 return (
-                  <li key={p.email} className="flex items-start gap-2">
+                  <li
+                    key={normalizeEscritorioEmail(p.email)}
+                    className="flex items-start gap-2"
+                  >
                     <Avatar nome={p.nome} src={avatar} size={30} />
                     <div className="min-w-0 leading-tight">
                       <p className="flex items-center gap-1 text-sm font-medium text-slate-700">
@@ -953,7 +948,7 @@ function EventoCard({
       )}
 
       {/* Ações */}
-      {e.status === "PENDENTE" ? (
+      {status === "PENDENTE" ? (
         <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
           <Button size="sm" onClick={onReuniao}>
             <CalendarClock size={15} /> Reclassificação Reunião

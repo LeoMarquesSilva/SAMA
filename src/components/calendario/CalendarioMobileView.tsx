@@ -42,9 +42,11 @@ type GridMode = "mes" | "semana" | "dia";
 export function CalendarioMobileView({
   eventos,
   onSelectEvento,
+  pessoaAtualId = null,
 }: {
   eventos: CalendarioItem[];
   onSelectEvento: (e: CalendarioItem) => void;
+  pessoaAtualId?: string | null;
 }) {
   const [gridMode, setGridMode] = useState<GridMode>("mes");
   const [cursorDate, setCursorDate] = useState(() => todayDateInTz());
@@ -287,6 +289,7 @@ export function CalendarioMobileView({
             onSelectEvento={onSelectEvento}
             onSelectDay={goToDay}
             height="month"
+            pessoaAtualId={pessoaAtualId}
           />
         ))
       ) : gridMode === "semana" ? (
@@ -298,12 +301,14 @@ export function CalendarioMobileView({
           onSelectEvento={onSelectEvento}
           onSelectDay={goToDay}
           height="week"
+          pessoaAtualId={pessoaAtualId}
         />
       ) : (
         <CalendarioDayTimeView
           date={cursorDate}
           eventos={eventos}
           onSelectEvento={onSelectEvento}
+          pessoaAtualId={pessoaAtualId}
         />
       )}
 
@@ -354,6 +359,7 @@ function WeekRow({
   onSelectEvento,
   onSelectDay,
   height,
+  pessoaAtualId = null,
 }: {
   days: Date[];
   eventos: CalendarioItem[];
@@ -362,6 +368,7 @@ function WeekRow({
   onSelectEvento: (e: CalendarioItem) => void;
   onSelectDay: (day: Date) => void;
   height: "month" | "week";
+  pessoaAtualId?: string | null;
 }) {
   const [weekExpanded, setWeekExpanded] = useState(false);
   const placements = useMemo(
@@ -387,6 +394,7 @@ function WeekRow({
           minHeight={minDayHeight}
           weekExpanded={weekExpanded}
           onWeekExpandedChange={setWeekExpanded}
+          pessoaAtualId={pessoaAtualId}
         />
       ))}
 
@@ -405,6 +413,7 @@ function WeekRow({
               placement={p}
               onClick={onSelectEvento}
               hideBadgesOnMobile={height === "month"}
+              pessoaAtualId={pessoaAtualId}
             />
           ))}
         </div>
@@ -424,6 +433,7 @@ function DayCell({
   minHeight,
   weekExpanded,
   onWeekExpandedChange,
+  pessoaAtualId = null,
 }: {
   day: Date;
   events: CalendarioItem[];
@@ -435,6 +445,7 @@ function DayCell({
   minHeight: number;
   weekExpanded: boolean;
   onWeekExpandedChange: (expanded: boolean) => void;
+  pessoaAtualId?: string | null;
 }) {
   const today = isTodayInTz(day);
   const dayNum = formatDayInTz(day);
@@ -479,6 +490,7 @@ function DayCell({
         size={height === "week" ? "md" : "sm"}
         expanded={weekExpanded}
         onExpandedChange={onWeekExpandedChange}
+        pessoaAtualId={pessoaAtualId}
       />
     </div>
   );

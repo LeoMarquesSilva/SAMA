@@ -4,7 +4,12 @@ import type {
   OutlookEventoStatus,
   ReuniaoComRelacoes,
 } from "@/types/database";
-import { emailsEscritorioIguais } from "@/lib/email-escritorio";
+import { calendarioItemColor } from "@/lib/calendario-events";
+import type { CalendarioColor } from "@/lib/calendario-events";
+import {
+  emailsEscritorioIguais,
+  normalizeEscritorioEmail,
+} from "@/lib/email-escritorio";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
 
 export type CalendarioItemKind = "outlook" | "reuniao" | "atividade";
@@ -284,8 +289,10 @@ function mergeGrupoCalendarioAdmin(
     const pessoa = pessoaResumoDeItem(item);
     if (pessoa) pessoasMap.set(pessoa.id, pessoa);
 
-    if (item.itemKind === "reuniao" && item.reuniao) {
-      grupoReunioes.push({ reuniao: item.reuniao, pessoa });
+    if (item.itemKind === "reuniao") {
+      if (item.reuniao) {
+        grupoReunioes.push({ reuniao: item.reuniao, pessoa });
+      }
     } else if (item.itemKind === "outlook") {
       grupoOutlook.push({ item, pessoa });
     }
@@ -353,6 +360,14 @@ export function agruparReunioesDuplicadasAdmin(
     const tb = b.inicio ? new Date(b.inicio).getTime() : 0;
     return tb - ta;
   });
+}
+
+/** Item agrupado (mesmo compromisso em calendários de vários sócios). */
+export function itemTemGrupoCalendario(item: CalendarioItem): boolean {
+  if ((item.grupoPessoas?.length ?? 0) > 1) return true;
+  return (
+    (item.grupoOutlook?.length ?? 0) + (item.grupoReunioes?.length ?? 0) > 1
+  );
 }
 
 /** Rótulo dos sócios donos do item (agrupado ou individual). */
@@ -428,6 +443,35 @@ export function isOutlookPendente(item: CalendarioItem): boolean {
   return item.itemKind === "outlook" && item.status === "PENDENTE";
 }
 
+/** Status do item para exibição — prioriza o calendário do usuário logado em grupos admin. */
+export function statusCalendarioParaUsuario(
+  item: CalendarioItem,
+  usuarioId?: string | null
+): OutlookEventoStatus {
+  if (usuarioId) {
+    const outlookMeu = item.grupoOutlook?.find(
+      (g) => g.pessoa?.id === usuarioId
+    );
+    if (outlookMeu) return outlookMeu.item.status;
+
+    const reuniaoMeu = item.grupoReunioes?.find(
+      (g) => g.pessoa?.id === usuarioId
+    );
+    if (reuniaoMeu) return "CATEGORIZADO_REUNIAO";
+  }
+  return item.status;
+}
+
+export function corCalendarioItemParaUsuario(
+  item: CalendarioItem,
+  usuarioId?: string | null
+): CalendarioColor {
+  return calendarioItemColor({
+    status: statusCalendarioParaUsuario(item, usuarioId),
+    itemKind: item.itemKind,
+  });
+}
+
 /** Organizador + convidados + dono do calendário (sem duplicar e-mail). */
 export function emailsEnvolvidosOutlook(
   e: Pick<
@@ -440,21 +484,35 @@ export function emailsEnvolvidosOutlook(
     { nome: string; email: string; organizador: boolean }
   >();
 
+  function pickNome(a: string, b: string): string {
+    const ta = a.trim();
+    const tb = b.trim();
+    if (!ta) return tb;
+    if (!tb) return ta;
+    return ta.length >= tb.length ? ta : tb;
+  }
+
   function add(
     email: string | null | undefined,
     nome: string | null | undefined,
     organizador = false
   ) {
     if (!email?.trim()) return;
-    const key = email.trim().toLowerCase();
+    const bruto = email.trim();
+    const key = normalizeEscritorioEmail(bruto);
+    const label = nome?.trim() || bruto;
     const atual = porEmail.get(key);
     if (atual) {
-      if (organizador) porEmail.set(key, { ...atual, organizador: true });
+      porEmail.set(key, {
+        nome: pickNome(atual.nome, label),
+        email: key,
+        organizador: atual.organizador || organizador,
+      });
       return;
     }
     porEmail.set(key, {
-      nome: nome?.trim() || email,
-      email: email.trim(),
+      nome: label,
+      email: key,
       organizador,
     });
   }

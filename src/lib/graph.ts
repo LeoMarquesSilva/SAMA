@@ -69,8 +69,8 @@ type GraphEventRaw = {
   isCancelled?: boolean;
   isOnlineMeeting?: boolean;
   onlineMeeting?: { joinUrl?: string } | null;
-  start?: { dateTime?: string };
-  end?: { dateTime?: string };
+  start?: { dateTime?: string; timeZone?: string };
+  end?: { dateTime?: string; timeZone?: string };
   location?: { displayName?: string } | null;
   organizer?: { emailAddress?: { name?: string; address?: string } } | null;
   attendees?: {
@@ -78,15 +78,47 @@ type GraphEventRaw = {
   }[];
 };
 
-// dateTime do Graph: com Prefer America/Sao_Paulo vem como hora local SP (sem Z).
-function toIso(dt?: string): string | null {
-  if (!dt) return null;
-  if (dt.endsWith("Z")) {
-    const d = new Date(dt);
+const GRAPH_TZ_SP = "America/Sao_Paulo";
+const SP_UTC_OFFSET = "-03:00";
+
+function normalizeGraphTimeZone(tz?: string | null): "UTC" | typeof GRAPH_TZ_SP {
+  const t = tz?.trim();
+  if (!t || t === "UTC" || t === "Etc/UTC" || t === "Etc/GMT") return "UTC";
+  if (
+    t === GRAPH_TZ_SP ||
+    t === "E. South America Standard Time" ||
+    t === "SA Eastern Standard Time"
+  ) {
+    return GRAPH_TZ_SP;
+  }
+  // App voltado ao escritório no Brasil — demais fusos tratados como SP.
+  return GRAPH_TZ_SP;
+}
+
+/**
+ * Converte start/end do Graph para ISO UTC.
+ * Com Prefer outlook.timezone=America/Sao_Paulo, dateTime vem como hora local SP;
+ * o Graph às vezes inclui "Z" indevidamente — respeitamos timeZone e ignoramos Z nesse caso.
+ */
+function graphDateTimeToIso(
+  dateTime?: string,
+  timeZone?: string | null
+): string | null {
+  if (!dateTime?.trim()) return null;
+
+  const raw = dateTime.trim();
+  const withoutFrac = raw.replace(/\.\d+/, "");
+  const hasZ = /Z$/i.test(withoutFrac);
+  const localPart = withoutFrac.replace(/Z$/i, "");
+  const tz = normalizeGraphTimeZone(timeZone);
+
+  if (tz === "UTC") {
+    const iso = hasZ ? withoutFrac : `${localPart}Z`;
+    const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? null : d.toISOString();
   }
-  const clean = dt.replace(/\.\d+/, "");
-  const d = new Date(`${clean}-03:00`);
+
+  const d = new Date(`${localPart}${SP_UTC_OFFSET}`);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -135,8 +167,14 @@ export async function getCalendarEvents(
 
     for (const e of data.value) {
       if (e.isCancelled) continue;
-      const inicio = toIso(e.start?.dateTime);
-      const fim = toIso(e.end?.dateTime);
+      const inicio = graphDateTimeToIso(
+        e.start?.dateTime,
+        e.start?.timeZone ?? GRAPH_TZ_SP
+      );
+      const fim = graphDateTimeToIso(
+        e.end?.dateTime,
+        e.end?.timeZone ?? GRAPH_TZ_SP
+      );
       const dur =
         inicio && fim
           ? Math.round(

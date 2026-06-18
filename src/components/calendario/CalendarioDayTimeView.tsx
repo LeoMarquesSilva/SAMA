@@ -21,11 +21,15 @@ import {
 import {
   formatMultiDayDuration,
   formatTimeRange,
-  calendarioItemColor,
 } from "@/lib/calendario-events";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
-import { calendarioSocioLabel, type CalendarioItem } from "@/lib/calendario-items";
+import {
+  calendarioSocioLabel,
+  corCalendarioItemParaUsuario,
+  statusCalendarioParaUsuario,
+  type CalendarioItem,
+} from "@/lib/calendario-items";
 
 const COLUMN_GAP_PX = 3;
 
@@ -33,10 +37,12 @@ export function CalendarioDayTimeView({
   date,
   eventos,
   onSelectEvento,
+  pessoaAtualId = null,
 }: {
   date: Date;
   eventos: CalendarioItem[];
   onSelectEvento: (e: CalendarioItem) => void;
+  pessoaAtualId?: string | null;
 }) {
   const [hourPx, setHourPx] = useState(DAY_VIEW_HOUR_PX);
 
@@ -72,7 +78,12 @@ export function CalendarioDayTimeView({
             Dia inteiro
           </p>
           {allDay.map((e) => (
-            <AllDayRow key={e.id} evento={e} onClick={() => onSelectEvento(e)} />
+            <AllDayRow
+              key={e.id}
+              evento={e}
+              onClick={() => onSelectEvento(e)}
+              pessoaAtualId={pessoaAtualId}
+            />
           ))}
         </div>
       )}
@@ -161,6 +172,7 @@ export function CalendarioDayTimeView({
                       startHour={startHour}
                       hourPx={hourPx}
                       onClick={() => onSelectEvento(block.event)}
+                      pessoaAtualId={pessoaAtualId}
                     />
                   ))}
                 </div>
@@ -176,11 +188,14 @@ export function CalendarioDayTimeView({
 function AllDayRow({
   evento: e,
   onClick,
+  pessoaAtualId = null,
 }: {
   evento: CalendarioItem;
   onClick: () => void;
+  pessoaAtualId?: string | null;
 }) {
-  const c = calendarioItemColor(e);
+  const status = statusCalendarioParaUsuario(e, pessoaAtualId);
+  const c = corCalendarioItemParaUsuario(e, pessoaAtualId);
   const duration = formatMultiDayDuration(
     e.inicio,
     e.fim,
@@ -203,12 +218,12 @@ function AllDayRow({
       <div className="flex items-start justify-between gap-1">
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           {duration && (
-            <CalendarioEventBadge status={e.status} size="sm">
+            <CalendarioEventBadge status={status} size="sm">
               {duration}
             </CalendarioEventBadge>
           )}
           {time && !duration && (
-            <CalendarioEventBadge status={e.status} size="sm">
+            <CalendarioEventBadge status={status} size="sm">
               {time}
             </CalendarioEventBadge>
           )}
@@ -225,14 +240,17 @@ function TimedEventBlock({
   startHour,
   hourPx,
   onClick,
+  pessoaAtualId = null,
 }: {
   block: PositionedDayTimedBlock;
   startHour: number;
   hourPx: number;
   onClick: () => void;
+  pessoaAtualId?: string | null;
 }) {
   const e = block.event;
-  const c = calendarioItemColor(e);
+  const status = statusCalendarioParaUsuario(e, pessoaAtualId);
+  const c = corCalendarioItemParaUsuario(e, pessoaAtualId);
   const time = formatTimedBlockRange(block);
   const top = minutesToTopPx(block.topMin, startHour, hourPx);
   const height = minutesToHeightPx(block.heightMin, hourPx);
@@ -277,7 +295,7 @@ function TimedEventBlock({
       ) : (
         <>
           <div className="flex items-start justify-between gap-1">
-            <CalendarioEventBadge status={e.status} size="sm">
+            <CalendarioEventBadge status={status} size="sm">
               {time}
             </CalendarioEventBadge>
             <CalendarioSocioAvatar evento={e} size={avatarSize} />

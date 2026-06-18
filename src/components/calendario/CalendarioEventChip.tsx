@@ -4,9 +4,11 @@ import { useState } from "react";
 import { clsx } from "clsx";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
-import { calendarioItemColor, formatTimeRange } from "@/lib/calendario-events";
+import { formatTimeRange } from "@/lib/calendario-events";
 import {
   calendarioSocioLabel,
+  corCalendarioItemParaUsuario,
+  statusCalendarioParaUsuario,
   type CalendarioItem,
 } from "@/lib/calendario-items";
 import { contarProximosPassosPendentes } from "@/lib/proximos-passos-checklist";
@@ -20,6 +22,7 @@ export function CalendarioEventChip({
   showTime = true,
   hideTimeBadgeOnMobile = false,
   size = "sm",
+  pessoaAtualId = null,
 }: {
   evento: CalendarioItem;
   onClick: () => void;
@@ -27,8 +30,10 @@ export function CalendarioEventChip({
   /** Oculta badge de horário em telas pequenas (ex.: mês no celular). */
   hideTimeBadgeOnMobile?: boolean;
   size?: "sm" | "md";
+  pessoaAtualId?: string | null;
 }) {
-  const c = calendarioItemColor(evento);
+  const status = statusCalendarioParaUsuario(evento, pessoaAtualId);
+  const c = corCalendarioItemParaUsuario(evento, pessoaAtualId);
   const time = showTime
     ? formatTimeRange(evento.inicio, evento.fim, evento.duracao_minutos)
     : null;
@@ -80,7 +85,7 @@ export function CalendarioEventChip({
             <div className="flex items-start justify-between gap-0.5">
               {time ? (
                 <CalendarioEventBadge
-                  status={evento.status}
+                  status={status}
                   itemKind={evento.itemKind}
                   size={size}
                 >
@@ -109,7 +114,7 @@ export function CalendarioEventChip({
           <div className="flex items-start justify-between gap-0.5">
             {time ? (
               <CalendarioEventBadge
-                status={evento.status}
+                status={status}
                 itemKind={evento.itemKind}
                 size={size}
               >
@@ -145,6 +150,7 @@ export function CalendarioDayEvents({
   size = "sm",
   expanded: expandedProp,
   onExpandedChange,
+  pessoaAtualId = null,
 }: {
   eventos: CalendarioItem[];
   onSelectEvento: (e: CalendarioItem) => void;
@@ -154,6 +160,7 @@ export function CalendarioDayEvents({
   /** Controlado pelo WeekRow — expande todos os dias da semana juntos. */
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
+  pessoaAtualId?: string | null;
 }) {
   const [expandedLocal, setExpandedLocal] = useState(false);
   const controlled = expandedProp !== undefined && onExpandedChange !== undefined;
@@ -179,6 +186,7 @@ export function CalendarioDayEvents({
           showTime={showTime}
           hideTimeBadgeOnMobile={hideTimeBadgeOnMobile}
           size={size}
+          pessoaAtualId={pessoaAtualId}
         />
       ))}
       {hidden > 0 && !expanded && (
