@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, X, Users, ChevronDown, Plus, UserPlus } from "lucide-react";
 import { clsx } from "clsx";
 import { Avatar } from "@/components/ui/Avatar";
+import { isEmailEscritorio } from "@/lib/email-escritorio";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
 
 export type ParticipanteExterno = { nome: string; email: string };
@@ -172,27 +173,41 @@ export function ParticipantesPicker({
               </button>
             </span>
           ))}
-          {externosVisiveis.map((e) => (
-            <span
-              key={`ext-${e.idx}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-1 pr-2 text-xs text-slate-700"
-              title={e.email || e.nome}
-            >
-              <Avatar nome={e.nome} size={20} />
-              <span className="max-w-[160px] truncate">{e.nome}</span>
-              <span className="rounded-full bg-slate-200 px-1 text-[9px] font-semibold uppercase text-slate-500">
-                externo
-              </span>
-              <button
-                type="button"
-                onClick={() => removeExterno(e.idx)}
-                className="rounded-full p-0.5 hover:bg-slate-200"
-                aria-label={`Remover ${e.nome}`}
+          {externosVisiveis.map((e) => {
+            // E-mail do escritório (@bpplaw / @bismarchipires) conta como interno.
+            const interno = isEmailEscritorio(e.email);
+            return (
+              <span
+                key={`ext-${e.idx}`}
+                className={clsx(
+                  "inline-flex items-center gap-1.5 rounded-full border py-0.5 pl-1 pr-2 text-xs",
+                  interno
+                    ? "border-brand-200 bg-brand-50 text-brand-800"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
+                )}
+                title={e.email || e.nome}
               >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
+                <Avatar nome={e.nome} size={20} />
+                <span className="max-w-[160px] truncate">{e.nome}</span>
+                {!interno && (
+                  <span className="rounded-full bg-slate-200 px-1 text-[9px] font-semibold uppercase text-slate-500">
+                    externo
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeExterno(e.idx)}
+                  className={clsx(
+                    "rounded-full p-0.5",
+                    interno ? "hover:bg-brand-100" : "hover:bg-slate-200"
+                  )}
+                  aria-label={`Remover ${e.nome}`}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            );
+          })}
         </div>
       )}
 

@@ -47,6 +47,12 @@ export function emailsEscritorioIguais(a: string, b: string): boolean {
   return normalizeEscritorioEmail(a) === normalizeEscritorioEmail(b);
 }
 
+/** True se o e-mail é de um domínio do escritório (@bpplaw / @bismarchipires). */
+export function isEmailEscritorio(email: string): boolean {
+  const parsed = parseEmail(email);
+  return parsed ? isDominioEscritorio(parsed.domain) : false;
+}
+
 /** Registra valor no mapa para todas as variantes do e-mail. */
 export function registrarEmailNoMapa<T>(
   mapa: Map<string, T>,
