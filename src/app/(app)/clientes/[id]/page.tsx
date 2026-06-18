@@ -50,7 +50,7 @@ export default async function ClienteDetalhePage({
   const { data: reunioesRaw } = await supabase
     .from("reunioes")
     .select(
-      "*, participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url))"
+      "*, participantes:reuniao_participantes(colaborador_id, nome, colaborador:colaboradores(nome, avatar_url))"
     )
     .eq("cliente_id", decodeURIComponent(id))
     .order("data_hora_inicio", { ascending: false });
@@ -183,7 +183,7 @@ export default async function ClienteDetalhePage({
                         <AvatarGroup
                           size={20}
                           pessoas={r.participantes.map((p) => ({
-                            nome: p.colaborador?.nome ?? "?",
+                            nome: p.colaborador?.nome ?? p.nome ?? "?",
                             avatar_url: p.colaborador?.avatar_url,
                           }))}
                         />

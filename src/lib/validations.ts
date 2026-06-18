@@ -76,9 +76,21 @@ export const reuniaoSchema = z
     proximos_passos: z.string().optional(),
     ata_texto: z.string().optional(),
     motivo_cancelamento: z.string().optional(),
-    participantes: z
-      .array(z.string().uuid())
-      .min(1, "Selecione ao menos um participante."),
+    participantes: z.array(z.string().uuid()).default([]),
+    /** Participantes externos (não-equipe): nome obrigatório, e-mail opcional. */
+    participantes_externos: z
+      .array(
+        z.object({
+          nome: z.string().trim().min(1, "Informe o nome do participante."),
+          email: z
+            .string()
+            .trim()
+            .email("E-mail inválido.")
+            .optional()
+            .or(z.literal("")),
+        })
+      )
+      .default([]),
     /** Dono do calendário Outlook (não persiste — só define organizador ao categorizar). */
     dono_calendario_id: z.string().uuid().optional().or(z.literal("")),
   })
@@ -117,6 +129,17 @@ export const reuniaoSchema = z
         code: "custom",
         message: "Informe o motivo do cancelamento.",
         path: ["motivo_cancelamento"],
+      });
+    }
+
+    if (
+      (data.participantes?.length ?? 0) === 0 &&
+      (data.participantes_externos?.length ?? 0) === 0
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Selecione ao menos um participante.",
+        path: ["participantes"],
       });
     }
   });

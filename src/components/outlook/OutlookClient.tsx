@@ -58,6 +58,7 @@ import { TIPO_ATIVIDADE_INTERNA, TIPO_REUNIAO, STATUS_REUNIAO } from "@/lib/cons
 import {
   buscarNoMapaPorEmail,
   emailExisteNoMapa,
+  emailsEscritorioIguais,
   registrarEmailNoMapa,
 } from "@/lib/email-escritorio";
 import {
@@ -357,6 +358,17 @@ export function OutlookClient({
       colaborador_id: id,
       papel: "PARTICIPANTE" as const,
     }));
+    // Convidados do invite que NÃO são da equipe interna → participantes externos.
+    const externos = emailsEnvolvidosOutlook(e)
+      .filter(
+        (a) => !colaboradores.some((c) => emailsEscritorioIguais(c.email, a.email))
+      )
+      .map((a) => ({
+        colaborador_id: null,
+        papel: "PARTICIPANTE" as const,
+        nome: a.nome,
+        email: a.email,
+      }));
     const passada =
       e.inicio && new Date(e.inicio).getTime() < Date.now();
     return {
@@ -374,7 +386,10 @@ export function OutlookClient({
       status: passada ? "REALIZADA" : "AGENDADA",
       link_online: e.link_online,
       local: e.local,
-      participantes: matchIds as ReuniaoComRelacoes["participantes"],
+      participantes: [
+        ...matchIds,
+        ...externos,
+      ] as ReuniaoComRelacoes["participantes"],
     };
   }
   function prefillAtividade(e: CalendarioItem): Partial<AtividadeInterna> {

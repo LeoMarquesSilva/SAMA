@@ -1,28 +1,65 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X, Users, ChevronDown } from "lucide-react";
+import { Search, X, Users, ChevronDown, Plus, UserPlus } from "lucide-react";
 import { clsx } from "clsx";
 import { Avatar } from "@/components/ui/Avatar";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
 
+export type ParticipanteExterno = { nome: string; email: string };
+
+function normalizaExternos(
+  lista: { nome?: string | null; email?: string | null }[]
+): ParticipanteExterno[] {
+  const vistos = new Set<string>();
+  const out: ParticipanteExterno[] = [];
+  for (const p of lista) {
+    const nome = (p.nome ?? "").trim();
+    const email = (p.email ?? "").trim();
+    if (!nome && !email) continue;
+    const chave = email ? email.toLowerCase() : `nome:${nome.toLowerCase()}`;
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    out.push({ nome: nome || email, email });
+  }
+  return out;
+}
+
 export function ParticipantesPicker({
   colaboradores,
   defaultSelected = [],
+  defaultExternos = [],
   name = "participantes",
+  externosName = "participantes_externos",
   error,
 }: {
   colaboradores: ColaboradorOpt[];
   defaultSelected?: string[];
+  defaultExternos?: { nome?: string | null; email?: string | null }[];
   name?: string;
+  externosName?: string;
   error?: string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultSelected)
   );
+  const [externos, setExternos] = useState<ParticipanteExterno[]>(() =>
+    normalizaExternos(defaultExternos)
+  );
   const [busca, setBusca] = useState("");
   const [dept, setDept] = useState("");
   const [open, setOpen] = useState(false);
+  const [novoNome, setNovoNome] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+
+  // E-mails internos já selecionados (para não duplicar como externo).
+  const emailsInternosSelecionados = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of colaboradores) {
+      if (selected.has(c.id) && c.email) set.add(c.email.trim().toLowerCase());
+    }
+    return set;
+  }, [colaboradores, selected]);
 
   const departamentos = useMemo(() => {
     const set = new Set<string>();
@@ -63,6 +100,8 @@ export function ParticipantesPicker({
     [colaboradores, selected]
   );
 
+  const totalSelecionado = selected.size + externos.length;
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -80,14 +119,41 @@ export function ParticipantesPicker({
     });
   }
 
+  function addExterno() {
+    const nome = novoNome.trim();
+    const email = novoEmail.trim();
+    if (!nome && !email) return;
+    setExternos((prev) =>
+      normalizaExternos([...prev, { nome: nome || email, email }])
+    );
+    setNovoNome("");
+    setNovoEmail("");
+  }
+
+  function removeExterno(idx: number) {
+    setExternos((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  // Externos visíveis: oculta os que já estão como colaborador interno selecionado.
+  const externosVisiveis = useMemo(
+    () =>
+      externos
+        .map((e, idx) => ({ ...e, idx }))
+        .filter(
+          (e) =>
+            !(e.email && emailsInternosSelecionados.has(e.email.toLowerCase()))
+        ),
+    [externos, emailsInternosSelecionados]
+  );
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-slate-700">
         Participantes <span className="text-red-500">*</span>
       </span>
 
-      {/* Chips selecionados */}
-      {selecionados.length > 0 && (
+      {/* Chips selecionados (internos + externos) */}
+      {(selecionados.length > 0 || externosVisiveis.length > 0) && (
         <div className="flex flex-wrap gap-1.5">
           {selecionados.map((c) => (
             <span
@@ -106,6 +172,27 @@ export function ParticipantesPicker({
               </button>
             </span>
           ))}
+          {externosVisiveis.map((e) => (
+            <span
+              key={`ext-${e.idx}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-1 pr-2 text-xs text-slate-700"
+              title={e.email || e.nome}
+            >
+              <Avatar nome={e.nome} size={20} />
+              <span className="max-w-[160px] truncate">{e.nome}</span>
+              <span className="rounded-full bg-slate-200 px-1 text-[9px] font-semibold uppercase text-slate-500">
+                externo
+              </span>
+              <button
+                type="button"
+                onClick={() => removeExterno(e.idx)}
+                className="rounded-full p-0.5 hover:bg-slate-200"
+                aria-label={`Remover ${e.nome}`}
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
@@ -113,6 +200,11 @@ export function ParticipantesPicker({
       {Array.from(selected).map((id) => (
         <input key={id} type="hidden" name={name} value={id} />
       ))}
+      <input
+        type="hidden"
+        name={externosName}
+        value={JSON.stringify(externos)}
+      />
 
       {/* Painel de busca / seleção */}
       <div className="rounded-xl border border-slate-200 bg-white">
@@ -123,9 +215,9 @@ export function ParticipantesPicker({
         >
           <span className="flex items-center gap-2">
             <Users size={16} className="text-slate-400" />
-            {selected.size === 0
-              ? "Buscar e selecionar colaboradores..."
-              : `${selected.size} selecionado(s)`}
+            {totalSelecionado === 0
+              ? "Buscar e selecionar participantes..."
+              : `${totalSelecionado} selecionado(s)`}
           </span>
           <ChevronDown
             size={16}
@@ -213,6 +305,49 @@ export function ParticipantesPicker({
                   })}
                 </div>
               ))}
+            </div>
+
+            {/* Adicionar participante externo (fora da equipe) */}
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <UserPlus size={13} /> Adicionar participante externo
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={novoNome}
+                  onChange={(e) => setNovoNome(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addExterno();
+                    }
+                  }}
+                  placeholder="Nome"
+                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+                />
+                <input
+                  type="email"
+                  value={novoEmail}
+                  onChange={(e) => setNovoEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addExterno();
+                    }
+                  }}
+                  placeholder="E-mail (opcional)"
+                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400"
+                />
+                <button
+                  type="button"
+                  onClick={addExterno}
+                  disabled={!novoNome.trim() && !novoEmail.trim()}
+                  className="inline-flex items-center justify-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-40"
+                >
+                  <Plus size={15} /> Adicionar
+                </button>
+              </div>
             </div>
           </div>
         )}

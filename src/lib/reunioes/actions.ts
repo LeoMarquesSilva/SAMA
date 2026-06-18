@@ -124,6 +124,7 @@ async function assertPodeGerirReuniao(
 async function syncParticipantes(
   reuniaoId: string,
   participantes: string[],
+  externos: { nome: string; email?: string }[],
   organizadorUsuarioId: string | null
 ): Promise<string | null> {
   const adminOrErr = adminOuErro();
@@ -141,14 +142,38 @@ async function syncParticipantes(
     organizadorUsuarioId
   );
   if (organizadorColabId) ids.add(organizadorColabId);
-  if (ids.size === 0) return null;
 
-  const rows = Array.from(ids).map((colaboradorId) => ({
+  const internoRows = Array.from(ids).map((colaboradorId) => ({
     reuniao_id: reuniaoId,
     colaborador_id: colaboradorId,
     papel:
       colaboradorId === organizadorColabId ? "ORGANIZADOR" : "PARTICIPANTE",
   }));
+
+  // Externos (sem colaborador interno): identificados por nome, e-mail opcional.
+  const vistos = new Set<string>();
+  const externoRows = (externos ?? [])
+    .map((p) => ({ nome: (p.nome ?? "").trim(), email: (p.email ?? "").trim() }))
+    .filter((p) => p.nome || p.email)
+    .filter((p) => {
+      const chave = p.email
+        ? p.email.toLowerCase()
+        : `nome:${p.nome.toLowerCase()}`;
+      if (vistos.has(chave)) return false;
+      vistos.add(chave);
+      return true;
+    })
+    .map((p) => ({
+      reuniao_id: reuniaoId,
+      colaborador_id: null,
+      nome: p.nome || p.email,
+      email: p.email || null,
+      papel: "PARTICIPANTE" as const,
+    }));
+
+  const rows = [...internoRows, ...externoRows];
+  if (rows.length === 0) return null;
+
   const { error: insErr } = await supabase
     .from("reuniao_participantes")
     .insert(rows);
@@ -200,6 +225,7 @@ export async function createReuniao(values: unknown): Promise<ActionResult> {
   const partErr = await syncParticipantes(
     data.id,
     parsed.data.participantes ?? [],
+    parsed.data.participantes_externos ?? [],
     donoCalendarioId ?? pessoa.id
   );
   if (partErr) {
@@ -256,6 +282,7 @@ export async function updateReuniao(
   const partErr = await syncParticipantes(
     id,
     parsed.data.participantes ?? [],
+    parsed.data.participantes_externos ?? [],
     orgUsuarioId
   );
   if (partErr) return { ok: false, error: partErr };

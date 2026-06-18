@@ -16,7 +16,7 @@ export default async function ProximosPassosPage() {
     supabase
       .from("reunioes")
       .select(
-        "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
+        "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
       )
       .not("proximos_passos", "is", null)
       .neq("proximos_passos", "")

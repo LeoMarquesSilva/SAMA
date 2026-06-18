@@ -49,7 +49,7 @@ export default async function CalendarioPage({
   let reunioesQuery = supabase
     .from("reunioes")
     .select(
-      "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
+      "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
     )
     .gte("data_hora_inicio", start)
     .lte("data_hora_inicio", end)

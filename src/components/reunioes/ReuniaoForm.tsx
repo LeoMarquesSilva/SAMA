@@ -55,6 +55,24 @@ type ClientePrefill = {
   kind: "grupo" | "empresa";
 };
 
+function parseExternos(
+  raw: FormDataEntryValue | null
+): { nome: string; email: string }[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((p) => ({
+        nome: String(p?.nome ?? "").trim(),
+        email: String(p?.email ?? "").trim(),
+      }))
+      .filter((p) => p.nome || p.email);
+  } catch {
+    return [];
+  }
+}
+
 function clienteParaPrefill(c: ClienteBusca): ClientePrefill {
   const kind = c.kind ?? "empresa";
   return {
@@ -125,9 +143,12 @@ export function ReuniaoForm({
     };
   });
 
-  const participantesIniciais = (src?.participantes ?? []).map(
-    (p) => p.colaborador_id
-  );
+  const participantesIniciais = (src?.participantes ?? [])
+    .filter((p) => p.colaborador_id)
+    .map((p) => p.colaborador_id as string);
+  const externosIniciais = (src?.participantes ?? [])
+    .filter((p) => !p.colaborador_id && (p.nome || p.email))
+    .map((p) => ({ nome: p.nome ?? "", email: p.email ?? "" }));
 
   const prefillKey = [
     prefill?.outlook_event_id,
@@ -349,6 +370,7 @@ export function ReuniaoForm({
           : String(fd.get("proximos_passos") ?? ""),
       motivo_cancelamento: String(fd.get("motivo_cancelamento") ?? ""),
       participantes: fd.getAll("participantes").map(String),
+      participantes_externos: parseExternos(fd.get("participantes_externos")),
       ...(prefill?.dono_calendario_id
         ? { dono_calendario_id: prefill.dono_calendario_id }
         : {}),
@@ -389,7 +411,10 @@ export function ReuniaoForm({
       }
     );
 
-    if (values.participantes.length === 0) {
+    if (
+      values.participantes.length === 0 &&
+      values.participantes_externos.length === 0
+    ) {
       errs.participantes = "Selecione ao menos um participante.";
     }
 
@@ -786,6 +811,7 @@ export function ReuniaoForm({
           key={prefillKey || reuniao?.id || "novo"}
           colaboradores={colaboradores}
           defaultSelected={participantesIniciais}
+          defaultExternos={externosIniciais}
           error={fieldErrors.participantes}
         />
 

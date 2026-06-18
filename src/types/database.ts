@@ -141,8 +141,12 @@ export type ReuniaoComRelacoes = Reuniao & {
     grupo_cliente?: string | null;
   } | null;
   participantes?: {
-    colaborador_id: string;
+    colaborador_id: string | null;
     papel: string;
+    /** Nome do participante externo (quando colaborador_id é nulo). */
+    nome?: string | null;
+    /** E-mail do participante externo (opcional). */
+    email?: string | null;
     colaborador?: {
       id: string;
       nome: string;

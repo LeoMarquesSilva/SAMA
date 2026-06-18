@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   let q = supabase
     .from("reunioes")
     .select(
-      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, resultado, criado_em, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, usuario_id))"
+      "titulo, tipo, status, modalidade, data_hora_inicio, data_hora_fim, duracao_minutos, local, link_online, resultado, criado_em, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, nome, colaborador:colaboradores(nome, usuario_id))"
     )
     .order("data_hora_inicio", { ascending: false });
   if (de) q = q.gte("data_hora_inicio", de);
@@ -60,7 +60,8 @@ export async function GET(request: Request) {
     criado_em: string;
     cliente?: { nome?: string; grupo_cliente?: string | null } | null;
     participantes?: {
-      colaborador_id: string;
+      colaborador_id: string | null;
+      nome?: string | null;
       colaborador?: { nome?: string; usuario_id?: string | null } | null;
     }[];
   };
@@ -98,7 +99,7 @@ export async function GET(request: Request) {
           })
         : "",
       (r.participantes ?? [])
-        .map((p) => p.colaborador?.nome)
+        .map((p) => p.colaborador?.nome ?? p.nome)
         .filter(Boolean)
         .join(", "),
       r.resultado ?? "",
