@@ -151,6 +151,7 @@ export function OutlookClient({
   const [atividadeEvento, setAtividadeEvento] =
     useState<CalendarioItem | null>(null);
   const [editReuniao, setEditReuniao] = useState<ReuniaoComRelacoes | null>(null);
+  const [editReuniaoDonoId, setEditReuniaoDonoId] = useState<string | null>(null);
   const [editAtividade, setEditAtividade] = useState<AtividadeComPessoa | null>(null);
   const [viewMode, setViewMode] = useState<CalendarioViewMode>(inicial.viewMode);
   const [sheetEvento, setSheetEvento] =
@@ -322,6 +323,14 @@ export function OutlookClient({
       fPeriodo
   );
 
+  function abrirEditReuniao(
+    reuniao: ReuniaoComRelacoes,
+    donoId?: string | null
+  ) {
+    setEditReuniao(reuniao);
+    setEditReuniaoDonoId(donoId ?? null);
+  }
+
   function onSelectItem(item: CalendarioItem) {
     if (itemTemGrupoCalendario(item)) {
       setGrupoReuniaoItem(item);
@@ -333,12 +342,15 @@ export function OutlookClient({
       return;
     }
     if (item.grupoReunioes?.length === 1) {
-      setEditReuniao(item.grupoReunioes[0].reuniao);
+      abrirEditReuniao(
+        item.grupoReunioes[0].reuniao,
+        item.grupoReunioes[0].pessoa?.id
+      );
       return;
     }
 
     if (item.itemKind === "reuniao" && item.reuniao) {
-      setEditReuniao(item.reuniao);
+      abrirEditReuniao(item.reuniao, item.pessoa_id);
       return;
     }
     if (item.itemKind === "atividade" && item.atividade) {
@@ -356,7 +368,9 @@ export function OutlookClient({
         setMsg(r.error ?? "Erro na sincronização.");
       } else {
         setMsg(
-          `Sincronizado: ${r.importados} evento(s) · ${r.pessoasOk} ok` +
+          `Sincronizado: ${r.importados} evento(s)` +
+            (r.removidos ? ` · ${r.removidos} removido(s)` : "") +
+            ` · ${r.pessoasOk} ok` +
             (r.pessoasErro ? ` · ${r.pessoasErro} com erro` : "") +
             (r.detalhes && r.detalhes.length
               ? ` — ${r.detalhes.slice(0, 2).join("; ")}`
@@ -619,9 +633,13 @@ export function OutlookClient({
       {editReuniao && (
         <ReuniaoForm
           open={true}
-          onClose={() => setEditReuniao(null)}
+          onClose={() => {
+            setEditReuniao(null);
+            setEditReuniaoDonoId(null);
+          }}
           onSaved={() => router.refresh()}
           reuniao={editReuniao}
+          donoCalendarioId={editReuniaoDonoId}
           colaboradores={colaboradores}
           usuarios={pessoas}
           fellowAtivo={fellowAtivo}
@@ -682,7 +700,7 @@ export function OutlookClient({
                   <button
                     type="button"
                     onClick={() => {
-                      setEditReuniao(g.reuniao);
+                      abrirEditReuniao(g.reuniao, g.pessoa?.id);
                       setGrupoReuniaoItem(null);
                     }}
                     className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50"

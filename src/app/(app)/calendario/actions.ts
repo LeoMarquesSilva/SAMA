@@ -5,14 +5,16 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { getCalendarEvents, outlookConfigurado } from "@/lib/graph";
 import { clearAlertasLoginCookie } from "@/lib/alertas-login";
-import { CALENDARIO_PATH } from "@/lib/calendario";
+import { CALENDARIO_PATH, calendarioSyncRange } from "@/lib/calendario";
 import { alinharRegistrosComOutlook } from "@/lib/outlook-sync-horarios";
+import { removerEventosOrfaosOutlook } from "@/lib/outlook-sync-cleanup";
 
 export type ActionResult = { ok: boolean; error?: string };
 export type SyncResult = {
   ok: boolean;
   error?: string;
   importados?: number;
+  removidos?: number;
   pessoasOk?: number;
   pessoasErro?: number;
   detalhes?: string[];
@@ -23,6 +25,7 @@ function revalidateCalendario() {
   revalidatePath("/outlook");
   revalidatePath("/dashboard");
   revalidatePath("/tarefas");
+  revalidatePath("/proximos-passos");
 }
 
 /** Sincroniza o calendário da pessoa logada (chamado no login ou pelo client). */
@@ -39,12 +42,11 @@ export async function sincronizarCalendarioAutomatico(): Promise<void> {
  * Sincroniza o calendário das pessoas via Microsoft Graph (app-only).
  * - `escopo`: "todos" (admin) sincroniza todas as pessoas com e-mail;
  *   "eu" sincroniza apenas a pessoa logada.
- * - janela: de hoje-`atras` dias até hoje+`frente` dias.
+ * - Janela alinhada ao calendário da UI (30 dias atrás / 90 à frente).
+ * - Upsert do Graph + remoção de eventos órfãos na mesma janela.
  */
 export async function sincronizarOutlook(
-  escopo: "eu" | "todos" = "eu",
-  atras = 7,
-  frente = 30
+  escopo: "eu" | "todos" = "eu"
 ): Promise<SyncResult> {
   if (!outlookConfigurado()) {
     return {
@@ -73,17 +75,22 @@ export async function sincronizarOutlook(
     return { ok: false, error: "Nenhuma pessoa com e-mail para sincronizar." };
   }
 
-  const start = new Date(Date.now() - atras * 86400000).toISOString();
-  const end = new Date(Date.now() + frente * 86400000).toISOString();
+  const { start, end } = calendarioSyncRange();
 
   let importados = 0;
+  let removidos = 0;
   let pessoasOk = 0;
   let pessoasErro = 0;
   const detalhes: string[] = [];
 
+  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createAdminClient()
+    : null;
+
   for (const p of pessoas) {
     try {
       const eventos = await getCalendarEvents(p.email, start, end);
+      const graphIds = eventos.map((e) => e.outlookEventId);
       const rows = eventos.map((e) => ({
         pessoa_id: p.id,
         outlook_event_id: e.outlookEventId,
@@ -109,6 +116,15 @@ export async function sincronizarOutlook(
         if (error) throw new Error(error.message);
       }
 
+      const cleanup = await removerEventosOrfaosOutlook(supabase, {
+        pessoaId: p.id,
+        syncStart: start,
+        syncEnd: end,
+        graphOutlookEventIds: graphIds,
+        admin,
+      });
+      removidos += cleanup.removidos;
+
       importados += rows.length;
       pessoasOk += 1;
       await supabase.from("outlook_sync_logs").insert({
@@ -132,7 +148,7 @@ export async function sincronizarOutlook(
   await alinharRegistrosComOutlook(supabase);
 
   revalidateCalendario();
-  return { ok: true, importados, pessoasOk, pessoasErro, detalhes };
+  return { ok: true, importados, removidos, pessoasOk, pessoasErro, detalhes };
 }
 
 export async function ignorarEvento(id: string): Promise<ActionResult> {
@@ -162,6 +178,100 @@ export async function reverterEvento(id: string): Promise<ActionResult> {
     return { ok: false, error: "Sem permissão para alterar este evento." };
   }
   revalidateCalendario();
+  return { ok: true };
+}
+
+/** Desfaz categorização a partir da reunião: evento Outlook volta a PENDENTE. */
+export async function reverterCategorizacaoReuniao(
+  reuniaoId: string,
+  donoCalendarioId?: string | null
+): Promise<ActionResult> {
+  const pessoa = await getPessoaAtual();
+  if (!pessoa?.id) {
+    return {
+      ok: false,
+      error: "Usuário não vinculado ao cadastro. Contate o administrador.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: reuniao } = await supabase
+    .from("reunioes")
+    .select("id, outlook_event_id")
+    .eq("id", reuniaoId)
+    .maybeSingle();
+
+  if (!reuniao) return { ok: false, error: "Reunião não encontrada." };
+  if (!reuniao.outlook_event_id) {
+    return { ok: false, error: "Esta reunião não está vinculada ao Outlook." };
+  }
+
+  const alvoPessoaId = donoCalendarioId?.trim() || pessoa.id;
+  if (!pessoa.is_admin && alvoPessoaId !== pessoa.id) {
+    return { ok: false, error: "Sem permissão para reverter esta categorização." };
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      ok: false,
+      error:
+        "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor — necessária para reverter.",
+    };
+  }
+
+  const admin = createAdminClient();
+
+  let { data: eventos, error: evErr } = await admin
+    .from("outlook_eventos")
+    .select("id")
+    .eq("reuniao_id", reuniaoId)
+    .eq("pessoa_id", alvoPessoaId);
+
+  if (evErr) return { ok: false, error: "Erro ao buscar evento do calendário." };
+
+  if (!eventos?.length) {
+    const fallback = await admin
+      .from("outlook_eventos")
+      .select("id")
+      .eq("outlook_event_id", reuniao.outlook_event_id)
+      .eq("pessoa_id", alvoPessoaId);
+    if (fallback.error) {
+      return { ok: false, error: "Erro ao buscar evento do calendário." };
+    }
+    eventos = fallback.data;
+  }
+
+  if (!eventos?.length) {
+    return { ok: false, error: "Evento do calendário não encontrado." };
+  }
+
+  for (const ev of eventos) {
+    const { error } = await admin
+      .from("outlook_eventos")
+      .update({
+        status: "PENDENTE",
+        reuniao_id: null,
+        categorizado_em: null,
+      })
+      .eq("id", ev.id);
+    if (error) return { ok: false, error: "Erro ao reverter evento." };
+  }
+
+  const { count } = await admin
+    .from("outlook_eventos")
+    .select("id", { count: "exact", head: true })
+    .eq("reuniao_id", reuniaoId);
+
+  if (count === 0) {
+    const { error: delErr } = await admin
+      .from("reunioes")
+      .delete()
+      .eq("id", reuniaoId);
+    if (delErr) return { ok: false, error: "Erro ao excluir reunião." };
+  }
+
+  revalidateCalendario();
+  revalidatePath("/proximos-passos");
   return { ok: true };
 }
 

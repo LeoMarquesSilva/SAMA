@@ -12,6 +12,14 @@ export function calendarioEventQueryRange(now = Date.now()): {
   start: string;
   end: string;
 } {
+  return calendarioSyncRange(now);
+}
+
+/** Janela da sincronização Outlook — espelha o que a UI carrega. */
+export function calendarioSyncRange(now = Date.now()): {
+  start: string;
+  end: string;
+} {
   return {
     start: new Date(now - CALENDARIO_LOAD_DAYS_BACK * 86400000).toISOString(),
     end: new Date(now + CALENDARIO_LOAD_DAYS_FORWARD * 86400000).toISOString(),

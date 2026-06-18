@@ -27,12 +27,12 @@ import {
   createReuniao,
   updateReuniao,
 } from "@/lib/reunioes/actions";
-import { buscarReuniaoPorOutlookEventId } from "@/app/(app)/calendario/actions";
+import { buscarReuniaoPorOutlookEventId, reverterCategorizacaoReuniao } from "@/app/(app)/calendario/actions";
 import { resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
-import { Loader2 } from "lucide-react";
+import { Loader2, Undo2 } from "lucide-react";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
 import { ReuniaoOutlookCabecalho } from "@/components/reunioes/ReuniaoOutlookCabecalho";
 import {
@@ -95,6 +95,7 @@ export function ReuniaoForm({
   colaboradores,
   usuarios = [],
   fellowAtivo = false,
+  donoCalendarioId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -105,6 +106,8 @@ export function ReuniaoForm({
   colaboradores: ColaboradorOpt[];
   usuarios?: { id: string; nome: string; email: string; avatar_url?: string | null }[];
   fellowAtivo?: boolean;
+  /** Dono do calendário Outlook (admin abrindo reunião de outro sócio). */
+  donoCalendarioId?: string | null;
 }) {
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
@@ -120,6 +123,7 @@ export function ReuniaoForm({
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
+  const [revertPending, startRevertTransition] = useTransition();
   const [, startFellowTransition] = useTransition();
   const [fellowBusy, setFellowBusy] = useState(false);
   const [fellowMsg, setFellowMsg] = useState<string>();
@@ -622,6 +626,25 @@ export function ReuniaoForm({
     onClose();
   }
 
+  const podeReverterOutlook = editing && horarioSomenteLeitura && Boolean(reuniao?.id);
+
+  function handleReverterOutlook() {
+    if (!reuniao?.id || fellowBusy || pending || revertPending) return;
+    setError(undefined);
+    startRevertTransition(async () => {
+      const r = await reverterCategorizacaoReuniao(
+        reuniao.id,
+        donoCalendarioId ?? prefill?.dono_calendario_id
+      );
+      if (!r.ok) {
+        setError(r.error ?? "Erro ao reverter categorização.");
+        return;
+      }
+      onSaved();
+      onClose();
+    });
+  }
+
   return (
     <Modal
       open={open}
@@ -882,18 +905,35 @@ export function ReuniaoForm({
           </p>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={fellowBusy}
-            onClick={handleClose}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={pending || fellowBusy}>
-            {pending ? "Salvando..." : "Salvar"}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-1">
+          {podeReverterOutlook ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 px-2 py-1 text-xs text-slate-500"
+              disabled={pending || fellowBusy || revertPending}
+              onClick={handleReverterOutlook}
+            >
+              <Undo2 size={13} />
+              {revertPending ? "Revertendo..." : "Voltar para não categorizado"}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={fellowBusy || revertPending}
+              onClick={handleClose}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending || fellowBusy || revertPending}>
+              {pending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </div>
       </form>
       </div>
