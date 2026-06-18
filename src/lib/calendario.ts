@@ -26,7 +26,12 @@ export function calendarioSyncRange(now = Date.now()): {
   };
 }
 
-/** Conta eventos do calendário aguardando categorização. */
+/** ISO cutoff: só eventos com início até este instante exigem categorização. */
+export function calendarioPendentesExigiveisCutoff(now = Date.now()): string {
+  return new Date(now).toISOString();
+}
+
+/** Conta eventos do calendário aguardando categorização (somente já ocorridos). */
 export async function countEventosPendentes(
   supabase: SupabaseClient,
   opts: { pessoaId?: string | null; isAdmin?: boolean }
@@ -34,7 +39,8 @@ export async function countEventosPendentes(
   let q = supabase
     .from("outlook_eventos")
     .select("id", { count: "exact", head: true })
-    .eq("status", "PENDENTE");
+    .eq("status", "PENDENTE")
+    .lte("inicio", calendarioPendentesExigiveisCutoff());
   if (!opts.isAdmin && opts.pessoaId) {
     q = q.eq("pessoa_id", opts.pessoaId);
   }
@@ -49,4 +55,14 @@ export function landingPath(
 ): string {
   if (cargo === "SOCIO_AREA" && pendentes > 0) return CALENDARIO_PATH;
   return "/dashboard";
+}
+
+/** Primeiro acesso: tour do calendário antes do dashboard. */
+export function landingPathComOnboarding(opts: {
+  cargo?: CargoPessoa;
+  pendentes: number;
+  onboardingCalendarioConcluido: boolean;
+}): string {
+  if (!opts.onboardingCalendarioConcluido) return CALENDARIO_PATH;
+  return landingPath(opts.cargo, opts.pendentes);
 }

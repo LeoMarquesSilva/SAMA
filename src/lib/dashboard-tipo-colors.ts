@@ -6,6 +6,7 @@ export const DASHBOARD_TIPO_COLORS: Record<string, string> = {
   "reuniao:GESTAO_ESTRATEGICA": "#8b5cf6",
   "reuniao:GESTAO_EQUIPE": "#64748b",
   "reuniao:GESTAO_OPERACIONAL": "#ef4444",
+  "reuniao:EVENTOS_PALESTRAS": "#06b6d4",
   "atividade:PARECER": "#0ea5e9",
   "atividade:DESPACHO": "#6366f1",
   "atividade:REVISAO_PRAZO": "#a16207",

@@ -177,7 +177,14 @@ export async function ativarPessoa(id: string): Promise<ActionResult> {
 
   const { error: updateError } = await supabase
     .from("usuarios")
-    .update({ ativo: true, senha_provisoria: true, auth_user_id: authUserId })
+    .update({
+      ativo: true,
+      senha_provisoria: true,
+      auth_user_id: authUserId,
+      onboarding_calendario_concluido: false,
+      onboarding_dashboard_concluido: false,
+      onboarding_proximos_passos_concluido: false,
+    })
     .eq("id", id);
 
   if (updateError) {

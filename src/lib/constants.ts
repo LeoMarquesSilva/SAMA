@@ -52,6 +52,7 @@ export const TIPO_REUNIAO = {
   GESTAO_ESTRATEGICA: "Gestão Estratégica",
   GESTAO_EQUIPE: "Gestão de Equipe",
   GESTAO_OPERACIONAL: "Gestão Operacional",
+  EVENTOS_PALESTRAS: "Eventos e Palestras",
 } as const;
 
 /** Grupo VIOS vinculado automaticamente a reuniões de Gestão de Equipe. */
@@ -72,6 +73,8 @@ export const TIPO_REUNIAO_DESCRICAO: Record<TipoReuniaoKey, string> = {
     "Reuniões voltadas à liderança e desenvolvimento de pessoas, incluindo one a ones, feedbacks, acompanhamento de desempenho, alinhamentos de equipe, PDIs e temas relacionados à gestão de colaboradores.",
   GESTAO_OPERACIONAL:
     "Reuniões destinadas à discussão de casos, processos, operações, demandas específicas de clientes, alinhamentos técnicos ou operacionais, definição de estratégias processuais e acompanhamento da execução das atividades.",
+  EVENTOS_PALESTRAS:
+    "Participação em congressos, seminários, palestras, workshops, treinamentos e demais eventos voltados à atualização técnica, desenvolvimento profissional, compartilhamento de conhecimento e ampliação de networking.",
 };
 
 export const TIPO_REUNIAO_TONE: Record<
@@ -84,6 +87,7 @@ export const TIPO_REUNIAO_TONE: Record<
   GESTAO_ESTRATEGICA: "purple",
   GESTAO_EQUIPE: "gray",
   GESTAO_OPERACIONAL: "red",
+  EVENTOS_PALESTRAS: "purple",
 };
 
 /** Opções para SelectMenu; inclui descrição quando usado no formulário. */

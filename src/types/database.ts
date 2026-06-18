@@ -12,6 +12,9 @@ export type Pessoa = {
   is_admin: boolean;
   senha_provisoria: boolean;
   ativo: boolean;
+  onboarding_calendario_concluido?: boolean;
+  onboarding_dashboard_concluido?: boolean;
+  onboarding_proximos_passos_concluido?: boolean;
   criado_em: string;
   atualizado_em: string;
 };
@@ -85,7 +88,8 @@ export type TipoReuniao =
   | "RELACIONAMENTO_INSTITUCIONAL"
   | "GESTAO_ESTRATEGICA"
   | "GESTAO_EQUIPE"
-  | "GESTAO_OPERACIONAL";
+  | "GESTAO_OPERACIONAL"
+  | "EVENTOS_PALESTRAS";
 export type ModalidadeReuniao =
   | "PRESENCIAL_ESCRITORIO"
   | "PRESENCIAL_EXTERNO"

@@ -14,6 +14,7 @@ import { TIPO_REUNIAO } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
+import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
 
 type FiltroPasso = "PENDENTE" | "REALIZADA" | "TODOS";
 
@@ -22,11 +23,13 @@ export function ProximosPassosClient({
   totais,
   colaboradores,
   fellowAtivo,
+  onboardingEnabled = false,
 }: {
   grupos: PassoReuniaoGrupo[];
   totais: { pendentes: number; realizados: number };
   colaboradores: ColaboradorOpt[];
   fellowAtivo: boolean;
+  onboardingEnabled?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -96,7 +99,7 @@ export function ProximosPassosClient({
 
   return (
     <div className="space-y-5">
-      <div>
+      <div data-onboarding="passos-header">
         <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
           Próximos passos
         </h1>
@@ -106,7 +109,7 @@ export function ProximosPassosClient({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" data-onboarding="passos-filtros">
         {(
           [
             { key: "PENDENTE", label: "Pendentes" },
@@ -139,7 +142,7 @@ export function ProximosPassosClient({
         ))}
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative max-w-md" data-onboarding="passos-busca">
         <Search
           size={15}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -285,6 +288,8 @@ export function ProximosPassosClient({
           fellowAtivo={fellowAtivo}
         />
       )}
+
+      <OnboardingHost tourId="proximos_passos" enabled={onboardingEnabled} />
     </div>
   );
 }

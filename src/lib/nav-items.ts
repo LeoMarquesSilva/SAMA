@@ -8,6 +8,7 @@ import {
   ListTodo,
   ListChecks,
   Clock,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -44,6 +45,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/proximos-passos",
     label: "Próximos passos",
     icon: ListChecks,
+    visible: () => true,
+  },
+  {
+    href: "/ajuda",
+    label: "Ajuda",
+    icon: CircleHelp,
     visible: () => true,
   },
   {

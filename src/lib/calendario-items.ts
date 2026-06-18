@@ -400,12 +400,49 @@ export function itemGrupoVisivelParaUsuario(
   return false;
 }
 
+export function eventoCalendarioJaOcorreu(
+  inicio: string | null | undefined,
+  now = Date.now()
+): boolean {
+  if (!inicio) return false;
+  return new Date(inicio).getTime() <= now;
+}
+
+export function itemCalendarioJaOcorreu(
+  item: CalendarioItem,
+  now = Date.now()
+): boolean {
+  return eventoCalendarioJaOcorreu(item.inicio, now);
+}
+
 /** Quantos eventos pendentes o item representa (agrupado ou individual). */
 export function countPendentesNoItem(item: CalendarioItem): number {
   if (item.grupoOutlook?.length) {
     return item.grupoOutlook.filter((g) => g.item.status === "PENDENTE").length;
   }
   return item.itemKind === "outlook" && item.status === "PENDENTE" ? 1 : 0;
+}
+
+/** Pendentes que já ocorreram — usados em alertas, badges e filtro de ação. */
+export function countPendentesExigiveisNoItem(
+  item: CalendarioItem,
+  now = Date.now()
+): number {
+  if (item.grupoOutlook?.length) {
+    return item.grupoOutlook.filter(
+      (g) =>
+        g.item.status === "PENDENTE" &&
+        eventoCalendarioJaOcorreu(g.item.inicio ?? item.inicio, now)
+    ).length;
+  }
+  if (
+    item.itemKind === "outlook" &&
+    item.status === "PENDENTE" &&
+    itemCalendarioJaOcorreu(item, now)
+  ) {
+    return 1;
+  }
+  return 0;
 }
 
 /** Filtro admin por pessoa — inclui grupos em que o sócio categorizou. */
@@ -441,6 +478,14 @@ export function isOutlookPendente(item: CalendarioItem): boolean {
     return item.grupoOutlook.some((g) => g.item.status === "PENDENTE");
   }
   return item.itemKind === "outlook" && item.status === "PENDENTE";
+}
+
+/** Pendente e já ocorrido — exige categorização agora. */
+export function isOutlookPendenteExigivel(
+  item: CalendarioItem,
+  now = Date.now()
+): boolean {
+  return countPendentesExigiveisNoItem(item, now) > 0;
 }
 
 /** Status do item para exibição — prioriza o calendário do usuário logado em grupos admin. */

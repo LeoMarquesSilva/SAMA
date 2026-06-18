@@ -13,6 +13,7 @@ import {
 } from "@/lib/calendario-items";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
+import { getOnboardingFlags } from "@/lib/onboarding/state";
 import type {
   AtividadeComPessoa,
   OutlookEventoComPessoa,
@@ -32,6 +33,16 @@ export default async function CalendarioPage({
   await ensureColaboradoresSync();
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const onboarding = user
+    ? await getOnboardingFlags(supabase, user.id)
+    : {
+        calendarioConcluido: true,
+        dashboardConcluido: true,
+        proximosPassosConcluido: true,
+      };
   const pessoa = await getPessoaAtual();
   const isAdmin = pessoa?.is_admin ?? false;
   const { start, end } = calendarioEventQueryRange();
@@ -135,6 +146,7 @@ export default async function CalendarioPage({
         pessoaAtualId={pessoa?.id ?? null}
         fellowAtivo={fellowConfigurado()}
         filtroInicial={filtroInicial}
+        onboardingEnabled={!onboarding.calendarioConcluido}
       />
     </div>
   );

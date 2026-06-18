@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
 import { DashboardFiltros } from "@/components/dashboard/DashboardFiltros";
 import { DashboardTipoCards } from "@/components/dashboard/DashboardTipoCards";
+import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
 import {
   TIPO_REUNIAO,
   atividadeTipoOptionsAtividades,
@@ -27,6 +28,8 @@ import {
   parseDashboardDayKey,
   type DashboardPeriodo,
 } from "@/lib/dashboard-filtros";
+import { calendarioPendentesExigiveisCutoff } from "@/lib/calendario";
+import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +48,16 @@ export default async function DashboardPage({
   const fTipo = sp.tipo || "";
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const onboarding = user
+    ? await getOnboardingFlags(supabase, user.id)
+    : {
+        calendarioConcluido: true,
+        dashboardConcluido: true,
+        proximosPassosConcluido: true,
+      };
   const eu = await getPessoaAtual();
   const isAdmin = eu?.is_admin ?? false;
   const pessoaScope = isAdmin ? fPessoa : eu?.id ?? "__none__";
@@ -77,7 +90,8 @@ export default async function DashboardPage({
   let pendentesQ = supabase
     .from("outlook_eventos")
     .select("id", { count: "exact", head: true })
-    .eq("status", "PENDENTE");
+    .eq("status", "PENDENTE")
+    .lte("inicio", calendarioPendentesExigiveisCutoff());
   const pendentesPessoaId = isAdmin ? fPessoa || null : eu?.id ?? null;
   if (pendentesPessoaId) {
     pendentesQ = pendentesQ.eq("pessoa_id", pendentesPessoaId);
@@ -197,26 +211,33 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <DashboardFiltros
-        periodo={periodo}
-        dataDia={periodo === "dia" ? dataDia : ""}
-        pessoa={fPessoa}
-        tipo={fTipo}
-        pessoas={pessoas ?? []}
-        isAdmin={isAdmin}
-      />
+      <div data-onboarding="dashboard-filtros">
+        <DashboardFiltros
+          periodo={periodo}
+          dataDia={periodo === "dia" ? dataDia : ""}
+          pessoa={fPessoa}
+          tipo={fTipo}
+          pessoas={pessoas ?? []}
+          isAdmin={isAdmin}
+        />
+      </div>
 
-      <DashboardTipoCards
-        pendentes={pendentes ?? 0}
-        reunioesPorTipo={reunioesPorTipo}
-        atividadesPorTipo={atividadesPorTipo}
-        periodo={periodo}
-        dataDia={dataDia}
-        pessoa={fPessoa}
-      />
+      <div data-onboarding="dashboard-cards">
+        <DashboardTipoCards
+          pendentes={pendentes ?? 0}
+          reunioesPorTipo={reunioesPorTipo}
+          atividadesPorTipo={atividadesPorTipo}
+          periodo={periodo}
+          dataDia={dataDia}
+          pessoa={fPessoa}
+        />
+      </div>
 
       {proximas.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+        <div
+          data-onboarding="dashboard-proximas"
+          className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">
               Próximas reuniões · 7 dias
@@ -275,6 +296,11 @@ export default async function DashboardPage({
           </ul>
         </div>
       )}
+
+      <OnboardingHost
+        tourId="dashboard"
+        enabled={!onboarding.dashboardConcluido}
+      />
     </div>
   );
 }

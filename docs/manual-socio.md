@@ -1,79 +1,69 @@
 # Manual do SAMA — Guia do usuário
 
-**Versão:** rascunho 1.0 (sem imagens)  
-**Público:** usuários do escritório que **não são administradores** — veem e gerenciam **apenas os próprios dados**  
-**Personagem de exemplo:** Leonardo Loureiro (Reestruturação e Insolvência)
-
 ---
 
-## Sobre este manual
+## Sobre este guia
 
-Este guia explica o uso do **SAMA** (Sistema de Análise de Metas e Atividades) no dia a dia: sincronizar o calendário Outlook, categorizar eventos, registrar reuniões, acompanhar próximos passos e consultar o dashboard pessoal.
+Este manual mostra, passo a passo, como usar o **SAMA** no dia a dia: sincronizar seu Outlook, classificar compromissos, registrar reuniões, acompanhar o que ficou combinado e consultar seu resumo pessoal.
 
-> **Importante:** Leonardo Loureiro é usado apenas como exemplo nos passos abaixo. No seu acesso, substitua pelo seu nome e pelos seus eventos.
+**O que você vai encontrar aqui**
 
-**O que este manual cobre**
+- Como entrar e navegar no sistema
+- Calendário — onde você passa a maior parte do tempo
+- Próximos passos — ações pendentes das reuniões
+- Dashboard — visão geral do seu período
 
-- Primeiro acesso e navegação
-- Calendário (fluxo principal)
-- Próximos passos
-- Dashboard
+> **Dica:** sempre que o texto citar um botão ou menu (por exemplo, **Atualizar** ou **Calendário**), procure exatamente esse nome na tela.
 
-**O que fica de fora**
 
-- Relatórios e exportações
-- Timesheet / Horas
-- Telas de administrador (Usuários, Clientes, sincronização de toda a equipe)
-
----
 
 ## 1. O que é o SAMA
 
-O SAMA conecta o **Outlook** do escritório ao controle gerencial de **reuniões externas** e **atividades internas**. O objetivo é que cada advogado e gestor mantenha seu calendário organizado para análise de metas, produtividade e relacionamento com clientes.
+O SAMA liga o seu **Outlook** ao controle de **reuniões** e **atividades internas** do escritório. A ideia é simples: seu calendário fica organizado e o escritório consegue analisar metas, produtividade e relacionamento com clientes — sem você precisar preencher tudo duas vezes.
 
-**Fluxo resumido**
+**Como funciona na prática**
 
 ```
-Outlook sincroniza eventos
+Seu Outlook envia os compromissos
         ↓
-Eventos aparecem no Calendário como "Não categorizados"
+Eles aparecem no Calendário como "Não categorizados"
         ↓
-Você classifica: Reunião, Atividade ou Ignorar
+Você escolhe: Reunião, Atividade ou Ignorar
         ↓
-Reuniões realizadas ganham Resumo e Próximos passos
+Depois da reunião, você registra Resumo e Próximos passos
         ↓
-Próximos passos são acompanhados na tela dedicada
+As ações ficam na tela Próximos passos
         ↓
-Dashboard mostra seu resumo no período
+O Dashboard mostra seu resumo no período
 ```
 
----
+
 
 ## 2. Primeiro acesso
 
 ### 2.1 Entrar no sistema
 
-1. Abra o endereço do SAMA fornecido pelo escritório (navegador Chrome, Edge ou Safari).
-2. Informe seu **e-mail corporativo** e a **senha** recebida.
-3. Clique em **Entrar**.
+1. Abra o endereço do SAMA que o escritório passou (Chrome, Edge ou Safari).
+2. Digite seu **e-mail corporativo** e sua **senha**.
+3. Clique em **Entrar no sistema**.
 
-[PRINT: Tela de login com e-mail `leonardo@bismarchipires.com.br`]
+[PRINT: Tela de login com e-mail `controladoria@bismarchipires.com.br`]
 
 ### 2.2 Trocar a senha provisória
 
-No primeiro acesso, o sistema pode exigir a **troca de senha** antes de liberar o uso.
+Na primeira vez, o SAMA pode pedir para você **criar uma senha nova** antes de continuar.
 
-1. Digite a senha atual (provisória).
-2. Escolha uma nova senha segura.
+1. Informe a senha provisória que recebeu.
+2. Escolha uma senha segura.
 3. Confirme e salve.
 
 [PRINT: Tela "Trocar senha"]
 
-> **Dica:** Anote a nova senha em local seguro. Se esquecer, peça ao administrador do SAMA para redefinir seu acesso.
+> **Esqueceu a senha?** Peça ao administrador do SAMA para redefinir seu acesso.
 
-### 2.3 Alertas ao entrar
+### 2.3 Avisos ao entrar
 
-Se houver eventos do Outlook ainda não categorizados ou próximos passos pendentes, o SAMA pode exibir um **aviso resumido** logo após o login, indicando o que precisa de atenção.
+Se ainda houver compromissos sem classificar ou ações pendentes de reuniões antigas, o SAMA pode mostrar um **resumo do que precisa da sua atenção** logo após o login.
 
 [PRINT: Banner ou overlay de alertas pendentes]
 
@@ -81,331 +71,363 @@ Se houver eventos do Outlook ainda não categorizados ou próximos passos penden
 
 ## 3. Navegação
 
-### 3.1 Menu principal (computador)
+### 3.1 Menu no computador
 
-No desktop, o menu lateral à esquerda concentra as áreas do sistema. Para Leonardo Loureiro, as opções visíveis são:
+No desktop, o menu fica à **esquerda**. As opções principais para você são:
 
-| Menu | Função |
-|------|--------|
+| Menu | Para que serve |
+|------|----------------|
 | **Dashboard** | Resumo das suas reuniões e atividades no período |
-| **Calendário** | Eventos Outlook + reuniões/atividades já registradas |
-| **Próximos passos** | Ações combinadas nas reuniões, com checkbox de conclusão |
+| **Calendário** | Compromissos do Outlook e o que você já classificou |
+| **Próximos passos** | Ações combinadas nas reuniões, com caixinha para marcar como feito |
+| **Ajuda** | Este manual, perguntas frequentes e glossário |
 
-[PRINT: Sidebar com Leonardo logado — sem Usuários, Clientes ou Tarefas VIOS]
+[PRINT: Sidebar com usuário de área logado — sem Usuários, Clientes ou Tarefas VIOS]
 
-> **Nota:** Itens como **Usuários**, **Clientes** e **Tarefas VIOS** aparecem apenas para administradores. Se não vê essas opções, está correto.
+> **Normal:** menus como **Usuários**, **Clientes** e **Tarefas VIOS** só aparecem para quem administra o sistema. Se você não vê, está certo.
 
-### 3.2 Navegação no celular
+### 3.2 Menu no celular
 
-No smartphone, a barra inferior fixa traz três atalhos:
+No celular, a barra **inferior** traz três atalhos rápidos:
 
 - **Início** → Dashboard
 - **Calendário**
 - **Passos** → Próximos passos
 
-Toque em **Menu** para abrir as demais opções disponíveis ao seu perfil.
+Toque em **Menu** para ver as demais opções (Horas, Ajuda etc.).
 
 [PRINT: Barra inferior mobile com badge no Calendário]
 
-### 3.3 Badges (números vermelhos)
+### 3.3 Números ao lado dos menus
 
-Um **número** ao lado de **Calendário** ou **Próximos passos** indica pendências:
+Um **número colorido** ao lado de **Calendário** ou **Próximos passos** indica pendências:
 
-- **Calendário:** eventos do Outlook ainda não categorizados
-- **Próximos passos:** ações abertas de reuniões anteriores
+- **Calendário** — compromissos do Outlook ainda não classificados
+- **Próximos passos** — ações abertas de reuniões anteriores
 
 ---
 
-## 4. Calendário — fluxo principal
+## 4. Calendário — seu fluxo principal
 
-O **Calendário** é a tela mais importante do SAMA. É por aqui que Leonardo organiza o que veio do Outlook.
+O **Calendário** é a tela mais importante. É aqui que você organiza o que veio do Outlook.
 
-### 4.1 Visão geral da tela
+### 4.1 O que aparece na tela
 
 Ao abrir **Calendário**, você vê:
 
-- **Título** e contagem de itens não categorizados
-- **Painel de controles** com:
-  - alternância **Lista** / **Calendário**
-  - botão **Atualizar** (sincroniza seu Outlook)
-  - filtros de **Status** (Todos / Não categorizados)
-  - filtros de **Tipo** (Todos os tipos / Reuniões / Atividades)
-- A **grade mensal** ou a **lista** de eventos, conforme o modo escolhido
+- Quantos itens ainda estão **sem classificar**
+- Botões para alternar **Lista** e **Calendário**
+- **Atualizar** — busca novidades no Outlook
+- Filtros de **Status** e **Tipo**
+- A **grade do mês** ou a **lista** de compromissos
 
 [PRINT: Calendário na visão mensal — Leonardo Loureiro]
 
-> **Importante:** Usuários não administradores veem **somente o próprio calendário**. Não há botão "Sincronizar todos" nem filtro por colaborador.
+> Você enxerga **apenas o seu calendário**. Não há opção de ver o de colegas (isso é só para administradores).
 
 ### 4.2 Sincronizar com o Outlook
 
-O SAMA importa automaticamente os eventos do calendário Outlook vinculado ao seu usuário. Para forçar uma atualização:
+O SAMA acompanha o seu Outlook automaticamente. **Quem manda na agenda é o Outlook** — o SAMA copia o que existe lá: traz novos compromissos, atualiza mudanças e **tira** do SAMA o que você cancelou ou excluiu no Outlook (últimos ~30 dias e próximos ~90 dias).
+
+Para atualizar na hora:
 
 1. Abra **Calendário**.
 2. Clique em **Atualizar**.
-3. Aguarde a conclusão (o ícone gira enquanto processa).
+3. Aguarde terminar. A mensagem mostra quantos itens foram importados e, se houver, quantos foram removidos.
 
 [PRINT: Botão Atualizar na toolbar do calendário]
 
-**Quando usar:** após criar ou alterar compromissos no Outlook; se um evento esperado ainda não apareceu no SAMA.
+**Use Atualizar quando:**
 
-### 4.3 Entender os status dos eventos
+- Criou, reagendou ou cancelou algo no Outlook
+- Um compromisso não apareceu no SAMA
+- Algo ainda aparece no SAMA mas já sumiu do Outlook
 
-| Status | Significado |
-|--------|-------------|
-| **Não categorizado** | Veio do Outlook e ainda precisa de classificação |
-| **Reunião** | Registrado como reunião externa/gerencial |
-| **Atividade** | Registrado como atividade interna |
-| **Ignorado** | Evento pessoal ou irrelevante para métricas — não entra nas análises |
+> **Lembrete:** para mudar **título, data, horário, local ou convidados**, faça no **Outlook** (ou Teams) e depois clique em **Atualizar** no SAMA. Aqui você **classifica** o compromisso, não remarca a agenda.
+
+### 4.3 Cores e status
+
+| O que você vê | O que significa |
+|---------------|-----------------|
+| **Amarelo — Não categorizado** | Veio do Outlook e ainda precisa da sua decisão |
+| **Verde — Reunião** | Você registrou como reunião |
+| **Azul — Atividade** | Você registrou como atividade interna |
+| **Cinza — Ignorado** | Você marcou como irrelevante (não entra nas métricas) |
 
 [PRINT: Chip ou badge "Não categorizado" em um evento]
 
-### 4.4 Filtrar o que precisa de ação
+### 4.4 Ver só o que falta fazer
 
-Para focar no que falta fazer:
-
-1. No painel de filtros, em **Status**, clique em **Não categorizados**.
-2. Opcionalmente, em **Tipo**, escolha **Reuniões** ou **Atividades**.
+1. Em **Status**, clique em **Não categorizados**.
+2. Se quiser, refine em **Tipo** (Reuniões ou Atividades).
 
 [PRINT: Filtro "Não categorizados" ativo com contagem]
 
-### 4.5 Alternar entre Lista e Calendário
+### 4.5 Lista ou calendário
 
-- **Calendário:** visão mensal com chips coloridos por dia; ideal para planejamento.
-- **Lista:** eventos em sequência cronológica; ideal para triagem rápida.
+- **Calendário** — visão do mês, boa para planejar a semana.
+- **Lista** — tudo em ordem de data, boa para “limpar a fila” rapidinho.
 
 [PRINT: Toggle Lista / Calendário]
 [PRINT: Visão lista com eventos pendentes]
 
-**Dica na visão mensal:** se um dia tiver muitos eventos, use **Mais** para expandir a semana inteira.
+**Dica:** se um dia estiver cheio, toque em **Mais** para expandir os compromissos da semana.
 
-### 4.6 Abrir um evento
+### 4.6 Abrir um compromisso
 
-Clique no evento na grade ou na lista. Um painel (sheet) abre com:
+Clique no bloco colorido na grade ou na lista. Abre um **painel** com:
 
-- título, data, horário e duração
-- modalidade (online, presencial no escritório ou externo)
-- participantes e organizador
-- preview do corpo do convite Outlook (quando disponível)
+- Título, data, horário e duração
+- Se é online ou presencial
+- Quem participa e quem organizou
+- Trecho do convite do Outlook (quando houver)
 
 [PRINT: Sheet de evento Outlook pendente — ex.: reunião com cliente]
 
 ---
 
-## 5. Categorizar um evento do Outlook
+## 5. Classificar um compromisso
 
-Todo evento **Não categorizado** exige uma decisão: virou **Reunião**, **Atividade** ou deve ser **Ignorado**.
+Todo item **Não categorizado** pede uma escolha: virou **Reunião**, **Atividade** ou **Ignorar**?
 
 ### 5.1 Ignorar
 
-Use quando o evento **não deve entrar** nas métricas do escritório (compromisso pessoal, bloqueio de agenda, evento duplicado sem valor analítico).
+Use para compromisso **pessoal**, bloqueio de agenda ou qualquer coisa que **não deve entrar** nas métricas do escritório.
 
-1. Abra o evento pendente.
+1. Abra o compromisso.
 2. Clique em **Ignorar**.
-3. Confirme se solicitado.
 
 [PRINT: Botão Ignorar no card do evento]
 
-Para desfazer: abra o evento ignorado e use **Reverter**.
+**Mudou de ideia?** Abra o item ignorado e clique em **Voltar para não categorizado**.
 
-### 5.2 Reclassificar como Reunião
+### 5.2 Registrar como Reunião
 
-Use para reuniões externas (clientes, prospects, parceiros) ou reuniões gerenciais que devem ser analisadas.
+Use para reuniões com **clientes**, **prospects**, **parceiros** ou reuniões **gerenciais** que o escritório acompanha.
 
-1. Abra o evento pendente.
+1. Abra o compromisso pendente.
 2. Clique em **Reclassificação Reunião**.
-3. O formulário abre **pré-preenchido** com dados do Outlook.
+3. O formulário abre **já preenchido** com dados do Outlook.
 
 [PRINT: Botões Reclassificação Reunião / Reclassificação Atividade / Ignorar]
 
-#### Cabeçalho do convite Outlook
+#### Horário e título do Outlook
 
-No topo do formulário, um **card** exibe título, horário e duração importados do Outlook. Esses campos **não podem ser editados** — refletem fielmente o convite.
+No topo do formulário há um **cartão** com título, horário e duração do convite. Esses campos **não dá para editar aqui** — são cópia fiel do Outlook.
 
 [PRINT: ReuniaoOutlookCabecalho com campos bloqueados]
 
-> **Por quê?** Evita divergência entre o calendário corporativo e o registro gerencial.
+Está errado no SAMA? Corrija no **Outlook** e clique em **Atualizar** no Calendário.
 
-#### Campos principais da reunião
+#### O que edito aqui e o que edito no Outlook
 
-Preencha conforme o caso de Leonardo:
+| Você edita no SAMA | Você edita no Outlook |
+|--------------------|------------------------|
+| Tipo da reunião, cliente, participantes (classificação) | Título do compromisso |
+| Status: Agendada, Realizada ou Cancelada | Data e horário |
+| Resumo e Próximos passos (após realizada) | Local, link online, convidados |
+| Modalidade (online, presencial etc.) | Reagendar, cancelar ou excluir |
 
-| Campo | Orientação |
-|-------|------------|
-| **Tipo** | Captação, Fidelização, Relacionamento Institucional, Gestão Estratégica, Gestão de Equipe ou Gestão Operacional — cada opção traz descrição ao selecionar |
-| **Cliente** | Busque o cliente VIOS relacionado à reunião (obrigatório na maioria dos tipos externos) |
-| **Participantes** | Revise convidados do Outlook; inclua internos e externos |
-| **Modalidade** | Online, Presencial – Escritório ou Presencial – Externo |
-| **Status** | **Agendada** (futura) ou **Realizada** (já ocorreu) — eventos passados do Outlook entram como Realizada |
+**Resumindo:** o que aparece no cartão do convite Outlook é só leitura. O restante é o registro gerencial que você preenche aqui.
+
+#### Campos principais
+
+| Campo | Como preencher |
+|-------|----------------|
+| **Tipo** | Captação, Fidelização, Gestão de Equipe etc. — leia a descrição de cada opção |
+| **Cliente** | Busque o cliente no cadastro (obrigatório na maioria dos tipos) |
+| **Participantes** | Confira quem veio do Outlook; ajuste se precisar |
+| **Modalidade** | Online, Presencial no escritório ou Externo |
+| **Status** | **Agendada** (vai acontecer) ou **Realizada** (já aconteceu) |
 
 [PRINT: Formulário de reunião parcialmente preenchido — Leonardo, tipo Gestão Operacional]
 
-#### Resumo e Próximos passos (reunião realizada)
+> Compromissos **passados** do Outlook entram como **Realizada** por padrão — você pode mudar se a reunião foi só agendada.
 
-Quando o **Status** é **Realizada**, aparecem dois campos adicionais:
+#### Resumo e Próximos passos
 
-- **Resumo:** o que foi discutido, decisões tomadas, contexto relevante
-- **Próximos passos:** lista de ações com checkbox (ex.: "Enviar minuta até sexta", "Agendar follow-up com o cliente")
+Com status **Realizada**, aparecem dois campos importantes:
+
+- **Resumo** — o que foi discutido e decidido
+- **Próximos passos** — lista de ações (ex.: “Enviar minuta até sexta”)
 
 [PRINT: Campos Resumo e Próximos passos visíveis com status Realizada]
 
-> **Importante:** Reuniões **Agendadas** (futuras) **não exibem** Resumo nem Próximos passos. Após a reunião acontecer, edite o registro e altere o status para **Realizada** para preencher esses campos.
+> Reunião **Agendada** (futura) **não tem** Resumo nem Próximos passos. Depois que acontecer, edite o registro, mude para **Realizada** e preencha.
 
-**Como preencher Próximos passos**
+**Como montar os Próximos passos**
 
-1. Descreva cada ação no campo de texto.
-2. Use **Adicionar ação** para incluir nova linha.
-3. Marque o checkbox ao concluir uma ação (também possível na tela Próximos passos).
-
-[PRINT: Checklist de próximos passos com duas ações]
-
+1. Escreva cada ação.
+2. Use **Adicionar ação** para nova linha.
+3. Marque a caixinha quando concluir (aqui ou na tela **Próximos passos**).
 4. Clique em **Salvar**.
 
+[PRINT: Checklist de proximos passos com duas ações]
 [PRINT: Botão Salvar no rodapé do modal]
 
-### 5.3 Reclassificar como Atividade
+### 5.3 Registrar como Atividade
 
-Use para trabalho **interno** vinculado a um bloqueio de agenda (parecer, despacho, audiência, revisão de prazo etc.) — não para reuniões com clientes.
+Use para **trabalho interno** ligado a um bloqueio de agenda — parecer, despacho, audiência, revisão de prazo. **Não** use para reunião com cliente.
 
-1. Abra o evento pendente.
+1. Abra o compromisso pendente.
 2. Clique em **Reclassificação Atividade**.
-3. Preencha título, tipo de atividade, datas e descrição.
-4. Salve.
+3. Preencha e salve.
 
 [PRINT: Formulário de atividade pré-preenchido a partir do Outlook]
 
-> **Nota:** Atividades originadas no VIOS entram pelo fluxo próprio de tarefas (administração). No dia a dia, Leonardo categoriza pelo calendário principalmente **reuniões** e eventos que claramente são trabalho interno.
+### 5.4 Editar algo que você já classificou
 
-### 5.4 Editar reunião ou atividade já registrada
+1. Clique no bloco **verde** (reunião) ou **azul** (atividade).
+2. Ajuste o que precisar — tipo, cliente, status, resumo etc.
+3. **Salvar**.
 
-Eventos já categorizados aparecem com cor e rótulo correspondente (Reunião ou Atividade).
+[PRINT: Card de reunião categorizada abrindo o formulário de edição]
 
-1. Localize o item no calendário ou na lista.
-2. Abra o detalhe.
-3. Clique em **Editar**.
-4. Ajuste os campos permitidos e salve.
+Título e horário continuam **bloqueados** se veio do Outlook. Para remarcar, use o Outlook → **Atualizar**.
 
-[PRINT: Card de reunião categorizada com botão Editar]
+### 5.5 Desfazer a classificação
 
-### 5.5 Mesma reunião, outro participante
+Serve quando você classificou errado ou quer **começar de novo**.
 
-Quando Leonardo e outro colega participam do **mesmo compromisso no Outlook**, cada um possui **seu próprio evento** no calendário (IDs diferentes no Microsoft). Cada participante deve **categorizar o próprio evento**.
+#### Compromisso ignorado
 
-> **Exemplo:** Reunião "Pré-meta | Operações Legais" — Leonardo categoriza a dele; o outro sócio categoriza a dele. Não é compartilhada uma única categorização.
+1. Abra o item **Ignorado**.
+2. Clique em **Voltar para não categorizado**.
+
+[PRINT: Botão Voltar para não categorizado em evento ignorado]
+
+#### Reunião já registrada
+
+1. Abra a reunião (bloco verde).
+2. No rodapé do formulário, **à esquerda**, clique em **Voltar para não categorizado**.
+3. Aguarde “Revertendo...”.
+
+[PRINT: Rodapé do modal de edição com "Voltar para não categorizado" à esquerda]
+
+> Isso **não muda** o Outlook — só desfaz o registro no SAMA. Para cancelar de verdade, cancele no Outlook e **Atualizar**.
+
+### 5.6 Mesmo compromisso, vários participantes
+
+Quando você e um colega estão no **mesmo convite**, cada um tem **seu próprio item** no calendário. **Cada um classifica o seu** — não dá para um fazer pelo outro.
+
+> Exemplo: na reunião “Pré-meta | Operações Legais”, você classifica a sua; seu colega classifica a dele.
 
 ---
 
 ## 6. Próximos passos
 
-A tela **Próximos passos** reúne todas as ações registradas nas reuniões **realizadas** de Leonardo, agrupadas por reunião.
+Aqui ficam as **ações** que você registrou nas reuniões **já realizadas**, agrupadas por reunião.
 
 ### 6.1 Visão geral
 
 [PRINT: Tela Próximos passos — Leonardo, com contagem de pendentes]
 
-No topo:
+No topo você vê:
 
-- total de ações **pendentes** e **concluídas**
-- campo de **busca** (por título da reunião, cliente ou texto da ação)
-- filtro: **Pendentes**, **Realizadas** ou **Todos**
+- Quantas ações estão **pendentes** e **concluídas**
+- **Busca** por reunião, cliente ou texto da ação
+- Filtro: **Pendentes**, **Realizadas** ou **Todos**
 
-### 6.2 Marcar ação como concluída
+### 6.2 Marcar como feito
 
-1. Localize a reunião e a ação desejada.
-2. Clique no **checkbox** ao lado da ação.
-3. A alteração é salva automaticamente.
+1. Encontre a ação.
+2. Marque a **caixinha** ao lado.
+3. Pronto — salva sozinho.
 
 [PRINT: Checkbox marcado em uma ação concluída]
 
-### 6.3 Abrir ou editar a reunião de origem
+### 6.3 Voltar na reunião
 
-Para revisar contexto ou alterar o resumo:
+Para reler o contexto ou editar o resumo:
 
-1. Clique no **título da reunião** ou no ícone de edição.
-2. O formulário completo abre.
-3. Ajuste resumo, próximos passos ou demais campos e salve.
+1. Clique no **título da reunião** ou no ícone de editar.
+2. Ajuste o que precisar e **Salvar**.
 
 [PRINT: Grupo de passos expandido com link para editar reunião]
 
-### 6.4 Quando não aparece nada
+### 6.4 Lista vazia?
 
-A lista fica vazia quando:
+Pode ser que:
 
-- nenhuma reunião realizada tem próximos passos preenchidos, ou
-- todas as ações já foram concluídas (verifique o filtro **Pendentes**).
+- Nenhuma reunião realizada tenha próximos passos preenchidos, ou
+- Tudo já foi concluído — teste o filtro **Pendentes**.
 
 ---
 
 ## 7. Dashboard
 
-O **Dashboard** fecha o ciclo: mostra um **resumo analítico** das reuniões e atividades de Leonardo no período selecionado.
+O **Dashboard** é o **resumo** das suas reuniões e atividades no período que você escolher.
 
-> Esta seção fica por último porque depende de eventos já **categorizados** no Calendário.
+> Funciona melhor depois que você já **classificou** os compromissos no Calendário.
 
-### 7.1 O que o Dashboard mostra
+### 7.1 O que aparece
 
-- **Cards por tipo de reunião** (Captação, Fidelização, Gestão Operacional etc.) com quantidade no período
-- **Lista recente** de reuniões com data, cliente e participantes
-- Indicador de **pendências** no calendário (atalho para categorizar)
+- **Cards por tipo** de reunião (Captação, Gestão Operacional etc.)
+- **Lista recente** com data, cliente e participantes
+- Atalho para pendências no calendário
 
 [PRINT: Dashboard de Leonardo — período "Este mês"]
 
-### 7.2 Filtrar o período
+### 7.2 Escolher o período
 
-Use os chips no topo:
-
-| Período | O que exibe |
-|---------|-------------|
-| **Dia** | Reuniões e atividades de uma data específica |
-| **Este mês** | Mês corrente (padrão) |
-| **3 meses** | Últimos três meses |
-| **6 meses** | Últimos seis meses |
+| Opção | Mostra |
+|-------|--------|
+| **Dia** | Uma data específica |
+| **Este mês** | Mês atual (padrão) |
+| **3 meses** / **6 meses** | Janela maior |
 | **Este ano** | Ano corrente |
 
 [PRINT: Filtros de período no Dashboard]
 
-Ao escolher **Dia**, selecione a data no campo ao lado.
+Em **Dia**, escolha a data no campo ao lado.
 
-### 7.3 Filtrar por tipo de reunião
+### 7.3 Filtrar por tipo
 
-No seletor **Tipo**, escolha um tipo específico ou deixe em branco para ver todos.
+No campo **Tipo**, escolha um tipo de reunião ou deixe em branco para ver tudo.
 
 [PRINT: Filtro de tipo — ex.: Gestão Operacional]
 
-### 7.4 Ir do Dashboard ao Calendário
+### 7.4 Ir para o Calendário
 
-Clique em um **card de tipo** ou em uma reunião listada — o SAMA abre o **Calendário** já filtrado para aquele contexto.
+Clique em um **card** ou em uma reunião da lista — o SAMA abre o **Calendário** já filtrado.
 
 [PRINT: Seta ou clique em card levando ao calendário filtrado]
 
-> **Nota:** Leonardo vê **apenas seus números**. Não há filtro por outro colaborador (recurso reservado a administradores).
+> Você vê **somente os seus números** — não dá para filtrar por outro colega.
 
 ---
 
 ## 8. Dúvidas frequentes
 
-**Por que meu evento ainda aparece como "Não categorizado"?**  
-Você ainda não classificou o evento, ou o Outlook não foi sincronizado. Abra **Calendário** → **Atualizar**.
+**Por que ainda aparece "Não categorizado"?**  
+Você ainda não classificou, ou o Outlook não foi atualizado. Vá em **Calendário** → **Atualizar**.
 
-**Posso alterar título ou horário de um evento que veio do Outlook?**  
-Não. Esses dados vêm do convite e ficam bloqueados no formulário. Alterações devem ser feitas no Outlook; depois, **Atualizar** no SAMA.
+**Posso mudar título ou horário aqui no SAMA?**  
+**Não.** Isso vem do Outlook e fica bloqueado. Altere no Outlook ou Teams e clique em **Atualizar**. Se continuar errado, sincronize de novo ou fale com o administrador.
 
-**Preciso categorizar todos os eventos?**  
-Idealmente sim, para métricas corretas. Eventos irrelevantes podem ser **Ignorados**.
+**Classifiquei errado. E agora?**  
+Use **Voltar para não categorizado** — no item ignorado ou no rodapé esquerdo ao editar uma reunião (veja seção 5.5).
+
+**Apaguei no Outlook mas ainda vejo no SAMA.**  
+Clique em **Atualizar**. O SAMA remove o que não existe mais no Outlook.
+
+**Preciso classificar tudo?**  
+O ideal é sim, para as métricas ficarem certas. O que não importa, **Ignore**.
 
 **Reunião futura — onde coloco o resumo?**  
-Deixe como **Agendada**. Após a reunião, edite o registro, mude para **Realizada** e preencha Resumo e Próximos passos.
+Deixe **Agendada**. Depois que acontecer, mude para **Realizada** e preencha.
 
-**Outro sócio já categorizou a mesma reunião. Preciso fazer de novo?**  
-Sim. Cada participante categoriza **o próprio evento** no Outlook.
+**Meu colega já categorizou a mesma reunião. Preciso também?**  
+**Sim.** Cada participante classifica **o próprio** compromisso no Outlook.
 
-**O número no ícone do Calendário não zera.**  
-Ainda há eventos pendentes no **seu** calendário. Use o filtro **Não categorizados** para localizá-los.
+**O número no Calendário não some.**  
+Ainda há itens pendentes seus. Filtre por **Não categorizados**.
 
-**Esqueci minha senha.**  
-Peça ao administrador do SAMA para redefinir o acesso.
+**Esqueci a senha.**  
+Peça ao administrador do SAMA.
 
-**Posso usar no celular?**  
-Sim. As funções principais (Dashboard, Calendário, Próximos passos) estão na barra inferior. Para instalar como app, use **Adicionar à tela inicial** no navegador do smartphone.
+**Funciona no celular?**  
+Sim. Dashboard, Calendário e Passos ficam na barra inferior. Dá para **Adicionar à tela inicial** e usar como app.
 
 ---
 
@@ -413,49 +435,10 @@ Sim. As funções principais (Dashboard, Calendário, Próximos passos) estão n
 
 | Termo | Significado |
 |-------|-------------|
-| **Categorizar** | Classificar um evento Outlook como Reunião, Atividade ou Ignorar |
-| **Não categorizado** | Evento importado do Outlook aguardando classificação |
-| **Reunião externa** | Encontro registrado com tipo, cliente e participantes para análise gerencial |
-| **Atividade interna** | Trabalho individual (parecer, despacho, audiência etc.) |
-| **Próximos passos** | Lista de ações acordadas em reunião realizada |
-| **Atualizar** | Sincronizar seu calendário Outlook com o SAMA |
-
----
-
-## Anexo — Checklist de prints a produzir
-
-Use esta lista ao capturar as imagens. Substituir cada marcador `[PRINT: …]` no texto pela figura correspondente.
-
-| # | Descrição do print | Seção |
-|---|-------------------|-------|
-| 1 | Tela de login | 2.1 |
-| 2 | Trocar senha | 2.2 |
-| 3 | Alertas pendentes ao login | 2.3 |
-| 4 | Sidebar desktop (Leonardo) | 3.1 |
-| 5 | Barra inferior mobile com badge | 3.2 |
-| 6 | Calendário visão mensal | 4.1 |
-| 7 | Botão Atualizar | 4.2 |
-| 8 | Badge "Não categorizado" | 4.3 |
-| 9 | Filtro Não categorizados ativo | 4.4 |
-| 10 | Toggle Lista / Calendário | 4.5 |
-| 11 | Visão lista | 4.5 |
-| 12 | Sheet de evento pendente | 4.6 |
-| 13 | Botões Reclassificação / Ignorar | 5.2 |
-| 14 | Cabeçalho Outlook bloqueado | 5.2 |
-| 15 | Formulário reunião preenchido | 5.2 |
-| 16 | Resumo + Próximos passos (Realizada) | 5.2 |
-| 17 | Checklist com Adicionar ação | 5.2 |
-| 18 | Botão Salvar | 5.2 |
-| 19 | Formulário atividade | 5.3 |
-| 20 | Reunião categorizada + Editar | 5.4 |
-| 21 | Tela Próximos passos | 6.1 |
-| 22 | Checkbox ação concluída | 6.2 |
-| 23 | Editar reunião a partir dos passos | 6.3 |
-| 24 | Dashboard Leonardo — mês | 7.1 |
-| 25 | Filtros de período | 7.2 |
-| 26 | Filtro de tipo | 7.3 |
-| 27 | Card → Calendário filtrado | 7.4 |
-
----
-
-*Documento preparado para revisão interna. Próxima etapa: inserir capturas de tela e exportar PDF.*
+| **Classificar / Categorizar** | Dizer se o compromisso é Reunião, Atividade ou Ignorar |
+| **Descategorizar** | Desfazer a classificação com **Voltar para não categorizado** |
+| **Não categorizado** | Compromisso do Outlook esperando sua decisão |
+| **Reunião** | Encontro registrado com tipo, cliente e participantes |
+| **Atividade** | Trabalho interno (parecer, despacho, audiência etc.) |
+| **Próximos passos** | Ações combinadas numa reunião realizada |
+| **Atualizar** | Sincronizar com o Outlook (inclui, atualiza e remove itens) |

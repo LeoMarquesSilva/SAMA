@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { countEventosPendentes } from "@/lib/calendario";
 import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
+import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export type TrocaSenhaState = { error?: string };
 
@@ -50,6 +51,8 @@ export async function trocarSenha(
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
+  const onboarding = await getOnboardingFlags(supabase, user.id);
+
   if (perfil) {
     const [pendentes, passosPendentes] = await Promise.all([
       countEventosPendentes(supabase, {
@@ -67,5 +70,7 @@ export async function trocarSenha(
     }
   }
 
-  redirect("/dashboard");
+  redirect(
+    !onboarding.calendarioConcluido ? "/calendario" : "/dashboard"
+  );
 }

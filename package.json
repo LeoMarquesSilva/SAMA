@@ -4,15 +4,17 @@
   "private": true,
   "description": "Sistema de Análise de Metas e Atividades",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:webpack": "next dev",
+    "dev": "node scripts/free-port.mjs 3000 && next dev --turbopack -p 3000",
+    "dev:webpack": "node scripts/free-port.mjs 3000 && next dev -p 3000",
+    "dev:reset": "npm run clean && node scripts/free-port.mjs 3000 && next dev --turbopack -p 3000",
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "prebuild": "npm run clean",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "gen:icons": "node scripts/gen-icons.mjs"
+    "gen:icons": "node scripts/gen-icons.mjs",
+    "manual:prints": "node scripts/capture-manual-prints.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -26,6 +28,7 @@
     "react-dom": "19.0.0",
     "react-hook-form": "^7.54.0",
     "recharts": "^2.15.4",
+    "server-only": "^0.0.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {
@@ -35,6 +38,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
     "eslint-config-next": "^15.5.19",
+    "playwright": "^1.61.0",
     "postcss": "^8.5.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",

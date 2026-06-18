@@ -9,6 +9,7 @@ import {
 } from "@/components/calendario/CalendarioViewToggle";
 import { PessoaChips, type PessoaChipOpt } from "@/components/ui/PessoaChips";
 import type { CalendarioTipoFiltro } from "@/lib/calendario-items";
+import { onboardingProps } from "@/lib/onboarding/nav-targets";
 
 type StatusFiltro = "TODOS" | "PENDENTE";
 
@@ -54,6 +55,9 @@ function FilterSegment<T extends string>({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onChange(opt.key)}
+                {...onboardingProps(
+                  opt.key === "PENDENTE" ? "calendario-filtro-pendente" : undefined
+                )}
                 className={clsx(
                   "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition",
                   active
@@ -125,7 +129,10 @@ export function CalendarioToolbar({
   onLimparFiltros: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      data-onboarding="calendario-toolbar"
+    >
       <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <CalendarioViewToggle value={viewMode} onChange={onViewModeChange} />
         <div className="flex flex-wrap gap-2">

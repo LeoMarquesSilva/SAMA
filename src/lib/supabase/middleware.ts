@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { countEventosPendentes, landingPath } from "@/lib/calendario";
+import { countEventosPendentes, landingPathComOnboarding } from "@/lib/calendario";
+import { getOnboardingFlags } from "@/lib/onboarding/state";
 import type { CargoPessoa } from "@/lib/constants";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
@@ -66,8 +67,14 @@ export async function updateSession(request: NextRequest) {
         })
       : 0;
 
+    const onboarding = await getOnboardingFlags(supabase, user.id);
+
     const url = request.nextUrl.clone();
-    url.pathname = landingPath(perfil?.cargo as CargoPessoa | undefined, pendentes);
+    url.pathname = landingPathComOnboarding({
+      cargo: perfil?.cargo as CargoPessoa | undefined,
+      pendentes,
+      onboardingCalendarioConcluido: onboarding.calendarioConcluido,
+    });
     return NextResponse.redirect(url);
   }
 

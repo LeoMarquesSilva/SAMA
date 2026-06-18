@@ -38,14 +38,14 @@ import type { ColaboradorOpt } from "@/lib/colaboradores";
 import {
   type CalendarioItem,
   type CalendarioTipoFiltro,
-  isOutlookPendente,
+  isOutlookPendenteExigivel,
   itemMatchesTipo,
   colaboradorIdsDeEnvolvidos,
   emailsEnvolvidosOutlook,
   reuniaoGrupoVisivelParaUsuario,
   itemGrupoVisivelParaUsuario,
   itemTemGrupoCalendario,
-  countPendentesNoItem,
+  countPendentesExigiveisNoItem,
   statusCalendarioParaUsuario,
 } from "@/lib/calendario-items";
 import {
@@ -69,6 +69,7 @@ import {
 import { CalendarioToolbar } from "@/components/calendario/CalendarioToolbar";
 import { CalendarioMobileView } from "@/components/calendario/CalendarioMobileView";
 import { CalendarioEventSheet } from "@/components/calendario/CalendarioEventSheet";
+import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
 
 type PessoaOpt = {
   id: string;
@@ -117,6 +118,7 @@ export function OutlookClient({
   pessoaAtualId,
   fellowAtivo = false,
   filtroInicial,
+  onboardingEnabled = false,
 }: {
   items: CalendarioItem[];
   outlookVinculos?: {
@@ -130,6 +132,7 @@ export function OutlookClient({
   pessoaAtualId: string | null;
   fellowAtivo?: boolean;
   filtroInicial?: CalendarioFiltroInicial;
+  onboardingEnabled?: boolean;
 }) {
   const router = useRouter();
   const inicial = useMemo(
@@ -216,7 +219,7 @@ export function OutlookClient({
         }
       }
 
-      if (fStatusDetalhe === "PENDENTE" && !isOutlookPendente(e)) return false;
+      if (fStatusDetalhe === "PENDENTE" && !isOutlookPendenteExigivel(e)) return false;
 
       if (fStatusDetalhe === "REALIZADA") {
         if (e.itemKind === "outlook") return false;
@@ -276,7 +279,7 @@ export function OutlookClient({
   const lista = useMemo(() => {
     const base =
       fStatus === "PENDENTE"
-        ? filtradoBase.filter(isOutlookPendente)
+        ? filtradoBase.filter(isOutlookPendenteExigivel)
         : filtradoBase;
     return [...base].sort((a, b) => {
       const ta = a.inicio ? new Date(a.inicio).getTime() : Number.POSITIVE_INFINITY;
@@ -288,7 +291,7 @@ export function OutlookClient({
   const counts = useMemo(() => {
     let pendentes = 0;
     for (const e of filtradoBase) {
-      pendentes += countPendentesNoItem(e);
+      pendentes += countPendentesExigiveisNoItem(e);
     }
     return {
       PENDENTE: pendentes,
@@ -311,7 +314,7 @@ export function OutlookClient({
   }, [filtradoBase]);
 
   const pendentes = useMemo(
-    () => items.reduce((n, e) => n + countPendentesNoItem(e), 0),
+    () => items.reduce((n, e) => n + countPendentesExigiveisNoItem(e), 0),
     [items]
   );
   const filtrosAtivos = Boolean(
@@ -450,7 +453,7 @@ export function OutlookClient({
 
   return (
     <div className="space-y-5">
-      <div>
+      <div data-onboarding="calendario-header">
         <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
           Calendário
         </h1>
@@ -734,6 +737,8 @@ export function OutlookClient({
           </div>
         )}
       </CalendarioEventSheet>
+
+      <OnboardingHost tourId="calendario" enabled={onboardingEnabled} />
     </div>
   );
 }

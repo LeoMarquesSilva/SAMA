@@ -2,7 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { countEventosPendentes, landingPath } from "@/lib/calendario";
+import {
+  countEventosPendentes,
+  landingPathComOnboarding,
+} from "@/lib/calendario";
+import { getOnboardingFlags } from "@/lib/onboarding/state";
 import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
 
@@ -74,5 +78,13 @@ export async function login(
     await setAlertasLoginCookie();
   }
 
-  redirect(landingPath(perfil.cargo, pendentes));
+  const onboarding = await getOnboardingFlags(supabase, user.id);
+
+  redirect(
+    landingPathComOnboarding({
+      cargo: perfil.cargo,
+      pendentes,
+      onboardingCalendarioConcluido: onboarding.calendarioConcluido,
+    })
+  );
 }

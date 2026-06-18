@@ -308,7 +308,9 @@ export function DashboardTipoCards({
         </div>
       </section>
 
-      <DashboardDistribuicaoPie items={pieItems} />
+      <div data-onboarding="dashboard-grafico">
+        <DashboardDistribuicaoPie items={pieItems} />
+      </div>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { mobileMenuItems, type NavItem } from "@/lib/nav-items";
 import type { NavContext } from "@/lib/nav-access";
+import { navOnboardingProps } from "@/lib/onboarding/nav-targets";
 
 const mobileTabs: {
   href: string;
@@ -134,6 +135,7 @@ function TabLink({
   return (
     <Link
       href={href}
+      {...navOnboardingProps(href)}
       className={clsx(
         "relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium",
         active ? "text-brand-600" : "text-slate-400"

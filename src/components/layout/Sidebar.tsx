@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { APP_FULL_NAME, APP_NAME } from "@/lib/constants";
 import { NAV_BRAND, visibleNavItems } from "@/lib/nav-items";
 import type { NavContext } from "@/lib/nav-access";
+import { navOnboardingProps } from "@/lib/onboarding/nav-targets";
 
 export function Sidebar({
   badges = {},
@@ -54,6 +55,7 @@ export function Sidebar({
                 key={href}
                 href={href}
                 title={label}
+                {...navOnboardingProps(href)}
                 className={clsx(
                   "relative flex h-11 items-center rounded-xl transition-colors",
                   active
