@@ -162,6 +162,20 @@ export async function reverterEvento(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Reunião já registrada para o mesmo evento Outlook (outro participante categorizou). */
+export async function buscarReuniaoPorOutlookEventId(
+  outlookEventId: string
+): Promise<string | null> {
+  if (!outlookEventId.trim()) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("reunioes")
+    .select("id")
+    .eq("outlook_event_id", outlookEventId.trim())
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 /** Vincula um evento do calendário a uma reunião/atividade já criada. */
 export async function vincularCategorizado(
   eventoId: string,

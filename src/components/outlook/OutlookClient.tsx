@@ -3,7 +3,6 @@
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw,
   CalendarClock,
   ClipboardList,
   EyeOff,
@@ -12,7 +11,6 @@ import {
   Building2,
   Users,
   Undo2,
-  X,
   ChevronDown,
   Crown,
 } from "lucide-react";
@@ -20,7 +18,6 @@ import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar, PersonTag, AvatarGroup } from "@/components/ui/Avatar";
-import { PessoaChips } from "@/components/ui/PessoaChips";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { limparCorpoOutlook } from "@/lib/outlook";
 import { ReuniaoForm } from "@/components/reunioes/ReuniaoForm";
@@ -45,7 +42,9 @@ import {
   itemMatchesTipo,
   colaboradorIdsDeEnvolvidos,
   emailsEnvolvidosOutlook,
-  reuniaoVisivelParaUsuario,
+  reuniaoGrupoVisivelParaUsuario,
+  itemGrupoVisivelParaUsuario,
+  countPendentesNoItem,
 } from "@/lib/calendario-items";
 import {
   itemNoPeriodoDashboard,
@@ -62,9 +61,9 @@ import {
   registrarEmailNoMapa,
 } from "@/lib/email-escritorio";
 import {
-  CalendarioViewToggle,
   type CalendarioViewMode,
 } from "@/components/calendario/CalendarioViewToggle";
+import { CalendarioToolbar } from "@/components/calendario/CalendarioToolbar";
 import { CalendarioMobileView } from "@/components/calendario/CalendarioMobileView";
 import { CalendarioEventSheet } from "@/components/calendario/CalendarioEventSheet";
 
@@ -108,6 +107,7 @@ function estadoInicialFiltro(f: CalendarioFiltroInicial) {
 
 export function OutlookClient({
   items,
+  outlookVinculos = [],
   pessoas,
   colaboradores,
   isAdmin,
@@ -116,6 +116,11 @@ export function OutlookClient({
   filtroInicial,
 }: {
   items: CalendarioItem[];
+  outlookVinculos?: {
+    reuniao_id: string;
+    pessoa_id: string;
+    status: CalendarioItem["status"];
+  }[];
   pessoas: PessoaOpt[];
   colaboradores: ColaboradorOpt[];
   isAdmin: boolean;
@@ -144,9 +149,10 @@ export function OutlookClient({
     useState<CalendarioItem | null>(null);
   const [editReuniao, setEditReuniao] = useState<ReuniaoComRelacoes | null>(null);
   const [editAtividade, setEditAtividade] = useState<AtividadeComPessoa | null>(null);
-  const [novaAtividade, setNovaAtividade] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarioViewMode>(inicial.viewMode);
   const [sheetEvento, setSheetEvento] =
+    useState<CalendarioItem | null>(null);
+  const [grupoReuniaoItem, setGrupoReuniaoItem] =
     useState<CalendarioItem | null>(null);
 
   // Avatar real para participantes internos (casado por e-mail).
@@ -233,8 +239,12 @@ export function OutlookClient({
 
       if (!itemMatchesTipo(e, fTipo)) return false;
       if (isAdmin && fPessoa) {
-        if (e.itemKind === "reuniao" && e.reuniao) {
-          if (!reuniaoVisivelParaUsuario(e.reuniao, fPessoa, donoPorReuniao)) {
+        if (itemTemGrupo(e)) {
+          if (!itemGrupoVisivelParaUsuario(e, fPessoa, outlookVinculos)) {
+            return false;
+          }
+        } else if (e.itemKind === "reuniao" && e.reuniao) {
+          if (!reuniaoGrupoVisivelParaUsuario(e, fPessoa, outlookVinculos)) {
             return false;
           }
         } else if (e.itemKind === "atividade") {
@@ -256,6 +266,7 @@ export function OutlookClient({
     fPessoa,
     isAdmin,
     donoPorReuniao,
+    outlookVinculos,
   ]);
 
   const lista = useMemo(() => {
@@ -273,7 +284,7 @@ export function OutlookClient({
   const counts = useMemo(() => {
     let pendentes = 0;
     for (const e of filtradoBase) {
-      if (isOutlookPendente(e)) pendentes++;
+      pendentes += countPendentesNoItem(e);
     }
     return {
       PENDENTE: pendentes,
@@ -295,7 +306,10 @@ export function OutlookClient({
     };
   }, [filtradoBase]);
 
-  const pendentes = items.filter(isOutlookPendente).length;
+  const pendentes = useMemo(
+    () => items.reduce((n, e) => n + countPendentesNoItem(e), 0),
+    [items]
+  );
   const filtrosAtivos = Boolean(
     fPessoa ||
       fTipo !== "TODOS" ||
@@ -306,6 +320,39 @@ export function OutlookClient({
   );
 
   function onSelectItem(item: CalendarioItem) {
+    const membros =
+      (item.grupoOutlook?.length ?? 0) + (item.grupoReunioes?.length ?? 0);
+
+    if (membros > 1) {
+      if (fPessoa) {
+        const outlookMatch = item.grupoOutlook?.find(
+          (g) => g.pessoa?.id === fPessoa
+        );
+        if (outlookMatch) {
+          setSheetEvento(outlookMatch.item);
+          return;
+        }
+        const reuniaoMatch = item.grupoReunioes?.find(
+          (g) => g.pessoa?.id === fPessoa
+        );
+        if (reuniaoMatch) {
+          setEditReuniao(reuniaoMatch.reuniao);
+          return;
+        }
+      }
+      setGrupoReuniaoItem(item);
+      return;
+    }
+
+    if (item.grupoOutlook?.length === 1) {
+      setSheetEvento(item.grupoOutlook[0].item);
+      return;
+    }
+    if (item.grupoReunioes?.length === 1) {
+      setEditReuniao(item.grupoReunioes[0].reuniao);
+      return;
+    }
+
     if (item.itemKind === "reuniao" && item.reuniao) {
       setEditReuniao(item.reuniao);
       return;
@@ -405,46 +452,13 @@ export function OutlookClient({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
-            Calendário
-          </h1>
-          <p className="text-sm text-slate-500">
-            {pendentes} não categorizado(s) · reuniões e atividades no calendário
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <div className="col-span-2 sm:col-span-1">
-            <CalendarioViewToggle value={viewMode} onChange={setViewMode} />
-          </div>
-          <Button
-            variant="secondary"
-            className="w-full justify-center sm:w-auto"
-            onClick={() => setNovaAtividade(true)}
-          >
-            <ClipboardList size={16} /> Nova atividade
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full justify-center sm:w-auto"
-            disabled={pending}
-            onClick={() => sincronizar("eu")}
-          >
-            <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
-            Atualizar
-          </Button>
-          {isAdmin && (
-            <Button
-              className="col-span-2 w-full justify-center sm:col-span-1 sm:w-auto"
-              disabled={pending}
-              onClick={() => sincronizar("todos")}
-            >
-              <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
-              Sincronizar todos
-            </Button>
-          )}
-        </div>
+      <div>
+        <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
+          Calendário
+        </h1>
+        <p className="text-sm text-slate-500">
+          {pendentes} não categorizado(s) · reuniões e atividades no calendário
+        </p>
       </div>
 
       {msg && (
@@ -453,101 +467,34 @@ export function OutlookClient({
         </p>
       )}
 
-      {/* Pills de status com contagem */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
-        {(
-          [
-            { key: "TODOS", label: "Todos" },
-            { key: "PENDENTE", label: "Não categorizados" },
-          ] as const
-        ).map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFStatus(f.key)}
-            className={
-              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
-              (fStatus === f.key
-                ? "bg-brand-600 text-white"
-                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")
-            }
-          >
-            {f.label}
-            <span
-              className={
-                "rounded-full px-1.5 text-[11px] font-semibold " +
-                (fStatus === f.key
-                  ? "bg-white/25 text-white"
-                  : "bg-slate-100 text-slate-500")
-              }
-            >
-              {counts[f.key] ?? 0}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
-        {(
-          [
-            { key: "TODOS", label: "Todos os tipos" },
-            { key: "REUNIOES", label: "Reuniões" },
-            { key: "ATIVIDADES", label: "Atividades" },
-          ] as const
-        ).map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFTipo(f.key)}
-            className={
-              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition " +
-              (fTipo === f.key
-                ? "border border-brand-600 bg-brand-50 text-brand-700"
-                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")
-            }
-          >
-            {f.label}
-            <span
-              className={
-                "rounded-full px-1.5 text-[11px] font-semibold " +
-                (fTipo === f.key
-                  ? "bg-brand-100 text-brand-700"
-                  : "bg-slate-100 text-slate-500")
-              }
-            >
-              {tipoCounts[f.key] ?? 0}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Filtro de pessoas (chips) */}
-      <div className="space-y-2">
-        {isAdmin && (
-          <PessoaChips
-            pessoas={pessoasComEventos}
-            value={fPessoa}
-            onChange={setFPessoa}
-          />
-        )}
-        {filtrosAtivos && (
-          <div className="flex justify-center">
-            <button
-              onClick={() => {
-                setFPessoa("");
-                setFTipo("TODOS");
-                setFStatus("TODOS");
-                setFKind("");
-                setFTipoDetalhe("");
-                setFStatusDetalhe("");
-                setFPeriodo("");
-                setFDataDia("");
-              }}
-              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            >
-              <X size={14} /> Limpar filtros
-            </button>
-          </div>
-        )}
-      </div>
+      <CalendarioToolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        pending={pending}
+        isAdmin={isAdmin}
+        onAtualizar={() => sincronizar("eu")}
+        onSincronizarTodos={() => sincronizar("todos")}
+        fStatus={fStatus as "TODOS" | "PENDENTE"}
+        onFStatusChange={setFStatus}
+        statusCounts={counts}
+        fTipo={fTipo}
+        onFTipoChange={setFTipo}
+        tipoCounts={tipoCounts}
+        pessoas={pessoasComEventos}
+        fPessoa={fPessoa}
+        onFPessoaChange={setFPessoa}
+        filtrosAtivos={filtrosAtivos}
+        onLimparFiltros={() => {
+          setFPessoa("");
+          setFTipo("TODOS");
+          setFStatus("TODOS");
+          setFKind("");
+          setFTipoDetalhe("");
+          setFStatusDetalhe("");
+          setFPeriodo("");
+          setFDataDia("");
+        }}
+      />
 
       {viewMode === "calendario" ? (
         <>
@@ -613,8 +560,12 @@ export function OutlookClient({
                 isAdmin={isAdmin}
                 pending={pending}
                 avatarPorEmail={avatarPorEmail}
-                onReuniao={() => setReuniaoEvento(e)}
-                onAtividade={() => setAtividadeEvento(e)}
+                onReuniao={() =>
+                  itemTemGrupo(e) ? onSelectItem(e) : setReuniaoEvento(e)
+                }
+                onAtividade={() =>
+                  itemTemGrupo(e) ? onSelectItem(e) : setAtividadeEvento(e)
+                }
                 onIgnorar={() => ignorar(e.sourceId)}
                 onReverter={() => reverter(e.sourceId)}
               />
@@ -638,7 +589,11 @@ export function OutlookClient({
           onSaved={() => router.refresh()}
           prefill={prefillReuniao(reuniaoEvento)}
           afterCreate={async (id) => {
-            const v = await vincularCategorizado(reuniaoEvento.id, "REUNIAO", id);
+            const v = await vincularCategorizado(
+              reuniaoEvento.sourceId,
+              "REUNIAO",
+              id
+            );
             if (!v.ok) {
               throw new Error(v.error ?? "Erro ao vincular evento.");
             }
@@ -659,7 +614,7 @@ export function OutlookClient({
           prefill={prefillAtividade(atividadeEvento)}
           afterCreate={async (id) => {
             const v = await vincularCategorizado(
-              atividadeEvento.id,
+              atividadeEvento.sourceId,
               "ATIVIDADE",
               id
             );
@@ -668,16 +623,6 @@ export function OutlookClient({
             }
             setFStatus("TODOS");
           }}
-          pessoas={pessoas}
-          podeEscolherPessoa={isAdmin}
-          pessoaAtualId={pessoaAtualId}
-        />
-      )}
-      {novaAtividade && (
-        <AtividadeForm
-          open={true}
-          onClose={() => setNovaAtividade(false)}
-          onSaved={() => router.refresh()}
           pessoas={pessoas}
           podeEscolherPessoa={isAdmin}
           pessoaAtualId={pessoaAtualId}
@@ -707,7 +652,82 @@ export function OutlookClient({
           pessoaAtualId={pessoaAtualId}
         />
       )}
+
+      <CalendarioEventSheet
+        evento={grupoReuniaoItem}
+        onClose={() => setGrupoReuniaoItem(null)}
+      >
+        {grupoReuniaoItem && itemTemGrupo(grupoReuniaoItem) && (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">
+              Este evento aparece no calendário de cada sócio separadamente.
+              Escolha de quem deseja abrir:
+            </p>
+            <ul className="space-y-2">
+              {grupoReuniaoItem.grupoOutlook?.map((g) => (
+                <li key={g.item.sourceId}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSheetEvento(g.item);
+                      setGrupoReuniaoItem(null);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50"
+                  >
+                    <Avatar
+                      nome={g.pessoa?.nome ?? "Sócio"}
+                      src={g.pessoa?.avatar_url}
+                      size={36}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800">
+                        {g.pessoa?.nome ?? "Sem sócio vinculado"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {statusInfo[g.item.status]?.label ?? g.item.status}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+              {grupoReuniaoItem.grupoReunioes?.map((g) => (
+                <li key={g.reuniao.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditReuniao(g.reuniao);
+                      setGrupoReuniaoItem(null);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50"
+                  >
+                    <Avatar
+                      nome={g.pessoa?.nome ?? "Sócio"}
+                      src={g.pessoa?.avatar_url}
+                      size={36}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800">
+                        {g.pessoa?.nome ?? "Sem sócio vinculado"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {STATUS_REUNIAO[g.reuniao.status]}
+                        {g.reuniao.tipo ? ` · ${TIPO_REUNIAO[g.reuniao.tipo]}` : ""}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CalendarioEventSheet>
     </div>
+  );
+}
+
+function itemTemGrupo(item: CalendarioItem): boolean {
+  return (
+    (item.grupoOutlook?.length ?? 0) + (item.grupoReunioes?.length ?? 0) > 1
   );
 }
 
@@ -745,9 +765,19 @@ function RegistroCard({
         </span>
         <span>{label}</span>
         <span>{statusLabel}</span>
-        {isAdmin && item.pessoa?.nome && (
-          <PersonTag nome={item.pessoa.nome} src={item.pessoa.avatar_url} size={18} />
-        )}
+        {isAdmin &&
+          (item.grupoPessoas?.length ? (
+            <AvatarGroup
+              size={18}
+              max={4}
+              pessoas={item.grupoPessoas.map((p) => ({
+                nome: p.nome,
+                avatar_url: p.avatar_url,
+              }))}
+            />
+          ) : item.pessoa?.nome ? (
+            <PersonTag nome={item.pessoa.nome} src={item.pessoa.avatar_url} size={18} />
+          ) : null)}
       </div>
       <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
         <Button size="sm" variant="secondary" onClick={onEditar}>
@@ -826,9 +856,19 @@ function EventoCard({
           <ModIcon />
           {e.online ? "Online" : e.local ? e.local : "Presencial"}
         </span>
-        {isAdmin && e.pessoa?.nome && (
-          <PersonTag nome={e.pessoa.nome} src={e.pessoa.avatar_url} size={18} />
-        )}
+        {isAdmin &&
+          (e.grupoPessoas?.length ? (
+            <AvatarGroup
+              size={18}
+              max={4}
+              pessoas={e.grupoPessoas.map((p) => ({
+                nome: p.nome,
+                avatar_url: p.avatar_url,
+              }))}
+            />
+          ) : e.pessoa?.nome ? (
+            <PersonTag nome={e.pessoa.nome} src={e.pessoa.avatar_url} size={18} />
+          ) : null)}
       </div>
 
       {/* Descrição limpa (expande no clique) */}

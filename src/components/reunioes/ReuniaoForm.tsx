@@ -19,7 +19,7 @@ import {
   type TipoReuniaoKey,
 } from "@/lib/constants";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import type { TipoReuniao } from "@/types/database";
+import type { TipoReuniao, ModalidadeReuniao } from "@/types/database";
 import { toDatetimeLocal } from "@/lib/format";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
@@ -27,12 +27,14 @@ import {
   createReuniao,
   updateReuniao,
 } from "@/lib/reunioes/actions";
+import { buscarReuniaoPorOutlookEventId } from "@/app/(app)/calendario/actions";
 import { resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
 import { Loader2 } from "lucide-react";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
+import { ReuniaoOutlookCabecalho } from "@/components/reunioes/ReuniaoOutlookCabecalho";
 import {
   FellowImportLabelActions,
   fellowMotivoParaStatusImport,
@@ -106,6 +108,13 @@ export function ReuniaoForm({
 }) {
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
+  /** Horários vêm do Outlook — não editáveis neste sistema. */
+  const horarioSomenteLeitura = Boolean(
+    src?.outlook_event_id ||
+      prefill?.outlook_event_id ||
+      prefill?.dono_calendario_id ||
+      reuniao?.outlook_event_id
+  );
   const formFieldId = useId();
   const fieldId = (name: string) => `${formFieldId}-${name}`;
   const [error, setError] = useState<string>();
@@ -424,6 +433,27 @@ export function ReuniaoForm({
     if (Object.keys(errs).length > 0) return;
 
     startTransition(async () => {
+      if (!editing && prefill?.outlook_event_id && afterCreate) {
+        const existenteId = await buscarReuniaoPorOutlookEventId(
+          prefill.outlook_event_id
+        );
+        if (existenteId) {
+          try {
+            await afterCreate(existenteId);
+          } catch (err) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Erro ao vincular o evento do calendário."
+            );
+            return;
+          }
+          onSaved();
+          onClose();
+          return;
+        }
+      }
+
       const r = editing
         ? await updateReuniao(reuniao!.id, values)
         : await createReuniao(values);
@@ -628,16 +658,29 @@ export function ReuniaoForm({
         )}
         aria-hidden={fellowBusy}
       >
-        <Input
-          id={fieldId("titulo")}
-          name="titulo"
-          label="Título"
-          ref={tituloRef}
-          defaultValue={src?.titulo}
-          onChange={handleTituloChange}
-          error={fieldErrors.titulo}
-          required
-        />
+        {horarioSomenteLeitura ? (
+          <ReuniaoOutlookCabecalho
+            titulo={src?.titulo ?? ""}
+            dataHoraInicio={src?.data_hora_inicio}
+            dataHoraFim={src?.data_hora_fim}
+            duracaoMinutos={src?.duracao_minutos}
+            modalidade={modalidade as ModalidadeReuniao}
+            tituloRef={tituloRef}
+            inicioRef={inicioRef}
+            fieldErrors={fieldErrors}
+          />
+        ) : (
+          <Input
+            id={fieldId("titulo")}
+            name="titulo"
+            label="Título"
+            ref={tituloRef}
+            defaultValue={src?.titulo}
+            onChange={handleTituloChange}
+            error={fieldErrors.titulo}
+            required
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1">
@@ -708,37 +751,39 @@ export function ReuniaoForm({
           error={fieldErrors.participantes}
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <DatetimeBrInput
-            id={fieldId("data_hora_inicio")}
-            name="data_hora_inicio"
-            label="Início"
-            ref={inicioRef}
-            defaultValue={toDatetimeLocal(src?.data_hora_inicio)}
-            error={fieldErrors.data_hora_inicio}
-            onChange={autoFillDuracao}
-            required
-          />
-          <DatetimeBrInput
-            id={fieldId("data_hora_fim")}
-            name="data_hora_fim"
-            label="Fim"
-            defaultValue={toDatetimeLocal(src?.data_hora_fim)}
-            error={fieldErrors.data_hora_fim}
-            onChange={autoFillDuracao}
-            required
-          />
-          <Input
-            id={fieldId("duracao_minutos")}
-            name="duracao_minutos"
-            type="number"
-            min={1}
-            label="Duração (min)"
-            defaultValue={src?.duracao_minutos ?? ""}
-            error={fieldErrors.duracao_minutos}
-            required
-          />
-        </div>
+        {!horarioSomenteLeitura && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <DatetimeBrInput
+              id={fieldId("data_hora_inicio")}
+              name="data_hora_inicio"
+              label="Início"
+              ref={inicioRef}
+              defaultValue={toDatetimeLocal(src?.data_hora_inicio)}
+              error={fieldErrors.data_hora_inicio}
+              onChange={autoFillDuracao}
+              required
+            />
+            <DatetimeBrInput
+              id={fieldId("data_hora_fim")}
+              name="data_hora_fim"
+              label="Fim"
+              defaultValue={toDatetimeLocal(src?.data_hora_fim)}
+              error={fieldErrors.data_hora_fim}
+              onChange={autoFillDuracao}
+              required
+            />
+            <Input
+              id={fieldId("duracao_minutos")}
+              name="duracao_minutos"
+              type="number"
+              min={1}
+              label="Duração (min)"
+              defaultValue={src?.duracao_minutos ?? ""}
+              error={fieldErrors.duracao_minutos}
+              required
+            />
+          </div>
+        )}
 
         {status === "REALIZADA" && (
           <>

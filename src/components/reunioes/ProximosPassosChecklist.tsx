@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -7,6 +8,11 @@ import {
   serializeChecklist,
   type ChecklistItem,
 } from "@/lib/proximos-passos-checklist";
+
+function initItems(value: string): ChecklistItem[] {
+  const parsed = parseChecklist(value);
+  return parsed.length > 0 ? parsed : [{ text: "", done: false }];
+}
 
 export function ProximosPassosChecklist({
   value,
@@ -23,26 +29,36 @@ export function ProximosPassosChecklist({
   labelAdornment?: React.ReactNode;
   required?: boolean;
 }) {
-  const items = parseChecklist(value);
-  const displayItems = items.length > 0 ? items : [{ text: "", done: false }];
+  const [items, setItems] = useState<ChecklistItem[]>(() => initItems(value));
+  const lastEmitted = useRef(value);
 
-  function update(next: ChecklistItem[]) {
-    onChange(serializeChecklist(next));
+  useEffect(() => {
+    if (value !== lastEmitted.current) {
+      lastEmitted.current = value;
+      setItems(initItems(value));
+    }
+  }, [value]);
+
+  function emitChange(next: ChecklistItem[]) {
+    setItems(next);
+    const serialized = serializeChecklist(next);
+    lastEmitted.current = serialized;
+    onChange(serialized);
   }
 
   function patchItem(index: number, patch: Partial<ChecklistItem>) {
-    const next = [...displayItems];
+    const next = [...items];
     next[index] = { ...next[index], ...patch };
-    update(next);
+    emitChange(next);
   }
 
   function removeItem(index: number) {
-    const next = displayItems.filter((_, i) => i !== index);
-    update(next.length > 0 ? next : [{ text: "", done: false }]);
+    const next = items.filter((_, i) => i !== index);
+    emitChange(next.length > 0 ? next : [{ text: "", done: false }]);
   }
 
   function addItem() {
-    update([...displayItems, { text: "", done: false }]);
+    emitChange([...items, { text: "", done: false }]);
   }
 
   return (
@@ -56,7 +72,7 @@ export function ProximosPassosChecklist({
       </div>
 
       <ul className="space-y-2">
-        {displayItems.map((item, index) => (
+        {items.map((item, index) => (
           <li key={index} className="flex items-start gap-2">
             <input
               type="checkbox"
@@ -91,7 +107,7 @@ export function ProximosPassosChecklist({
         Adicionar ação
       </Button>
 
-      <input type="hidden" name="proximos_passos" value={value} />
+      <input type="hidden" name="proximos_passos" value={serializeChecklist(items)} />
 
       {error && <span className="text-xs text-red-600">{error}</span>}
     </div>

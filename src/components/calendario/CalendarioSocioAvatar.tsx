@@ -1,6 +1,9 @@
 import { clsx } from "clsx";
-import { Avatar } from "@/components/ui/Avatar";
-import type { CalendarioItem } from "@/lib/calendario-items";
+import { Avatar, AvatarGroup } from "@/components/ui/Avatar";
+import {
+  calendarioSocioLabel,
+  type CalendarioItem,
+} from "@/lib/calendario-items";
 import { contarProximosPassosPendentes } from "@/lib/proximos-passos-checklist";
 import type { OutlookEventoComPessoa } from "@/types/database";
 
@@ -19,8 +22,10 @@ export function CalendarioSocioAvatar({
     "itemKind" in evento && evento.itemKind === "reuniao"
       ? contarProximosPassosPendentes(evento.reuniao?.proximos_passos)
       : 0;
+  const grupoPessoas =
+    "grupoPessoas" in evento ? evento.grupoPessoas : undefined;
 
-  if (!pessoa?.nome && pendentes === 0) return null;
+  if (!pessoa?.nome && !grupoPessoas?.length && pendentes === 0) return null;
 
   return (
     <span className={clsx("inline-flex shrink-0 items-center gap-0.5", className)}>
@@ -36,7 +41,16 @@ export function CalendarioSocioAvatar({
           {pendentes}
         </span>
       )}
-      {pessoa?.nome ? (
+      {grupoPessoas && grupoPessoas.length > 0 ? (
+        <AvatarGroup
+          size={size}
+          max={4}
+          pessoas={grupoPessoas.map((p) => ({
+            nome: p.nome,
+            avatar_url: p.avatar_url,
+          }))}
+        />
+      ) : pessoa?.nome ? (
         <Avatar
           nome={pessoa.nome}
           src={pessoa.avatar_url}

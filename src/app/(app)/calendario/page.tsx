@@ -7,6 +7,7 @@ import { calendarioEventQueryRange } from "@/lib/calendario";
 import { parseCalendarioFiltroInicial } from "@/lib/dashboard-filtros";
 import {
   buildDonoCalendarioMap,
+  agruparReunioesDuplicadasAdmin,
   mergeCalendarioItems,
   reuniaoVisivelParaUsuario,
 } from "@/lib/calendario-items";
@@ -98,12 +99,23 @@ export default async function CalendarioPage({
     );
   }
 
-  const items = mergeCalendarioItems(
+  let items = mergeCalendarioItems(
     eventosOutlook,
     reunioes,
     (atividadesRaw as AtividadeComPessoa[]) ?? [],
-    donoPorReuniao
+    donoPorReuniao,
+    isAdmin ? null : pessoa?.id
   );
+
+  items = agruparReunioesDuplicadasAdmin(items);
+
+  const outlookVinculos = eventosOutlook
+    .filter((e) => e.reuniao_id)
+    .map((e) => ({
+      reuniao_id: e.reuniao_id as string,
+      pessoa_id: e.pessoa_id,
+      status: e.status,
+    }));
 
   return (
     <div className="space-y-4">
@@ -116,6 +128,7 @@ export default async function CalendarioPage({
       )}
       <OutlookClient
         items={items}
+        outlookVinculos={outlookVinculos}
         pessoas={pessoas ?? []}
         colaboradores={colaboradores ?? []}
         isAdmin={isAdmin}

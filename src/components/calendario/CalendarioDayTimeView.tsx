@@ -25,7 +25,7 @@ import {
 } from "@/lib/calendario-events";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
-import type { CalendarioItem } from "@/lib/calendario-items";
+import { calendarioSocioLabel, type CalendarioItem } from "@/lib/calendario-items";
 
 const COLUMN_GAP_PX = 3;
 
@@ -187,7 +187,7 @@ function AllDayRow({
     e.duracao_minutos
   );
   const time = formatTimeRange(e.inicio, e.fim, e.duracao_minutos);
-  const socio = e.pessoa?.nome;
+  const socio = calendarioSocioLabel(e);
 
   return (
     <button
@@ -239,7 +239,7 @@ function TimedEventBlock({
   const compact = height < 44;
   const widthPct = 100 / block.columnCount;
   const leftPct = block.column * widthPct;
-  const socio = e.pessoa?.nome;
+  const socio = calendarioSocioLabel(e);
   const avatarSize = compact ? 14 : block.columnCount > 2 ? 16 : 18;
 
   return (

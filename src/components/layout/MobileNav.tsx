@@ -1,19 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { clsx } from "clsx";
 import {
   LayoutDashboard,
   CalendarDays,
-  Plus,
   ListChecks,
   Menu,
   X,
-  Building2,
-  ClipboardList,
-  UserPlus,
 } from "lucide-react";
 import { mobileMenuItems, type NavItem } from "@/lib/nav-items";
 import type { NavContext } from "@/lib/nav-access";
@@ -29,7 +25,6 @@ const mobileTabs: {
 ];
 
 export function MobileNav({
-  isAdmin = false,
   navContext,
   badges = {},
 }: {
@@ -38,58 +33,12 @@ export function MobileNav({
   badges?: Record<string, number>;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [captureOpen, setCaptureOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const menuItems = mobileMenuItems(navContext);
 
   return (
     <>
-      {captureOpen && (
-        <MobileSheet
-          title="Captura rápida"
-          onClose={() => setCaptureOpen(false)}
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <QuickAction
-              icon={CalendarDays}
-              label="Registrar reunião"
-              onClick={() => {
-                setCaptureOpen(false);
-                router.push("/calendario");
-              }}
-            />
-            <QuickAction
-              icon={ClipboardList}
-              label="Registrar atividade"
-              onClick={() => {
-                setCaptureOpen(false);
-                router.push("/calendario");
-              }}
-            />
-            <QuickAction
-              icon={UserPlus}
-              label="Novo usuário"
-              disabled={!isAdmin}
-              onClick={() => {
-                if (!isAdmin) return;
-                setCaptureOpen(false);
-                router.push("/pessoas?novo=1");
-              }}
-            />
-            <QuickAction
-              icon={Building2}
-              label="Buscar cliente"
-              onClick={() => {
-                setCaptureOpen(false);
-                router.push("/clientes");
-              }}
-            />
-          </div>
-        </MobileSheet>
-      )}
-
       {menuOpen && (
         <MobileSheet title="Menu" onClose={() => setMenuOpen(false)}>
           <div className="grid grid-cols-2 gap-3">
@@ -106,8 +55,8 @@ export function MobileNav({
         </MobileSheet>
       )}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-end justify-around border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
-        {mobileTabs.slice(0, 2).map((tab) => (
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden">
+        {mobileTabs.map((tab) => (
           <TabLink
             key={tab.href}
             {...tab}
@@ -115,21 +64,6 @@ export function MobileNav({
             badge={badges[tab.href]}
           />
         ))}
-
-        <button
-          type="button"
-          onClick={() => setCaptureOpen(true)}
-          className="-mt-6 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg shadow-brand-600/30 active:scale-95"
-          aria-label="Captura rápida"
-        >
-          <Plus size={26} />
-        </button>
-
-        <TabLink
-          {...mobileTabs[2]}
-          active={isActive(pathname, mobileTabs[2].href)}
-          badge={badges[mobileTabs[2].href]}
-        />
 
         <button
           type="button"
@@ -249,34 +183,5 @@ function MenuLink({
         </span>
       ) : null}
     </Link>
-  );
-}
-
-function QuickAction({
-  icon: Icon,
-  label,
-  disabled,
-  onClick,
-}: {
-  icon: React.ComponentType<{ size?: number }>;
-  label: string;
-  disabled?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={clsx(
-        "flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition",
-        disabled
-          ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300"
-          : "border-slate-200 bg-white text-slate-700 hover:border-brand-300 hover:bg-brand-50 active:scale-[0.98]"
-      )}
-    >
-      <Icon size={22} />
-      <span className="text-sm font-medium leading-tight">{label}</span>
-    </button>
   );
 }

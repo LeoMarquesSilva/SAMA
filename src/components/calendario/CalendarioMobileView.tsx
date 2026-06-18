@@ -363,6 +363,7 @@ function WeekRow({
   onSelectDay: (day: Date) => void;
   height: "month" | "week";
 }) {
+  const [weekExpanded, setWeekExpanded] = useState(false);
   const placements = useMemo(
     () => computeMultiDayPlacements(days, eventos),
     [days, eventos]
@@ -384,6 +385,8 @@ function WeekRow({
           height={height}
           lanesHeight={lanesHeight}
           minHeight={minDayHeight}
+          weekExpanded={weekExpanded}
+          onWeekExpandedChange={setWeekExpanded}
         />
       ))}
 
@@ -419,6 +422,8 @@ function DayCell({
   height,
   lanesHeight,
   minHeight,
+  weekExpanded,
+  onWeekExpandedChange,
 }: {
   day: Date;
   events: CalendarioItem[];
@@ -428,6 +433,8 @@ function DayCell({
   height: "month" | "week";
   lanesHeight: number;
   minHeight: number;
+  weekExpanded: boolean;
+  onWeekExpandedChange: (expanded: boolean) => void;
 }) {
   const today = isTodayInTz(day);
   const dayNum = formatDayInTz(day);
@@ -470,6 +477,8 @@ function DayCell({
         showTime
         hideTimeBadgeOnMobile={height === "month"}
         size={height === "week" ? "md" : "sm"}
+        expanded={weekExpanded}
+        onExpandedChange={onWeekExpandedChange}
       />
     </div>
   );

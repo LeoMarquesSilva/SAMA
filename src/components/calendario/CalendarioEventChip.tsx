@@ -5,7 +5,10 @@ import { clsx } from "clsx";
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
 import { calendarioItemColor, formatTimeRange } from "@/lib/calendario-events";
-import type { CalendarioItem } from "@/lib/calendario-items";
+import {
+  calendarioSocioLabel,
+  type CalendarioItem,
+} from "@/lib/calendario-items";
 import { contarProximosPassosPendentes } from "@/lib/proximos-passos-checklist";
 
 const MAX_VISIBLE = 3;
@@ -29,7 +32,7 @@ export function CalendarioEventChip({
   const time = showTime
     ? formatTimeRange(evento.inicio, evento.fim, evento.duracao_minutos)
     : null;
-  const socio = evento.pessoa?.nome;
+  const socio = calendarioSocioLabel(evento);
   const passosPendentes =
     evento.itemKind === "reuniao"
       ? contarProximosPassosPendentes(evento.reuniao?.proximos_passos)
@@ -140,14 +143,26 @@ export function CalendarioDayEvents({
   showTime = true,
   hideTimeBadgeOnMobile = false,
   size = "sm",
+  expanded: expandedProp,
+  onExpandedChange,
 }: {
   eventos: CalendarioItem[];
   onSelectEvento: (e: CalendarioItem) => void;
   showTime?: boolean;
   hideTimeBadgeOnMobile?: boolean;
   size?: "sm" | "md";
+  /** Controlado pelo WeekRow — expande todos os dias da semana juntos. */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedLocal, setExpandedLocal] = useState(false);
+  const controlled = expandedProp !== undefined && onExpandedChange !== undefined;
+  const expanded = controlled ? expandedProp : expandedLocal;
+
+  function setExpanded(value: boolean) {
+    if (controlled) onExpandedChange(value);
+    else setExpandedLocal(value);
+  }
 
   if (eventos.length === 0) return null;
 

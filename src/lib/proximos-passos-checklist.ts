@@ -3,29 +3,28 @@ export type ChecklistItem = {
   done: boolean;
 };
 
-const ITEM_RE =
-  /^-\s*\[( |x|X)\]\s*(.+)$/;
+const ITEM_RE = /^-\s*\[( |x|X)\]\s*(.*)$/;
 
 export function parseChecklist(raw: string | null | undefined): ChecklistItem[] {
   if (!raw?.trim()) return [];
 
   const items: ChecklistItem[] = [];
   for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+    if (!line.trim()) continue;
 
-    const match = trimmed.match(ITEM_RE);
+    const content = line.trimStart();
+    const match = content.match(ITEM_RE);
     if (match) {
-      items.push({ done: match[1].toLowerCase() === "x", text: match[2].trim() });
+      items.push({ done: match[1].toLowerCase() === "x", text: match[2] });
       continue;
     }
 
-    if (trimmed.startsWith("- ")) {
-      items.push({ done: false, text: trimmed.slice(2).trim() });
+    if (content.startsWith("- ")) {
+      items.push({ done: false, text: content.slice(2) });
       continue;
     }
 
-    items.push({ done: false, text: trimmed });
+    items.push({ done: false, text: content.trimEnd() });
   }
 
   return items;
@@ -33,13 +32,15 @@ export function parseChecklist(raw: string | null | undefined): ChecklistItem[] 
 
 export function serializeChecklist(items: ChecklistItem[]): string {
   return items
-    .map((item) => {
-      const text = item.text.trim();
-      if (!text) return "";
-      return `- [${item.done ? "x" : " "}] ${text}`;
-    })
-    .filter(Boolean)
+    .map((item) => `- [${item.done ? "x" : " "}] ${item.text}`)
     .join("\n");
+}
+
+/** Remove linhas vazias antes de persistir no banco. */
+export function compactChecklist(items: ChecklistItem[]): string {
+  return serializeChecklist(
+    items.filter((item) => item.text.trim().length > 0)
+  );
 }
 
 export function checklistTemItens(raw: string | null | undefined): boolean {

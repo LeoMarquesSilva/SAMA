@@ -9,7 +9,7 @@ import {
 import { CalendarioEventBadge } from "@/components/calendario/CalendarioEventBadge";
 import { CalendarioSocioAvatar } from "@/components/calendario/CalendarioSocioAvatar";
 import type { MultiDayPlacement } from "@/lib/calendario-layout";
-import type { CalendarioItem } from "@/lib/calendario-items";
+import { calendarioSocioLabel, type CalendarioItem } from "@/lib/calendario-items";
 
 /** Barra contínua que atravessa várias colunas do calendário. */
 export function CalendarioMultiDayBar({
@@ -35,7 +35,7 @@ export function CalendarioMultiDayBar({
     event.fim,
     event.duracao_minutos
   );
-  const tooltip = [duration, time, event.pessoa?.nome, event.titulo]
+  const tooltip = [duration, time, calendarioSocioLabel(event), event.titulo]
     .filter(Boolean)
     .join(" · ");
 
