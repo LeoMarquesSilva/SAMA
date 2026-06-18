@@ -645,6 +645,7 @@ export function OutlookClient({
             setFStatus("TODOS");
           }}
           colaboradores={colaboradores}
+          usuarios={pessoas}
           fellowAtivo={fellowAtivo}
         />
       )}
@@ -690,6 +691,7 @@ export function OutlookClient({
           onSaved={() => router.refresh()}
           reuniao={editReuniao}
           colaboradores={colaboradores}
+          usuarios={pessoas}
           fellowAtivo={fellowAtivo}
         />
       )}

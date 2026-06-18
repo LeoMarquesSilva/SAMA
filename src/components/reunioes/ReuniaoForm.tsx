@@ -91,6 +91,7 @@ export function ReuniaoForm({
   prefill,
   afterCreate,
   colaboradores,
+  usuarios = [],
   fellowAtivo = false,
 }: {
   open: boolean;
@@ -100,6 +101,7 @@ export function ReuniaoForm({
   prefill?: ReuniaoPrefill | null;
   afterCreate?: (id: string) => Promise<void> | void;
   colaboradores: ColaboradorOpt[];
+  usuarios?: { id: string; nome: string; email: string; avatar_url?: string | null }[];
   fellowAtivo?: boolean;
 }) {
   const editing = Boolean(reuniao);
@@ -700,6 +702,7 @@ export function ReuniaoForm({
         <ParticipantesPicker
           key={prefillKey || reuniao?.id || "novo"}
           colaboradores={colaboradores}
+          usuarios={usuarios}
           defaultSelected={participantesIniciais}
           defaultExternos={externosIniciais}
           error={fieldErrors.participantes}

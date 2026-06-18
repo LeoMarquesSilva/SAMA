@@ -4,10 +4,21 @@ import { useMemo, useState } from "react";
 import { Search, X, Users, ChevronDown, Plus, UserPlus } from "lucide-react";
 import { clsx } from "clsx";
 import { Avatar } from "@/components/ui/Avatar";
-import { isEmailEscritorio } from "@/lib/email-escritorio";
+import {
+  isEmailEscritorio,
+  registrarEmailNoMapa,
+  buscarNoMapaPorEmail,
+} from "@/lib/email-escritorio";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
 
 export type ParticipanteExterno = { nome: string; email: string };
+
+/** Usuário do SAMA (equipe interna), para reconhecer convidados pelo e-mail. */
+export type UsuarioRef = {
+  nome: string;
+  email: string;
+  avatar_url?: string | null;
+};
 
 function normalizaExternos(
   lista: { nome?: string | null; email?: string | null }[]
@@ -28,6 +39,7 @@ function normalizaExternos(
 
 export function ParticipantesPicker({
   colaboradores,
+  usuarios = [],
   defaultSelected = [],
   defaultExternos = [],
   name = "participantes",
@@ -35,6 +47,7 @@ export function ParticipantesPicker({
   error,
 }: {
   colaboradores: ColaboradorOpt[];
+  usuarios?: UsuarioRef[];
   defaultSelected?: string[];
   defaultExternos?: { nome?: string | null; email?: string | null }[];
   name?: string;
@@ -61,6 +74,21 @@ export function ParticipantesPicker({
     }
     return set;
   }, [colaboradores, selected]);
+
+  // Usuários do SAMA por e-mail (reconhece convidados da equipe que não estão
+  // em colaboradores, ex.: sócios). Resolve nome/avatar reais.
+  const usuarioPorEmail = useMemo(() => {
+    const m = new Map<string, { nome: string; avatar_url?: string | null }>();
+    for (const u of usuarios) {
+      if (u.email) {
+        registrarEmailNoMapa(m, u.email, {
+          nome: u.nome,
+          avatar_url: u.avatar_url ?? null,
+        });
+      }
+    }
+    return m;
+  }, [usuarios]);
 
   const departamentos = useMemo(() => {
     const set = new Set<string>();
@@ -174,8 +202,13 @@ export function ParticipantesPicker({
             </span>
           ))}
           {externosVisiveis.map((e) => {
-            // E-mail do escritório (@bpplaw / @bismarchipires) conta como interno.
-            const interno = isEmailEscritorio(e.email);
+            // Convidado que é usuário do SAMA → identidade real (nome/avatar).
+            const usuario = e.email
+              ? buscarNoMapaPorEmail(usuarioPorEmail, e.email)
+              : undefined;
+            // Interno = usuário do SAMA ou e-mail do escritório (@bpplaw / @bismarchipires).
+            const interno = Boolean(usuario) || isEmailEscritorio(e.email);
+            const nomeExibido = usuario?.nome ?? e.nome;
             return (
               <span
                 key={`ext-${e.idx}`}
@@ -185,10 +218,10 @@ export function ParticipantesPicker({
                     ? "border-brand-200 bg-brand-50 text-brand-800"
                     : "border-slate-200 bg-slate-50 text-slate-700"
                 )}
-                title={e.email || e.nome}
+                title={e.email || nomeExibido}
               >
-                <Avatar nome={e.nome} size={20} />
-                <span className="max-w-[160px] truncate">{e.nome}</span>
+                <Avatar nome={nomeExibido} src={usuario?.avatar_url} size={20} />
+                <span className="max-w-[160px] truncate">{nomeExibido}</span>
                 {!interno && (
                   <span className="rounded-full bg-slate-200 px-1 text-[9px] font-semibold uppercase text-slate-500">
                     externo
