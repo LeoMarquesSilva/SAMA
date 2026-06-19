@@ -28,7 +28,7 @@ import {
   parseDashboardDayKey,
   type DashboardPeriodo,
 } from "@/lib/dashboard-filtros";
-import { calendarioPendentesExigiveisCutoff } from "@/lib/calendario";
+import { countEventosPendentes } from "@/lib/calendario";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export const dynamic = "force-dynamic";
@@ -87,15 +87,7 @@ export default async function DashboardPage({
     .neq("tipo", "CIENCIA_NF");
   if (pessoaScope) atividadesQ = atividadesQ.eq("pessoa_id", pessoaScope);
 
-  let pendentesQ = supabase
-    .from("outlook_eventos")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "PENDENTE")
-    .lte("inicio", calendarioPendentesExigiveisCutoff());
   const pendentesPessoaId = isAdmin ? fPessoa || null : eu?.id ?? null;
-  if (pendentesPessoaId) {
-    pendentesQ = pendentesQ.eq("pessoa_id", pendentesPessoaId);
-  }
 
   const proximasQ = supabase
     .from("reunioes")
@@ -116,16 +108,19 @@ export default async function DashboardPage({
     { data: outlookDonoRaw },
     { data: atividadesRaw },
     { data: pessoas },
-    { count: pendentes },
     { data: proximasRaw },
   ] = await Promise.all([
     reunioesQ,
     outlookDonoQ,
     atividadesQ,
     supabase.from("usuarios").select("id, nome, avatar_url").order("nome"),
-    pendentesQ,
     proximasQ,
   ]);
+
+  const pendentes = await countEventosPendentes(supabase, {
+    pessoaId: pendentesPessoaId ?? undefined,
+    isAdmin: isAdmin && !pendentesPessoaId,
+  });
 
   type RRow = {
     id: string;

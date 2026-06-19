@@ -31,16 +31,19 @@ export function calendarioPendentesExigiveisCutoff(now = Date.now()): string {
   return new Date(now).toISOString();
 }
 
-/** Conta eventos do calendário aguardando categorização (somente já ocorridos). */
+/** Conta eventos do calendário aguardando categorização (somente já ocorridos, na janela da UI). */
 export async function countEventosPendentes(
   supabase: SupabaseClient,
-  opts: { pessoaId?: string | null; isAdmin?: boolean }
+  opts: { pessoaId?: string | null; isAdmin?: boolean },
+  now = Date.now()
 ): Promise<number> {
+  const { start } = calendarioEventQueryRange(now);
   let q = supabase
     .from("outlook_eventos")
     .select("id", { count: "exact", head: true })
     .eq("status", "PENDENTE")
-    .lte("inicio", calendarioPendentesExigiveisCutoff());
+    .gte("inicio", start)
+    .lte("inicio", calendarioPendentesExigiveisCutoff(now));
   if (!opts.isAdmin && opts.pessoaId) {
     q = q.eq("pessoa_id", opts.pessoaId);
   }

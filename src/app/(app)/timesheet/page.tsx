@@ -2,7 +2,7 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPessoaAtual } from "@/lib/currentPessoa";
+import { requireTimesheetAccess } from "@/lib/auth";
 import { formatDuration } from "@/lib/format";
 import { TIPO_ATIVIDADE_INTERNA } from "@/lib/constants";
 import { Avatar } from "@/components/ui/Avatar";
@@ -39,8 +39,8 @@ export default async function TimesheetPage({
   const { de, ate } = intervalo(periodo);
 
   const supabase = await createClient();
-  const pessoa = await getPessoaAtual();
-  const isAdmin = pessoa?.is_admin ?? false;
+  const pessoa = await requireTimesheetAccess();
+  const isAdmin = pessoa.is_admin;
 
   let query = supabase
     .from("timesheet_entradas")

@@ -62,6 +62,22 @@ O SAMA sincroniza seu **Outlook**. Os compromissos novos aparecem como **Não ca
 6. Se **Realizada**, preencha **Resumo** e **Próximos passos** (ações combinadas).
 7. Clique em **Salvar**.
 
+### Categorias de reunião (campo Tipo)
+
+Ao classificar como **Reunião**, escolha a categoria que melhor descreve o encontro. No formulário, cada opção traz uma explicação completa — abaixo, um resumo:
+
+| Categoria | Use quando… |
+|-----------|-------------|
+| **Captação** | Reunião com potencial cliente, parceiro ou contato estratégico para gerar oportunidade, apresentar o escritório ou desenvolver relacionamento comercial |
+| **Fidelização** | Reunião com cliente ou consultor **ativo** — fortalecer relacionamento, acompanhar satisfação, identificar novas demandas |
+| **Relacionamento Institucional** | Encontro com autoridades, entidades de classe, associações, parceiros institucionais ou formadores de opinião |
+| **Gestão Estratégica** | Discussão entre sócios ou lideranças sobre estratégia, resultados, indicadores, planejamento, governança ou orçamento |
+| **Gestão de Equipe** | One a one, feedback, desempenho, alinhamento de equipe, PDI ou temas de liderança de pessoas |
+| **Gestão Operacional** | Casos, processos, demandas de clientes, alinhamentos técnicos ou acompanhamento da execução das atividades |
+| **Eventos e Palestras** | Congressos, seminários, palestras, workshops, treinamentos e eventos de atualização técnica ou networking |
+
+> Na maioria das categorias, o **Cliente** é obrigatório. Em dúvida, leia a descrição de cada tipo no campo **Tipo** antes de salvar.
+
 > **Importante:** título, data e horário vêm do Outlook e **não são editáveis** no SAMA. Se estiver errado, corrija no Outlook/Teams e clique em **Atualizar** no Calendário.
 
 ### Próximos passos

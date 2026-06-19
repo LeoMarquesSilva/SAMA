@@ -15,13 +15,14 @@ export function canAccessClientes(ctx: NavContext): boolean {
   return ctx.isAdmin || isAdminCargo(ctx.cargo);
 }
 
-/** Relatórios — sócio, sócio de área e administradores. */
+/** Horas (timesheet) — em desenvolvimento; apenas administradores. */
+export function canAccessTimesheet(ctx: NavContext): boolean {
+  return ctx.isAdmin;
+}
+
+/** Relatórios — em desenvolvimento; apenas administradores. */
 export function canAccessRelatorios(ctx: NavContext): boolean {
-  return (
-    ctx.isAdmin ||
-    isAdminCargo(ctx.cargo) ||
-    ctx.cargo === "SOCIO_AREA"
-  );
+  return ctx.isAdmin;
 }
 
 /** Tarefas VIOS — apenas administradores (sync/mapa interno). */

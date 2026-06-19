@@ -1,0 +1,105 @@
+Assunto: SAMA — Como acessar, classificar reuniões e instalar no iPhone
+
+Olá,
+
+Este é um guia resumido do SAMA (Sistema de Análise de Metas e Atividades). Em poucos minutos você consegue entrar, organizar seus compromissos do Outlook e acompanhar seu resumo. O manual completo, com imagens e detalhes, fica dentro do próprio sistema.
+
+Endereço de acesso: [inserir URL do SAMA]
+
+
+1. PRIMEIRO ACESSO
+
+• Abra o link acima no Safari (iPhone) ou Chrome/Edge (computador).
+• Informe seu e-mail corporativo (@bismarchipires.com.br ou @bpplaw.com.br).
+• Digite a senha provisória que o administrador enviou.
+• Clique em "Entrar no sistema".
+
+Trocar a senha (primeira vez):
+• Confirme a senha provisória.
+• Escolha uma senha segura e salve.
+
+Esqueceu a senha? Peça ao administrador do SAMA para redefinir seu acesso.
+
+Na primeira entrada, o sistema pode mostrar um tour guiado. Você pode seguir ou pular.
+
+
+2. CLASSIFICAR COMPROMISSOS (CALENDÁRIO)
+
+O SAMA sincroniza seu Outlook. Compromissos novos aparecem como "Não categorizados".
+
+Passo a passo:
+1. Abra "Calendário" no menu (ou na barra inferior no celular).
+2. Se precisar, clique em "Atualizar" para buscar novidades do Outlook.
+3. Toque ou clique no compromisso pendente.
+4. Escolha:
+   - Reclassificação Reunião → reunião com cliente, prospect ou gerencial
+   - Reclassificação Atividade → trabalho interno (parecer, despacho, audiência etc.)
+   - Ignorar → compromisso pessoal ou bloqueio de agenda
+
+Se for Reunião:
+• Preencha Tipo, Cliente (quando aplicável), Participantes e Modalidade.
+• Status "Realizada" (já aconteceu) ou "Agendada" (futura).
+• Se Realizada, preencha Resumo e Próximos passos.
+• Clique em Salvar.
+
+Categorias de reunião (campo Tipo):
+Ao classificar como Reunião, escolha a categoria que melhor descreve o encontro. No formulário, cada opção traz a explicação completa. Resumo:
+
+• Captação — potencial cliente, parceiro ou contato estratégico; apresentar o escritório ou gerar oportunidade comercial
+• Fidelização — cliente ou consultor ativo; fortalecer relacionamento, satisfação e novas demandas
+• Relacionamento Institucional — autoridades, entidades de classe, associações, parceiros institucionais ou formadores de opinião
+• Gestão Estratégica — sócios ou lideranças; estratégia, resultados, indicadores, planejamento, governança ou orçamento
+• Gestão de Equipe — one a one, feedback, desempenho, alinhamento de equipe, PDI ou liderança de pessoas
+• Gestão Operacional — casos, processos, demandas de clientes, alinhamentos técnicos ou execução das atividades
+• Eventos e Palestras — congressos, seminários, palestras, workshops, treinamentos e eventos de atualização técnica ou networking
+
+Na maioria das categorias, o Cliente é obrigatório. Em dúvida, leia a descrição de cada tipo no campo Tipo antes de salvar.
+
+Importante: título, data e horário vêm do Outlook e não são editáveis no SAMA. Corrija no Outlook/Teams e clique em "Atualizar" no Calendário.
+
+As ações combinadas ficam em "Próximos passos" — marque a caixinha quando concluir.
+
+
+3. DASHBOARD
+
+O Dashboard ("Início" no celular) mostra o resumo das suas reuniões e atividades.
+
+• Filtros: Este mês, 3 meses, 6 meses, Este ano.
+• Cards por tipo de reunião (Captação, Gestão Operacional etc.).
+• Número laranja no Calendário = compromissos ainda sem classificar.
+
+
+4. MANUAL COMPLETO
+
+Dúvidas, glossário e passo a passo detalhado (com imagens):
+1. Entre no SAMA.
+2. Abra "Ajuda" no menu (computador) ou Menu → Ajuda (celular).
+
+
+5. INSTALAR O SAMA NO IPHONE (ÍCONE NA ÁREA PRINCIPAL)
+
+1. Abra o Safari (navegador normal do iPhone).
+   Não abra o link pelo Outlook, Teams ou WhatsApp.
+2. Acesse o endereço do SAMA e faça login.
+3. Toque no ícone Compartilhar (quadrado com seta para cima), na barra inferior.
+4. Role e toque em "Adicionar à Tela de Início".
+5. Confira o nome "SAMA" e toque em "Adicionar".
+
+O ícone aparece na Área Principal do iPhone — abra por ele como um app.
+
+Barra inferior no celular:
+• Início → Dashboard
+• Calendário → classificar compromissos
+• Passos → Próximos passos
+• Menu → Ajuda, Horas etc.
+
+
+PRECISA DE AJUDA?
+
+• Manual e FAQ: menu Ajuda dentro do SAMA
+• Senha ou acesso: administrador do SAMA
+• Outlook desatualizado: Calendário → Atualizar
+
+Bom uso do SAMA!
+
+Bismarchi Pires

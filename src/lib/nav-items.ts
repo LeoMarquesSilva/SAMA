@@ -15,6 +15,7 @@ import {
   canAccessClientes,
   canAccessRelatorios,
   canAccessTarefas,
+  canAccessTimesheet,
   canAccessUsuarios,
   type NavContext,
 } from "@/lib/nav-access";
@@ -57,7 +58,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/timesheet",
     label: "Horas",
     icon: Clock,
-    visible: () => true,
+    visible: canAccessTimesheet,
   },
   {
     href: "/pessoas",

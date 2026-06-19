@@ -4,6 +4,7 @@ import type { Pessoa } from "@/types/database";
 import {
   canAccessClientes,
   canAccessRelatorios,
+  canAccessTimesheet,
   canAccessUsuarios,
   type NavContext,
 } from "@/lib/nav-access";
@@ -41,6 +42,14 @@ export async function requireClientesAccess(): Promise<Pessoa> {
 export async function requireRelatoriosAccess(): Promise<Pessoa> {
   const pessoa = await getPessoaAtual();
   if (!pessoa || !canAccessRelatorios(navContextFrom(pessoa))) {
+    redirect("/dashboard");
+  }
+  return pessoa;
+}
+
+export async function requireTimesheetAccess(): Promise<Pessoa> {
+  const pessoa = await getPessoaAtual();
+  if (!pessoa || !canAccessTimesheet(navContextFrom(pessoa))) {
     redirect("/dashboard");
   }
   return pessoa;
