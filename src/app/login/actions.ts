@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   countEventosPendentes,
   landingPathComOnboarding,
+  agendaPendentesQueryOpts,
 } from "@/lib/calendario";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 import { countPassosPendentes } from "@/lib/proximos-passos";
@@ -39,7 +40,7 @@ export async function login(
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("id, ativo, senha_provisoria, cargo, is_admin")
+    .select("id, ativo, senha_provisoria, cargo, departamento, is_admin")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -65,10 +66,10 @@ export async function login(
 
   // A sincronização do Outlook não roda mais no login (era bloqueante).
   // Ela acontece ao abrir a tela do calendário (CalendarioAutoSync, throttle 5 min).
-  const pendentes = await countEventosPendentes(supabase, {
-    pessoaId: perfil.id,
-    isAdmin: perfil.is_admin,
-  });
+  const pendentes = await countEventosPendentes(
+    supabase,
+    agendaPendentesQueryOpts(perfil)
+  );
   const passosPendentes = await countPassosPendentes(supabase, {
     pessoaId: perfil.id,
     isAdmin: perfil.is_admin,

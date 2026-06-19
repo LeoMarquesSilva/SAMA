@@ -95,7 +95,7 @@ export function CalendarioToolbar({
   viewMode,
   onViewModeChange,
   pending,
-  isAdmin,
+  verAgendaTodos,
   onAtualizar,
   onSincronizarTodos,
   fStatus,
@@ -113,7 +113,7 @@ export function CalendarioToolbar({
   viewMode: CalendarioViewMode;
   onViewModeChange: (mode: CalendarioViewMode) => void;
   pending: boolean;
-  isAdmin: boolean;
+  verAgendaTodos: boolean;
   onAtualizar: () => void;
   onSincronizarTodos: () => void;
   fStatus: StatusFiltro;
@@ -145,7 +145,7 @@ export function CalendarioToolbar({
             <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
             Atualizar
           </Button>
-          {isAdmin && (
+          {verAgendaTodos && (
             <Button size="sm" disabled={pending} onClick={onSincronizarTodos}>
               <RefreshCw size={16} className={pending ? "animate-spin" : ""} />
               Sincronizar todos
@@ -185,7 +185,7 @@ export function CalendarioToolbar({
           ]}
         />
 
-        {isAdmin && pessoas.length > 0 && (
+        {verAgendaTodos && pessoas.length > 0 && (
           <div className="border-t border-slate-100 pt-4">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Colaborador

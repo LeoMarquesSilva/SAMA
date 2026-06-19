@@ -10,7 +10,8 @@ import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/Confirm";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PessoaForm } from "./PessoaForm";
-import { CARGO_PESSOA } from "@/lib/constants";
+import { cargoPessoaLabel } from "@/lib/constants";
+import { formatDateTime } from "@/lib/format";
 import {
   deletePessoa,
   ativarPessoa,
@@ -27,14 +28,47 @@ function LoginBadge({ p }: { p: Pessoa }) {
   );
 }
 
+function UltimoAcesso({ p }: { p: Pessoa }) {
+  if (!p.ativo || !p.auth_user_id) {
+    return <span className="text-slate-400">—</span>;
+  }
+  if (!p.ultimo_acesso_em) {
+    return <span className="text-slate-400">Nunca</span>;
+  }
+  return (
+    <time
+      dateTime={p.ultimo_acesso_em}
+      className="whitespace-nowrap text-slate-600"
+      title={formatDateTime(p.ultimo_acesso_em)}
+    >
+      {formatDateTime(p.ultimo_acesso_em)}
+    </time>
+  );
+}
+
+function LoginCell({ p, showUltimoAcesso }: { p: Pessoa; showUltimoAcesso?: boolean }) {
+  return (
+    <div className="space-y-1">
+      <LoginBadge p={p} />
+      {showUltimoAcesso && (
+        <p className="text-xs text-slate-500">
+          Último acesso: <UltimoAcesso p={p} />
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function PessoasClient({
   pessoas,
   autoNew = false,
   isAdmin = false,
+  showUltimoAcesso = false,
 }: {
   pessoas: Pessoa[];
   autoNew?: boolean;
   isAdmin?: boolean;
+  showUltimoAcesso?: boolean;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -193,7 +227,7 @@ export function PessoasClient({
                 </div>
                 <p className="truncate text-xs text-slate-400">{p.email}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                  <span>{CARGO_PESSOA[p.cargo]}</span>
+                  <span>{cargoPessoaLabel(p.cargo, p.departamento)}</span>
                   {p.departamento && (
                     <>
                       <span>·</span>
@@ -203,8 +237,8 @@ export function PessoasClient({
                 </div>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-              <LoginBadge p={p} />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+              <LoginCell p={p} showUltimoAcesso={showUltimoAcesso} />
               <Acoes p={p} />
             </div>
           </div>
@@ -212,8 +246,8 @@ export function PessoasClient({
       </div>
 
       {/* DESKTOP: tabela */}
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white md:block">
-        <table className="w-full text-sm">
+      <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white md:block">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Pessoa</th>
@@ -250,9 +284,11 @@ export function PessoasClient({
                 <td className="px-4 py-3 text-slate-600">
                   {p.departamento ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{CARGO_PESSOA[p.cargo]}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {cargoPessoaLabel(p.cargo, p.departamento)}
+                </td>
                 <td className="px-4 py-3">
-                  <LoginBadge p={p} />
+                  <LoginCell p={p} showUltimoAcesso={showUltimoAcesso} />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end">

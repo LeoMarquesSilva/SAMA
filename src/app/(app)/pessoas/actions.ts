@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
-import { isAdminCargo } from "@/lib/constants";
 import { pessoaSchema } from "@/lib/validations";
 import { emailsEscritorioIguais } from "@/lib/email-escritorio";
 
@@ -20,10 +19,6 @@ function parse(formData: FormData) {
     is_admin:
       formData.get("is_admin") === "on" || formData.get("is_admin") === "true",
   });
-}
-
-function resolveIsAdmin(cargo: "SOCIO" | "SOCIO_AREA" | "COLABORADOR", isAdmin: boolean) {
-  return isAdminCargo(cargo) || isAdmin;
 }
 
 async function findAuthUserByEmail(
@@ -55,7 +50,7 @@ export async function createPessoa(formData: FormData): Promise<ActionResult> {
     email: parsed.data.email,
     cargo: parsed.data.cargo,
     departamento: parsed.data.departamento ?? null,
-    is_admin: resolveIsAdmin(parsed.data.cargo, parsed.data.is_admin),
+    is_admin: parsed.data.is_admin,
     ativo: false, // novas pessoas começam desativadas (sem login)
   });
 
@@ -91,7 +86,7 @@ export async function updatePessoa(
       email: parsed.data.email,
       cargo: parsed.data.cargo,
       departamento: parsed.data.departamento ?? null,
-      is_admin: resolveIsAdmin(parsed.data.cargo, parsed.data.is_admin),
+      is_admin: parsed.data.is_admin,
     })
     .eq("id", id);
 

@@ -1,18 +1,18 @@
-import { isAdminCargo, type CargoPessoa } from "@/lib/constants";
+import type { CargoPessoa } from "@/lib/constants";
 
 export type NavContext = {
   cargo: CargoPessoa;
   isAdmin: boolean;
 };
 
-/** Usuários — sócio fundador e administradores. */
+/** Usuários — apenas administradores (is_admin). */
 export function canAccessUsuarios(ctx: NavContext): boolean {
-  return ctx.isAdmin || isAdminCargo(ctx.cargo);
+  return ctx.isAdmin;
 }
 
-/** Clientes — sócio fundador e administradores (não sócio de área). */
+/** Clientes — apenas administradores (is_admin). */
 export function canAccessClientes(ctx: NavContext): boolean {
-  return ctx.isAdmin || isAdminCargo(ctx.cargo);
+  return ctx.isAdmin;
 }
 
 /** Horas (timesheet) — em desenvolvimento; apenas administradores. */
@@ -30,7 +30,7 @@ export function canAccessTarefas(ctx: NavContext): boolean {
   return ctx.isAdmin;
 }
 
-/** Exportação CSV/PDF completa — sócio fundador e administradores. */
+/** Exportação CSV/PDF completa — apenas administradores. */
 export function canExportRelatorios(ctx: NavContext): boolean {
-  return ctx.isAdmin || isAdminCargo(ctx.cargo);
+  return ctx.isAdmin;
 }

@@ -114,7 +114,7 @@ export function OutlookClient({
   outlookVinculos = [],
   pessoas,
   colaboradores,
-  isAdmin,
+  verAgendaTodos,
   pessoaAtualId,
   fellowAtivo = false,
   filtroInicial,
@@ -128,7 +128,7 @@ export function OutlookClient({
   }[];
   pessoas: PessoaOpt[];
   colaboradores: ColaboradorOpt[];
-  isAdmin: boolean;
+  verAgendaTodos: boolean;
   pessoaAtualId: string | null;
   fellowAtivo?: boolean;
   filtroInicial?: CalendarioFiltroInicial;
@@ -245,7 +245,7 @@ export function OutlookClient({
       }
 
       if (!itemMatchesTipo(e, fTipo)) return false;
-      if (isAdmin && fPessoa) {
+      if (verAgendaTodos && fPessoa) {
         if (itemTemGrupoCalendario(e)) {
           if (!itemGrupoVisivelParaUsuario(e, fPessoa, outlookVinculos)) {
             return false;
@@ -271,7 +271,7 @@ export function OutlookClient({
     fTipoDetalhe,
     fTipo,
     fPessoa,
-    isAdmin,
+    verAgendaTodos,
     donoPorReuniao,
     outlookVinculos,
   ]);
@@ -472,7 +472,7 @@ export function OutlookClient({
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         pending={pending}
-        isAdmin={isAdmin}
+        verAgendaTodos={verAgendaTodos}
         onAtualizar={() => sincronizar("eu")}
         onSincronizarTodos={() => sincronizar("todos")}
         fStatus={fStatus as "TODOS" | "PENDENTE"}
@@ -520,7 +520,7 @@ export function OutlookClient({
             {sheetEvento && sheetEvento.itemKind === "outlook" && (
               <EventoCard
                 e={sheetEvento}
-                isAdmin={isAdmin}
+                verAgendaTodos={verAgendaTodos}
                 pending={pending}
                 avatarPorEmail={avatarPorEmail}
                 pessoaAtualId={pessoaAtualId}
@@ -560,7 +560,7 @@ export function OutlookClient({
               <EventoCard
                 key={e.id}
                 e={e}
-                isAdmin={isAdmin}
+                verAgendaTodos={verAgendaTodos}
                 pending={pending}
                 avatarPorEmail={avatarPorEmail}
                 pessoaAtualId={pessoaAtualId}
@@ -577,7 +577,7 @@ export function OutlookClient({
               <RegistroCard
                 key={e.id}
                 item={e}
-                isAdmin={isAdmin}
+                verAgendaTodos={verAgendaTodos}
                 onEditar={() => onSelectItem(e)}
               />
             )
@@ -628,7 +628,7 @@ export function OutlookClient({
             setFStatus("TODOS");
           }}
           pessoas={pessoas}
-          podeEscolherPessoa={isAdmin}
+          podeEscolherPessoa={verAgendaTodos}
           pessoaAtualId={pessoaAtualId}
         />
       )}
@@ -656,7 +656,7 @@ export function OutlookClient({
           onSaved={() => router.refresh()}
           atividade={editAtividade}
           pessoas={pessoas}
-          podeEscolherPessoa={isAdmin}
+          podeEscolherPessoa={verAgendaTodos}
           pessoaAtualId={pessoaAtualId}
         />
       )}
@@ -745,11 +745,11 @@ export function OutlookClient({
 
 function RegistroCard({
   item,
-  isAdmin,
+  verAgendaTodos,
   onEditar,
 }: {
   item: CalendarioItem;
-  isAdmin: boolean;
+  verAgendaTodos: boolean;
   onEditar: () => void;
 }) {
   const isReuniao = item.itemKind === "reuniao";
@@ -777,7 +777,7 @@ function RegistroCard({
         </span>
         <span>{label}</span>
         <span>{statusLabel}</span>
-        {isAdmin &&
+        {verAgendaTodos &&
           (item.grupoPessoas?.length ? (
             <AvatarGroup
               size={18}
@@ -803,7 +803,7 @@ function RegistroCard({
 // ── Card de evento Outlook (pendente / ignorado) ──
 function EventoCard({
   e,
-  isAdmin,
+  verAgendaTodos,
   pending,
   avatarPorEmail,
   pessoaAtualId = null,
@@ -814,7 +814,7 @@ function EventoCard({
   compact = false,
 }: {
   e: CalendarioItem;
-  isAdmin: boolean;
+  verAgendaTodos: boolean;
   pending: boolean;
   avatarPorEmail: Map<string, string | null>;
   pessoaAtualId?: string | null;
@@ -871,7 +871,7 @@ function EventoCard({
           <ModIcon />
           {e.online ? "Online" : e.local ? e.local : "Presencial"}
         </span>
-        {isAdmin &&
+        {verAgendaTodos &&
           (e.grupoPessoas?.length ? (
             <AvatarGroup
               size={18}

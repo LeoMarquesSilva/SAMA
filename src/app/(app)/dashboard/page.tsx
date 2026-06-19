@@ -29,6 +29,7 @@ import {
   type DashboardPeriodo,
 } from "@/lib/dashboard-filtros";
 import { countEventosPendentes } from "@/lib/calendario";
+import { canViewAgendaTodos } from "@/lib/constants";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export const dynamic = "force-dynamic";
@@ -59,8 +60,8 @@ export default async function DashboardPage({
         proximosPassosConcluido: true,
       };
   const eu = await getPessoaAtual();
-  const isAdmin = eu?.is_admin ?? false;
-  const pessoaScope = isAdmin ? fPessoa : eu?.id ?? "__none__";
+  const verAgendaTodos = canViewAgendaTodos(eu);
+  const pessoaScope = verAgendaTodos ? fPessoa : eu?.id ?? "__none__";
 
   let reunioesQ = supabase
     .from("reunioes")
@@ -87,7 +88,7 @@ export default async function DashboardPage({
     .neq("tipo", "CIENCIA_NF");
   if (pessoaScope) atividadesQ = atividadesQ.eq("pessoa_id", pessoaScope);
 
-  const pendentesPessoaId = isAdmin ? fPessoa || null : eu?.id ?? null;
+  const pendentesPessoaId = verAgendaTodos ? fPessoa || null : eu?.id ?? null;
 
   const proximasQ = supabase
     .from("reunioes")
@@ -119,7 +120,7 @@ export default async function DashboardPage({
 
   const pendentes = await countEventosPendentes(supabase, {
     pessoaId: pendentesPessoaId ?? undefined,
-    isAdmin: isAdmin && !pendentesPessoaId,
+    verAgendaTodos: verAgendaTodos && !pendentesPessoaId,
   });
 
   type RRow = {
@@ -152,7 +153,7 @@ export default async function DashboardPage({
     }[];
   };
   let proximas = (proximasRaw as ProxRow[]) ?? [];
-  if (!isAdmin && eu?.id) {
+  if (!verAgendaTodos && eu?.id) {
     proximas = proximas.filter((r) =>
       (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
     );
@@ -213,7 +214,7 @@ export default async function DashboardPage({
           pessoa={fPessoa}
           tipo={fTipo}
           pessoas={pessoas ?? []}
-          isAdmin={isAdmin}
+          filtrarPorPessoa={verAgendaTodos}
         />
       </div>
 

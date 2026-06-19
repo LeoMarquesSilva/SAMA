@@ -6,6 +6,7 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { getCalendarEvents, outlookConfigurado } from "@/lib/graph";
 import { clearAlertasLoginCookie } from "@/lib/alertas-login";
 import { CALENDARIO_PATH, calendarioSyncRange } from "@/lib/calendario";
+import { canViewAgendaTodos } from "@/lib/constants";
 import { alinharRegistrosComOutlook } from "@/lib/outlook-sync-horarios";
 import { removerEventosOrfaosOutlook } from "@/lib/outlook-sync-cleanup";
 
@@ -58,10 +59,10 @@ export async function sincronizarOutlook(
 
   const supabase = await createClient();
   const eu = await getPessoaAtual();
-  const isAdmin = eu?.is_admin ?? false;
+  const verAgendaTodos = canViewAgendaTodos(eu);
 
   let pessoas: { id: string; email: string; nome: string }[] = [];
-  if (escopo === "todos" && isAdmin) {
+  if (escopo === "todos" && verAgendaTodos) {
     const { data } = await supabase
       .from("usuarios")
       .select("id, email, nome")

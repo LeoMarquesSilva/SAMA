@@ -16,6 +16,7 @@ import {
   MODALIDADE_REUNIAO,
   STATUS_REUNIAO,
   tipoReuniaoOptions,
+  reuniaoTipoUsaGrupoInterno,
   type TipoReuniaoKey,
 } from "@/lib/constants";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
@@ -229,7 +230,7 @@ export function ReuniaoForm({
   }
 
   function sugerirClienteDoTitulo(titulo: string) {
-    if (clienteManualRef.current || tipo === "GESTAO_EQUIPE") return;
+    if (clienteManualRef.current || reuniaoTipoUsaGrupoInterno(tipo)) return;
     const ci = src?.cliente_id ?? src?.cliente?.ci ?? "";
     if (ci) return;
 
@@ -267,7 +268,7 @@ export function ReuniaoForm({
 
   function handleTipoChange(v: string) {
     const next = v as TipoReuniao;
-    if (next === "GESTAO_EQUIPE") {
+    if (reuniaoTipoUsaGrupoInterno(next as TipoReuniaoKey)) {
       clienteManualRef.current = false;
     }
     setTipo(next);
@@ -276,7 +277,7 @@ export function ReuniaoForm({
   useEffect(() => {
     if (!open) return;
 
-    if (tipo === "GESTAO_EQUIPE") {
+    if (reuniaoTipoUsaGrupoInterno(tipo)) {
       aplicarClienteGestaoEquipe();
       return;
     }

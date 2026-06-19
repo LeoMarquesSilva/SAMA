@@ -8,7 +8,7 @@ import { ConfirmProvider } from "@/components/ui/Confirm";
 
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { AlertasPendentesOverlay } from "@/components/layout/AlertasPendentesOverlay";
-import { CALENDARIO_PATH, countEventosPendentes } from "@/lib/calendario";
+import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
 import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
 import type { CargoPessoa } from "@/lib/constants";
@@ -38,7 +38,7 @@ export default async function AppLayout({
 
   const { data: pessoaRow } = await supabase
     .from("usuarios")
-    .select("id, is_admin, cargo")
+    .select("id, is_admin, cargo, departamento")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -48,10 +48,19 @@ export default async function AppLayout({
     isAdmin,
   };
 
-  const pendentes = await countEventosPendentes(supabase, {
-    pessoaId: pessoaRow?.id,
-    isAdmin,
-  });
+  const pendentes = await countEventosPendentes(
+    supabase,
+    agendaPendentesQueryOpts(
+      pessoaRow
+        ? {
+            id: pessoaRow.id,
+            is_admin: pessoaRow.is_admin,
+            cargo: (pessoaRow.cargo ?? "COLABORADOR") as CargoPessoa,
+            departamento: pessoaRow.departamento,
+          }
+        : null
+    )
+  );
   const passosPendentes = await countPassosPendentes(supabase, {
     pessoaId: pessoaRow?.id,
     isAdmin,

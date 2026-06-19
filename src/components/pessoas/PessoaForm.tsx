@@ -120,9 +120,14 @@ export function PessoaForm({
           Acesso total ao sistema (administrador)
         </label>
         <p className="text-xs text-slate-500">
-          <span className="font-medium text-slate-600">Sócio</span> sempre tem
-          acesso total. Demais cargos veem só os próprios dados, salvo se
-          marcado acima.
+          Marque <span className="font-medium text-slate-600">Acesso total</span>{" "}
+          apenas para quem administra o sistema (Usuários, Clientes, Relatórios
+          etc.). Demais usuários veem só os próprios dados.
+        </p>
+        <p className="text-xs text-slate-400">
+          <span className="font-medium text-slate-500">Sócio fundador</span> é
+          quem tem cargo Sócio e departamento Sócio — identidade distinta do
+          acesso administrativo acima.
         </p>
         <p className="text-xs text-slate-400">
           A ativação do login (com senha padrão) é feita pelo botão{" "}

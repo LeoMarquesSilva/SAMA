@@ -17,6 +17,8 @@ export type Pessoa = {
   onboarding_proximos_passos_concluido?: boolean;
   criado_em: string;
   atualizado_em: string;
+  /** Preenchido na listagem de /pessoas (Supabase Auth). */
+  ultimo_acesso_em?: string | null;
 };
 
 /** Colaborador espelhado do Responsum (seleção de participantes). */

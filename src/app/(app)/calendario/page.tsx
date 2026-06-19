@@ -11,6 +11,7 @@ import {
   mergeCalendarioItems,
   reuniaoVisivelParaUsuario,
 } from "@/lib/calendario-items";
+import { canViewAgendaTodos } from "@/lib/constants";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
@@ -44,7 +45,7 @@ export default async function CalendarioPage({
         proximosPassosConcluido: true,
       };
   const pessoa = await getPessoaAtual();
-  const isAdmin = pessoa?.is_admin ?? false;
+  const verAgendaTodos = canViewAgendaTodos(pessoa);
   const { start, end } = calendarioEventQueryRange();
 
   let outlookQuery = supabase
@@ -54,7 +55,7 @@ export default async function CalendarioPage({
     .lte("inicio", end)
     .order("inicio", { ascending: true, nullsFirst: false });
 
-  if (!isAdmin && pessoa?.id) {
+  if (!verAgendaTodos && pessoa?.id) {
     outlookQuery = outlookQuery.eq("pessoa_id", pessoa.id);
   }
 
@@ -77,7 +78,7 @@ export default async function CalendarioPage({
     .neq("tipo", "CIENCIA_NF")
     .order("data_hora_inicio", { ascending: true });
 
-  if (!isAdmin && pessoa?.id) {
+  if (!verAgendaTodos && pessoa?.id) {
     atividadesQuery = atividadesQuery.eq("pessoa_id", pessoa.id);
   }
 
@@ -104,7 +105,7 @@ export default async function CalendarioPage({
   const donoPorReuniao = buildDonoCalendarioMap(eventosOutlook, reunioesAll);
 
   let reunioes = reunioesAll;
-  if (!isAdmin && pessoa?.id) {
+  if (!verAgendaTodos && pessoa?.id) {
     reunioes = reunioes.filter((r) =>
       reuniaoVisivelParaUsuario(r, pessoa.id, donoPorReuniao)
     );
@@ -115,7 +116,7 @@ export default async function CalendarioPage({
     reunioes,
     (atividadesRaw as AtividadeComPessoa[]) ?? [],
     donoPorReuniao,
-    isAdmin ? null : pessoa?.id
+    verAgendaTodos ? null : pessoa?.id
   );
 
   items = agruparReunioesDuplicadasAdmin(items);
@@ -142,7 +143,7 @@ export default async function CalendarioPage({
         outlookVinculos={outlookVinculos}
         pessoas={pessoas ?? []}
         colaboradores={colaboradores ?? []}
-        isAdmin={isAdmin}
+        verAgendaTodos={verAgendaTodos}
         pessoaAtualId={pessoa?.id ?? null}
         fellowAtivo={fellowConfigurado()}
         filtroInicial={filtroInicial}

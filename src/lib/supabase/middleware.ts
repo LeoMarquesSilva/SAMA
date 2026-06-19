@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { countEventosPendentes, landingPathComOnboarding } from "@/lib/calendario";
+import { countEventosPendentes, landingPathComOnboarding, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 import type { CargoPessoa } from "@/lib/constants";
 
@@ -56,15 +56,12 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     const { data: perfil } = await supabase
       .from("usuarios")
-      .select("id, cargo, is_admin")
+      .select("id, cargo, departamento, is_admin")
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
     const pendentes = perfil
-      ? await countEventosPendentes(supabase, {
-          pessoaId: perfil.id,
-          isAdmin: perfil.is_admin,
-        })
+      ? await countEventosPendentes(supabase, agendaPendentesQueryOpts(perfil))
       : 0;
 
     const onboarding = await getOnboardingFlags(supabase, user.id);

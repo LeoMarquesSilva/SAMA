@@ -24,14 +24,15 @@ export function DashboardFiltros({
   pessoa,
   tipo,
   pessoas,
-  isAdmin,
+  filtrarPorPessoa,
 }: {
   periodo: string;
   dataDia: string;
   pessoa: string;
   tipo: string;
   pessoas: PessoaOpt[];
-  isAdmin: boolean;
+  /** Admin ou sócio fundador — pode filtrar métricas por colaborador. */
+  filtrarPorPessoa: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -99,7 +100,7 @@ export function DashboardFiltros({
         />
       </div>
 
-      {isAdmin && (
+      {filtrarPorPessoa && (
         <PessoaChips
           pessoas={pessoas}
           value={pessoa}

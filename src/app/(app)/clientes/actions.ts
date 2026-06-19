@@ -372,7 +372,7 @@ export async function criarLeadCaptacao(
   return { ok: true, cliente: data as ClienteBusca };
 }
 
-/** Grupo padrão para reuniões de Gestão de Equipe (interno do escritório). */
+/** Grupo padrão para reuniões internas do escritório (Gestão de Equipe / Operacional). */
 export async function resolverGrupoGestaoEquipe(): Promise<ClienteBusca | null> {
   const supabase = await createClient();
   const {

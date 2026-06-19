@@ -31,9 +31,38 @@ export function departamentoUsuarioOptions(): { value: string; label: string }[]
   return DEPARTAMENTO_USUARIO.map((label) => ({ value: label, label }));
 }
 
-/** Sócio fundador — acesso total ao sistema (espelha is_admin no banco). */
-export function isAdminCargo(cargo: CargoPessoa): boolean {
-  return cargo === "SOCIO";
+/** Departamento que identifica sócio fundador (junto com cargo SOCIO). */
+export const DEPARTAMENTO_SOCIO_FUNDADOR = "Sócio" as const satisfies DepartamentoUsuario;
+
+/** Sócio fundador: cargo Sócio + departamento Sócio (identidade; admin é is_admin). */
+export function isSocioFundador(
+  cargo: CargoPessoa,
+  departamento: string | null | undefined
+): boolean {
+  return cargo === "SOCIO" && departamento === DEPARTAMENTO_SOCIO_FUNDADOR;
+}
+
+type PessoaAgenda = {
+  is_admin: boolean;
+  cargo: CargoPessoa;
+  departamento: string | null;
+};
+
+/** Agenda de todos: administradores ou sócio fundador. */
+export function canViewAgendaTodos(
+  pessoa: PessoaAgenda | null | undefined
+): boolean {
+  if (!pessoa) return false;
+  return pessoa.is_admin || isSocioFundador(pessoa.cargo, pessoa.departamento);
+}
+
+/** Rótulo de cargo na UI — distingue Sócio fundador dos demais cargos Sócio. */
+export function cargoPessoaLabel(
+  cargo: CargoPessoa,
+  departamento?: string | null
+): string {
+  if (isSocioFundador(cargo, departamento)) return "Sócio fundador";
+  return CARGO_PESSOA[cargo];
 }
 
 export const STATUS_CLIENTE = {
@@ -55,10 +84,20 @@ export const TIPO_REUNIAO = {
   EVENTOS_PALESTRAS: "Eventos e Palestras",
 } as const;
 
-/** Grupo VIOS vinculado automaticamente a reuniões de Gestão de Equipe. */
+/** Grupo VIOS vinculado automaticamente a reuniões internas do escritório. */
 export const GRUPO_CLIENTE_GESTAO_EQUIPE = "Grupo Bismarchi Pires";
 
 export type TipoReuniaoKey = keyof typeof TIPO_REUNIAO;
+
+/** Tipos que preenchem o cliente automaticamente com o grupo interno. */
+export const TIPOS_REUNIAO_GRUPO_INTERNO: TipoReuniaoKey[] = [
+  "GESTAO_EQUIPE",
+  "GESTAO_OPERACIONAL",
+];
+
+export function reuniaoTipoUsaGrupoInterno(tipo: TipoReuniaoKey): boolean {
+  return TIPOS_REUNIAO_GRUPO_INTERNO.includes(tipo);
+}
 
 export const TIPO_REUNIAO_DESCRICAO: Record<TipoReuniaoKey, string> = {
   CAPTACAO:

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUsuariosAccess } from "@/lib/auth";
+import { authLastSignInByUserId } from "@/lib/auth-users.server";
 import { PessoasClient } from "@/components/pessoas/PessoasClient";
 import type { Pessoa } from "@/types/database";
 
@@ -10,20 +11,28 @@ export default async function PessoasPage({
 }: {
   searchParams: Promise<{ novo?: string }>;
 }) {
-  await requireUsuariosAccess();
+  const eu = await requireUsuariosAccess();
 
   const { novo } = await searchParams;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("usuarios")
-    .select("*")
-    .order("nome", { ascending: true });
+  const [{ data }, lastSignIn] = await Promise.all([
+    supabase.from("usuarios").select("*").order("nome", { ascending: true }),
+    authLastSignInByUserId(),
+  ]);
+
+  const pessoas: Pessoa[] = ((data as Pessoa[]) ?? []).map((p) => ({
+    ...p,
+    ultimo_acesso_em: p.auth_user_id
+      ? (lastSignIn.get(p.auth_user_id) ?? null)
+      : null,
+  }));
 
   return (
     <PessoasClient
-      pessoas={(data as Pessoa[]) ?? []}
+      pessoas={pessoas}
       autoNew={novo === "1"}
-      isAdmin
+      isAdmin={eu.is_admin}
+      showUltimoAcesso={eu.is_admin}
     />
   );
 }

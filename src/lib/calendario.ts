@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CargoPessoa } from "@/lib/constants";
+import { canViewAgendaTodos } from "@/lib/constants";
 
 export const CALENDARIO_PATH = "/calendario";
 
@@ -34,7 +35,7 @@ export function calendarioPendentesExigiveisCutoff(now = Date.now()): string {
 /** Conta eventos do calendário aguardando categorização (somente já ocorridos, na janela da UI). */
 export async function countEventosPendentes(
   supabase: SupabaseClient,
-  opts: { pessoaId?: string | null; isAdmin?: boolean },
+  opts: { pessoaId?: string | null; verAgendaTodos?: boolean },
   now = Date.now()
 ): Promise<number> {
   const { start } = calendarioEventQueryRange(now);
@@ -44,11 +45,33 @@ export async function countEventosPendentes(
     .eq("status", "PENDENTE")
     .gte("inicio", start)
     .lte("inicio", calendarioPendentesExigiveisCutoff(now));
-  if (!opts.isAdmin && opts.pessoaId) {
+  if (!opts.verAgendaTodos && opts.pessoaId) {
     q = q.eq("pessoa_id", opts.pessoaId);
   }
   const { count } = await q;
   return count ?? 0;
+}
+
+export type PessoaAgendaOpts = {
+  id?: string | null;
+  is_admin: boolean;
+  cargo: CargoPessoa;
+  departamento?: string | null;
+};
+
+export function agendaPendentesQueryOpts(pessoa: PessoaAgendaOpts | null | undefined) {
+  return {
+    pessoaId: pessoa?.id ?? undefined,
+    verAgendaTodos: canViewAgendaTodos(
+      pessoa
+        ? {
+            is_admin: pessoa.is_admin,
+            cargo: pessoa.cargo,
+            departamento: pessoa.departamento ?? null,
+          }
+        : null
+    ),
+  };
 }
 
 /** Rota inicial após login — sócio de área com pendências vai direto ao calendário. */

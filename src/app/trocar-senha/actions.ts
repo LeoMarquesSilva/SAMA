@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { countEventosPendentes } from "@/lib/calendario";
+import { countEventosPendentes, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
@@ -47,7 +47,7 @@ export async function trocarSenha(
 
   const { data: perfil } = await supabase
     .from("usuarios")
-    .select("id, is_admin")
+    .select("id, cargo, departamento, is_admin")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -55,10 +55,7 @@ export async function trocarSenha(
 
   if (perfil) {
     const [pendentes, passosPendentes] = await Promise.all([
-      countEventosPendentes(supabase, {
-        pessoaId: perfil.id,
-        isAdmin: perfil.is_admin,
-      }),
+      countEventosPendentes(supabase, agendaPendentesQueryOpts(perfil)),
       countPassosPendentes(supabase, {
         pessoaId: perfil.id,
         isAdmin: perfil.is_admin,
