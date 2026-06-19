@@ -153,6 +153,16 @@ export function reuniaoCategorizadaPorUsuario(
   );
 }
 
+/** Reunião criada ou vinculada ao calendário Outlook do usuário (não participante). */
+export function reuniaoMinhaClassificada(
+  r: Pick<ReuniaoComRelacoes, "id" | "criado_por_id">,
+  usuarioId: string,
+  outlook: Pick<OutlookEventoComPessoa, "reuniao_id" | "pessoa_id" | "status">[]
+): boolean {
+  if (r.criado_por_id === usuarioId) return true;
+  return reuniaoCategorizadaPorUsuario(r.id, usuarioId, outlook);
+}
+
 export function reuniaoToCalendarioItem(
   r: ReuniaoComRelacoes,
   dono?: DonoCalendarioOutlook | null

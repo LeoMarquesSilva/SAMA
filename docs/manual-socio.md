@@ -2,7 +2,6 @@
 
 ---
 
-## Sobre este guia
 
 Este manual mostra, passo a passo, como usar o **SAMA** no dia a dia: sincronizar seu Outlook, classificar compromissos, registrar reuniões, acompanhar o que ficou combinado e consultar seu resumo pessoal.
 

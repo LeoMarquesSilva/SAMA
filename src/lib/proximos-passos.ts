@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { reuniaoMinhaClassificada } from "@/lib/calendario-items";
 import {
   contarProximosPassosPendentes,
   parseChecklist,
@@ -98,23 +99,31 @@ export function contarPassosTotais(reunioes: ReuniaoComRelacoes[]): {
   return { pendentes, realizados };
 }
 
-/** Conta passos pendentes visíveis ao usuário (RLS aplicada na query). */
+/** Conta passos pendentes das reuniões classificadas pelo usuário (não todas, mesmo admin). */
 export async function countPassosPendentes(
   supabase: SupabaseClient,
-  opts: { isAdmin?: boolean; pessoaId?: string | null } = {}
+  opts: { pessoaId?: string | null } = {}
 ): Promise<number> {
-  let q = supabase
-    .from("reunioes")
-    .select("proximos_passos")
-    .not("proximos_passos", "is", null)
-    .neq("proximos_passos", "");
+  const pessoaId = opts.pessoaId;
+  if (!pessoaId) return 0;
 
-  // RLS já filtra por visibilidade; count extra só se necessário no futuro.
-  void opts;
+  const [{ data: reunioesRaw }, { data: outlookRaw }] = await Promise.all([
+    supabase
+      .from("reunioes")
+      .select("id, criado_por_id, proximos_passos")
+      .not("proximos_passos", "is", null)
+      .neq("proximos_passos", ""),
+    supabase
+      .from("outlook_eventos")
+      .select("reuniao_id, pessoa_id, status")
+      .eq("pessoa_id", pessoaId)
+      .not("reuniao_id", "is", null),
+  ]);
 
-  const { data } = await q;
+  const outlook = outlookRaw ?? [];
   let total = 0;
-  for (const row of data ?? []) {
+  for (const row of reunioesRaw ?? []) {
+    if (!reuniaoMinhaClassificada(row, pessoaId, outlook)) continue;
     total += contarProximosPassosPendentes(row.proximos_passos);
   }
   return total;

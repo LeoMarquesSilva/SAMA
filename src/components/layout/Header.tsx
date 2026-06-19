@@ -1,6 +1,5 @@
 import { LogOut, Target } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
-import { CommandPalette } from "@/components/layout/CommandPalette";
 
 export function Header({
   nome,
@@ -14,7 +13,7 @@ export function Header({
   const label = nome ?? email;
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:px-6 print:hidden">
+    <header className="flex items-center border-b border-slate-200 bg-white px-4 py-3 md:px-6 print:hidden">
       {/* Logo aparece no mobile (sidebar fica oculta) */}
       <div className="flex items-center gap-2 md:hidden">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
@@ -22,8 +21,7 @@ export function Header({
         </div>
         <span className="text-sm font-bold text-slate-800">SAMA</span>
       </div>
-      <CommandPalette />
-      <div className="flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-3">
         <div className="flex items-center gap-2">
           <Avatar nome={label} src={avatarUrl} size={32} />
           <span className="hidden text-sm text-slate-600 sm:inline">

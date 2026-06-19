@@ -63,7 +63,6 @@ export default async function AppLayout({
   );
   const passosPendentes = await countPassosPendentes(supabase, {
     pessoaId: pessoaRow?.id,
-    isAdmin,
   });
   const showAlertasLogin = await shouldShowAlertasLoginBanner();
 

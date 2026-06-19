@@ -282,9 +282,9 @@ export function OutlookClient({
         ? filtradoBase.filter(isOutlookPendenteExigivel)
         : filtradoBase;
     return [...base].sort((a, b) => {
-      const ta = a.inicio ? new Date(a.inicio).getTime() : Number.POSITIVE_INFINITY;
-      const tb = b.inicio ? new Date(b.inicio).getTime() : Number.POSITIVE_INFINITY;
-      return ta - tb;
+      const ta = a.inicio ? new Date(a.inicio).getTime() : Number.NEGATIVE_INFINITY;
+      const tb = b.inicio ? new Date(b.inicio).getTime() : Number.NEGATIVE_INFINITY;
+      return tb - ta;
     });
   }, [filtradoBase, fStatus]);
 

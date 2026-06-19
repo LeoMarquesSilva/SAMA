@@ -1,14 +1,21 @@
 /**
  * Importa relatório CSV de tarefas do VIOS para o Supabase.
- * Apenas tarefas cumpridas por Sócio de Área (coluna "Usuário que concluiu a tarefa").
- * Uso: node scripts/import-vios-tarefas-csv.mjs [caminho-do.csv]
+ * Por padrão: upsert incremental por CI (só novas e alteradas).
+ * Apenas tarefas cumpridas por Sócio de Área e tipos mapeados no SAMA.
+ *
+ * Uso:
+ *   node scripts/import-vios-tarefas-csv.mjs [caminho-do.csv]
+ *   node scripts/import-vios-tarefas-csv.mjs --full [caminho]  # upsert tudo + limpa sem conclusor
  */
 import fs from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
 
+const args = process.argv.slice(2);
+const fullReplace = args.includes("--full");
 const csvPath =
-  process.argv[2] ?? path.join(process.cwd(), "lista-de-tarefas-nv0.csv");
+  args.find((a) => !a.startsWith("--")) ??
+  path.join(process.cwd(), "lista-de-tarefas-nv0.csv");
 
 const envPath = path.join(process.cwd(), ".env.local");
 if (fs.existsSync(envPath)) {
@@ -24,6 +31,17 @@ if (!url || !key) {
   console.error("Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env.local");
   process.exit(1);
 }
+
+const TIPO_POR_NOME = {
+  "2. REVISAR": "REVISAO_PRAZO",
+  "AUDIÊNCIA UNA/INICIAL": "AUDIENCIA",
+  "SESSÃO DE JULGAMENTO": "AUDIENCIA",
+  "DESPACHO/MEDIAÇÃO - ONLINE": "DESPACHO",
+  "PROPOSTA/CONTRATO DE HONORÁRIOS": "LEVANTAMENTO_DUE_PROPOSTA_CONTRATO",
+  "AUD. CONCILIAÇÃO": "AUDIENCIA",
+  "ENVIAR DUE DILLIGENCE PROSPECT": "LEVANTAMENTO_DUE_PROPOSTA_CONTRATO",
+  "PROTOCOLO DUE DILLIGENCE PROSPECT": "LEVANTAMENTO_DUE_PROPOSTA_CONTRATO",
+};
 
 function cleanField(value) {
   let s = value.trim();
@@ -133,6 +151,22 @@ function findSocioConcluidor(nome, sociosArea) {
   return sociosArea.find((s) => nomesCorrespondem(nome, s.nome)) ?? null;
 }
 
+const TIPO_POR_NOME_NORM = Object.fromEntries(
+  Object.entries(TIPO_POR_NOME).map(([nome, tipo]) => [normalizeNomeCompare(nome), tipo])
+);
+
+function tipoAtividadePorTarefaPai(t) {
+  for (const raw of [t.tarefa_pai, t.tarefa]) {
+    const norm = normalizeNomeCompare(raw ?? "");
+    if (norm && TIPO_POR_NOME_NORM[norm]) return TIPO_POR_NOME_NORM[norm];
+  }
+  return null;
+}
+
+function isTarefaMapeada(t) {
+  return tipoAtividadePorTarefaPai(t) !== null;
+}
+
 function parseTarefas(content) {
   const table = parseViosCsv(content);
   const header = table[0];
@@ -203,6 +237,52 @@ function parseTarefas(content) {
   return out;
 }
 
+/** Campos sincronizados do VIOS — usados para detectar alteração por CI. */
+const SYNC_FIELDS = [
+  "ci_do_processo",
+  "data_para_conclusao",
+  "data_limite",
+  "horario",
+  "nro_cnj",
+  "area_do_processo",
+  "objeto_do_processo",
+  "pasta",
+  "pasta_cliente",
+  "tarefa_pai",
+  "tarefa",
+  "descricao",
+  "cliente",
+  "grupo_cliente",
+  "partes_ativas",
+  "partes_passivas",
+  "comentarios",
+  "historico",
+  "responsaveis",
+  "auxiliares",
+  "vios_status",
+  "usuario_concluiu",
+  "usuario_concluiu_id",
+  "data_conclusao",
+  "hora_conclusao",
+  "usuario_id",
+];
+
+function stableJson(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) return JSON.stringify(value);
+  return value;
+}
+
+function rowFingerprint(row) {
+  return SYNC_FIELDS.map((k) => stableJson(row[k] ?? null)).join("\0");
+}
+
+function pickSyncFields(row) {
+  const out = { ci: row.ci, sincronizado_em: row.sincronizado_em };
+  for (const k of SYNC_FIELDS) out[k] = row[k] ?? null;
+  return out;
+}
+
 if (!fs.existsSync(csvPath)) {
   console.error("Arquivo não encontrado:", csvPath);
   process.exit(1);
@@ -210,7 +290,7 @@ if (!fs.existsSync(csvPath)) {
 
 const content = fs.readFileSync(csvPath, "latin1");
 const parsed = parseTarefas(content);
-console.log("Linhas no CSV:", parsed.length);
+console.log("Linhas no CSV (com CI):", parsed.length);
 
 const supabase = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -235,7 +315,8 @@ function resolveUsuarioId(t) {
 }
 
 const agora = new Date().toISOString();
-const rows = parsed
+const elegiveis = parsed
+  .filter(isTarefaMapeada)
   .map((t) => {
     const socio = findSocioConcluidor(t.usuario_concluiu, sociosArea);
     if (!socio) return null;
@@ -249,26 +330,70 @@ const rows = parsed
   .filter(Boolean);
 
 console.log(
-  "Elegíveis (cumpridas por Sócio de Área):",
-  rows.length,
+  "Elegíveis (mapa VIOS + Sócio de Área):",
+  elegiveis.length,
   "de",
   parsed.length
 );
 
+const { data: existentes, error: fetchErr } = await supabase
+  .from("vios_tarefas")
+  .select(
+    "ci, ci_do_processo, data_para_conclusao, data_limite, horario, nro_cnj, area_do_processo, objeto_do_processo, pasta, pasta_cliente, tarefa_pai, tarefa, descricao, cliente, grupo_cliente, partes_ativas, partes_passivas, comentarios, historico, responsaveis, auxiliares, vios_status, usuario_concluiu, usuario_concluiu_id, data_conclusao, hora_conclusao, usuario_id"
+  );
+
+if (fetchErr) {
+  console.error("Erro ao ler tarefas existentes:", fetchErr.message);
+  process.exit(1);
+}
+
+const porCi = new Map((existentes ?? []).map((r) => [String(r.ci), r]));
+
+let novas = 0;
+let alteradas = 0;
+let inalteradas = 0;
+
+const rows = fullReplace
+  ? elegiveis
+  : elegiveis.filter((row) => {
+      const atual = porCi.get(String(row.ci));
+      if (!atual) {
+        novas++;
+        return true;
+      }
+      if (rowFingerprint(row) !== rowFingerprint(atual)) {
+        alteradas++;
+        return true;
+      }
+      inalteradas++;
+      return false;
+    });
+
+console.log(
+  fullReplace
+    ? `Modo completo: ${rows.length} tarefa(s) para upsert`
+    : `Incremental: ${novas} nova(s), ${alteradas} alterada(s), ${inalteradas} sem mudança`
+);
+
+if (rows.length === 0) {
+  console.log("Nada a importar.");
+  process.exit(0);
+}
+
 const CHUNK = 100;
 for (let i = 0; i < rows.length; i += CHUNK) {
-  const chunk = rows.slice(i, i + CHUNK);
-  const { error } = await supabase
-    .from("vios_tarefas")
-    .upsert(chunk, { onConflict: "ci" });
+  const chunk = rows.slice(i, i + CHUNK).map(pickSyncFields);
+  const { error } = await supabase.from("vios_tarefas").upsert(chunk, { onConflict: "ci" });
   if (error) {
     console.error("Erro no chunk", i, error.message);
     process.exit(1);
   }
-  console.log(`Importados ${Math.min(i + CHUNK, rows.length)} / ${rows.length}`);
+  console.log(`Upsert ${Math.min(i + CHUNK, rows.length)} / ${rows.length}`);
 }
 
-await supabase.from("vios_tarefas").delete().is("usuario_concluiu_id", null);
+if (fullReplace) {
+  await supabase.from("vios_tarefas").delete().is("usuario_concluiu_id", null);
+}
 
 await supabase.from("vios_sync_estado").upsert(
   {
@@ -280,4 +405,8 @@ await supabase.from("vios_sync_estado").upsert(
   { onConflict: "recurso" }
 );
 
-console.log("Concluído:", rows.length, "tarefas");
+const { count } = await supabase
+  .from("vios_tarefas")
+  .select("id", { count: "exact", head: true });
+
+console.log("Concluído:", rows.length, "upsert(s) · total no banco:", count ?? "?");

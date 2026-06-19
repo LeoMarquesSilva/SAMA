@@ -264,8 +264,10 @@ export function AjudaClient({
     );
   }
 
+  const showManualToc = tab === "manual";
+
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
           Central de ajuda
@@ -318,29 +320,29 @@ export function AjudaClient({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:thin]">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
             className={clsx(
-              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
+              "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
               tab === id
                 ? "bg-brand-600 text-white shadow-sm"
                 : "border border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700"
             )}
           >
             <Icon size={17} />
-            {label}
+            <span className="whitespace-nowrap">{label}</span>
           </button>
         ))}
 
-        {tab === "manual" && (
+        {showManualToc && (
           <button
             type="button"
             onClick={() => setMobileIndex(true)}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 lg:hidden"
+            className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 lg:hidden"
           >
             <List size={16} />
             Índice
@@ -370,23 +372,30 @@ export function AjudaClient({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-        {tab === "manual" && (
-          <aside className="hidden lg:block">
-            <div className="sticky top-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+      <div
+        className={clsx(
+          "grid w-full gap-6",
+          showManualToc
+            ? "grid-cols-1 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,260px)_minmax(0,1fr)]"
+            : "grid-cols-1"
+        )}
+      >
+        {showManualToc && (
+          <aside className="hidden min-w-0 lg:block">
+            <div className="sticky top-4 flex max-h-[calc(100dvh-6rem)] flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <p className="mb-2 shrink-0 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Índice
               </p>
-              <div className="max-h-[calc(100vh-8rem)] overflow-y-auto">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
                 <TocNav />
               </div>
             </div>
           </aside>
         )}
 
-        <div className="min-w-0">
+        <div className="min-w-0 w-full">
           {tab === "manual" && (
-            <article className="space-y-6">
+            <article className="w-full space-y-6">
               {filteredSections.length === 0 && !filteredToc.some((t) => t.id === "intro" && normalize(intro).includes(q)) ? (
                 <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
                   Nenhum resultado para &ldquo;{search}&rdquo;. Tente outras
@@ -451,7 +460,7 @@ export function AjudaClient({
           )}
 
           {tab === "faq" && (
-            <div className="space-y-3">
+            <div className="w-full space-y-3">
               {filteredFaq.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
                   Nenhuma pergunta encontrada.
@@ -462,7 +471,7 @@ export function AjudaClient({
                   return (
                     <div
                       key={item.question}
-                      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                      className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                     >
                       <button
                         type="button"
@@ -474,7 +483,7 @@ export function AjudaClient({
                           size={18}
                           className="mt-0.5 shrink-0 text-brand-600"
                         />
-                        <span className="flex-1 text-sm font-semibold text-slate-800 sm:text-base">
+                        <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-800 sm:text-base">
                           {item.question}
                         </span>
                         <ChevronDown
@@ -498,7 +507,7 @@ export function AjudaClient({
           )}
 
           {tab === "glossario" && (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-5 py-4">
                 <h2 className="text-lg font-semibold text-slate-900">
                   Glossário
@@ -516,7 +525,7 @@ export function AjudaClient({
                   {filteredGlossary.map((item) => (
                     <div
                       key={item.term}
-                      className="grid gap-1 px-5 py-4 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-4"
+                      className="grid gap-1 px-4 py-4 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] sm:gap-4 sm:px-5"
                     >
                       <dt className="text-sm font-semibold text-slate-800">
                         {item.term}

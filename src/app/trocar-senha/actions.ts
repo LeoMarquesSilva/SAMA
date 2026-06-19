@@ -58,7 +58,6 @@ export async function trocarSenha(
       countEventosPendentes(supabase, agendaPendentesQueryOpts(perfil)),
       countPassosPendentes(supabase, {
         pessoaId: perfil.id,
-        isAdmin: perfil.is_admin,
       }),
     ]);
 

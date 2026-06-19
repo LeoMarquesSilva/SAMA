@@ -72,7 +72,6 @@ export async function login(
   );
   const passosPendentes = await countPassosPendentes(supabase, {
     pessoaId: perfil.id,
-    isAdmin: perfil.is_admin,
   });
 
   if (pendentes > 0 || passosPendentes > 0) {
