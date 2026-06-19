@@ -34,6 +34,8 @@ import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
 import { Loader2, Undo2 } from "lucide-react";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { useFellowFetchProgress } from "@/components/reunioes/useFellowFetchProgress";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
 import { ReuniaoOutlookCabecalho } from "@/components/reunioes/ReuniaoOutlookCabecalho";
 import {
@@ -127,6 +129,8 @@ export function ReuniaoForm({
   const [revertPending, startRevertTransition] = useTransition();
   const [, startFellowTransition] = useTransition();
   const [fellowBusy, setFellowBusy] = useState(false);
+  const { progress: fellowProgress, stepLabel: fellowStepLabel, complete: completeFellowProgress } =
+    useFellowFetchProgress(fellowBusy);
   const [fellowMsg, setFellowMsg] = useState<string>();
   const [fellowResumoStatus, setFellowResumoStatus] =
     useState<FellowImportStatus>("idle");
@@ -588,7 +592,10 @@ export function ReuniaoForm({
         });
         if (!cancelled) aplicarFellow(r, "auto");
       } finally {
-        if (!cancelled) setFellowBusy(false);
+        if (!cancelled) {
+          await completeFellowProgress();
+          setFellowBusy(false);
+        }
       }
     });
 
@@ -617,6 +624,7 @@ export function ReuniaoForm({
         const r = await buscarConteudoFellow(parametrosFellow());
         aplicarFellow(r, "manual");
       } finally {
+        await completeFellowProgress();
         setFellowBusy(false);
       }
     });
@@ -657,19 +665,23 @@ export function ReuniaoForm({
       <div className="relative">
         {fellowBusy && (
           <div
-            className="absolute inset-0 z-10 flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-xl bg-white/90 px-6 text-center backdrop-blur-[2px]"
+            className="sticky top-0 z-10 -mx-5 -mt-4 mb-4 flex items-start gap-3 border-b border-brand-100 bg-white/95 px-5 py-4 backdrop-blur-sm sm:-mx-6 sm:-mt-5 sm:px-6"
             role="status"
             aria-live="polite"
             aria-busy="true"
           >
-            <Loader2 size={32} className="animate-spin text-brand-600" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-slate-800">
-                Buscando conteúdo no Fellow…
-              </p>
-              <p className="text-xs text-slate-500">
-                Aguarde o carregamento para preencher o formulário.
-              </p>
+            <Loader2
+              size={24}
+              className="mt-0.5 shrink-0 animate-spin text-brand-600"
+            />
+            <div className="min-w-0 flex-1 space-y-2 text-left">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-slate-800">
+                  Buscando conteúdo no Fellow…
+                </p>
+                <p className="text-xs text-slate-500">{fellowStepLabel}</p>
+              </div>
+              <ProgressBar value={fellowProgress} label={fellowStepLabel} />
             </div>
           </div>
         )}
