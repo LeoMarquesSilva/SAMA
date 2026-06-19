@@ -22,6 +22,7 @@ import {
   buildDonoCalendarioMap,
   reuniaoVisivelParaUsuario,
 } from "@/lib/calendario-items";
+import { buildProximasReunioes } from "@/lib/dashboard-proximas";
 import type { OutlookEventoComPessoa, ReuniaoComRelacoes } from "@/types/database";
 import {
   dashboardIntervalo,
@@ -89,33 +90,48 @@ export default async function DashboardPage({
   if (pessoaScope) atividadesQ = atividadesQ.eq("pessoa_id", pessoaScope);
 
   const pendentesPessoaId = verAgendaTodos ? fPessoa || null : eu?.id ?? null;
+  const proximasPessoaId =
+    verAgendaTodos && fPessoa ? fPessoa : eu?.id ?? null;
 
-  const proximasQ = supabase
+  const agoraIso = new Date().toISOString();
+  const ate7dIso = new Date(Date.now() + 7 * 86400000).toISOString();
+
+  let proximasReunioesQ = supabase
     .from("reunioes")
     .select(
-      "id, titulo, modalidade, data_hora_inicio, link_online, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url, usuario_id))"
+      "id, titulo, modalidade, status, data_hora_inicio, link_online, criado_por_id, outlook_event_id, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url, usuario_id))"
     )
     .eq("status", "AGENDADA")
-    .gte("data_hora_inicio", new Date().toISOString())
-    .lte(
-      "data_hora_inicio",
-      new Date(Date.now() + 7 * 86400000).toISOString()
+    .gte("data_hora_inicio", agoraIso)
+    .lte("data_hora_inicio", ate7dIso);
+
+  let proximasOutlookQ = supabase
+    .from("outlook_eventos")
+    .select(
+      "*, pessoa:usuarios(id, nome, email, avatar_url)"
     )
-    .order("data_hora_inicio", { ascending: true })
-    .limit(6);
+    .eq("status", "PENDENTE")
+    .gte("inicio", agoraIso)
+    .lte("inicio", ate7dIso);
+
+  if (proximasPessoaId) {
+    proximasOutlookQ = proximasOutlookQ.eq("pessoa_id", proximasPessoaId);
+  }
 
   const [
     { data: reunioesRaw },
     { data: outlookDonoRaw },
     { data: atividadesRaw },
     { data: pessoas },
-    { data: proximasRaw },
+    { data: proximasReunioesRaw },
+    { data: proximasOutlookRaw },
   ] = await Promise.all([
     reunioesQ,
     outlookDonoQ,
     atividadesQ,
     supabase.from("usuarios").select("id, nome, avatar_url").order("nome"),
-    proximasQ,
+    proximasReunioesQ,
+    proximasOutlookQ,
   ]);
 
   const pendentes = await countEventosPendentes(supabase, {
@@ -136,28 +152,11 @@ export default async function DashboardPage({
       colaborador?: { nome?: string; usuario_id?: string | null } | null;
     }[];
   };
-  type ProxRow = {
-    id: string;
-    titulo: string;
-    modalidade: string;
-    data_hora_inicio: string;
-    link_online: string | null;
-    cliente?: { nome?: string; grupo_cliente?: string | null } | null;
-    participantes: {
-      colaborador_id: string;
-      colaborador?: {
-        nome?: string;
-        avatar_url?: string | null;
-        usuario_id?: string | null;
-      } | null;
-    }[];
-  };
-  let proximas = (proximasRaw as ProxRow[]) ?? [];
-  if (!verAgendaTodos && eu?.id) {
-    proximas = proximas.filter((r) =>
-      (r.participantes ?? []).some((p) => p.colaborador?.usuario_id === eu.id)
-    );
-  }
+  const proximas = buildProximasReunioes(
+    (proximasReunioesRaw as unknown as ReuniaoComRelacoes[]) ?? [],
+    (proximasOutlookRaw as OutlookEventoComPessoa[]) ?? [],
+    proximasPessoaId
+  );
   let reunioes = (reunioesRaw as RRow[]) ?? [];
   const donoPorReuniao = buildDonoCalendarioMap(
     // Seleção parcial (reuniao_id, pessoa_id, outlook_event_id, pessoa) — únicos
