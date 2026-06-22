@@ -21,7 +21,8 @@ import {
 } from "@/lib/constants";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import type { TipoReuniao, ModalidadeReuniao } from "@/types/database";
-import { toDatetimeLocal } from "@/lib/format";
+import { toDatetimeLocal, diffMinutos } from "@/lib/format";
+import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
   buscarConteudoFellow,
@@ -355,10 +356,8 @@ export function ReuniaoForm({
     const dur = form.elements.namedItem("duracao_minutos") as HTMLInputElement | null;
     if (!inicio || !fim || !dur) return;
     if (dur.value && dur.value !== lastAutoDur.current) return;
-    const min = Math.round(
-      (new Date(fim).getTime() - new Date(inicio).getTime()) / 60000
-    );
-    if (min > 0) {
+    const min = diffMinutos(inicio, fim);
+    if (min != null && min > 0) {
       dur.value = String(min);
       lastAutoDur.current = String(min);
     }
@@ -567,7 +566,7 @@ export function ReuniaoForm({
       outlook_event_id: reuniao?.outlook_event_id ?? src?.outlook_event_id,
       titulo,
       data_hora_inicio: data_hora_inicio
-        ? new Date(data_hora_inicio).toISOString()
+        ? datetimeLocalSpToIso(data_hora_inicio)
         : src?.data_hora_inicio,
     };
   }

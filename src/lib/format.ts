@@ -4,7 +4,7 @@ import {
   formatTimeInTz,
   toDatetimeLocalInTz,
 } from "@/lib/timezone";
-import { normalizeDatetimeLocal } from "@/lib/datetime-br";
+import { datetimeLocalSpToMs } from "@/lib/datetime-br";
 
 /** Data no padrão brasileiro: DD/MM/AAAA (fuso SP). */
 export function formatDate(iso: string | null | undefined): string {
@@ -59,12 +59,9 @@ export function diffMinutos(
   fim?: string | null
 ): number | null {
   if (!inicio || !fim) return null;
-  const aLocal = normalizeDatetimeLocal(inicio);
-  const bLocal = normalizeDatetimeLocal(fim);
-  if (!aLocal || !bLocal) return null;
-  const a = new Date(aLocal).getTime();
-  const b = new Date(bLocal).getTime();
-  if (Number.isNaN(a) || Number.isNaN(b) || b <= a) return null;
+  const a = datetimeLocalSpToMs(inicio);
+  const b = datetimeLocalSpToMs(fim);
+  if (a == null || b == null || b <= a) return null;
   return Math.round((b - a) / 60000);
 }
 

@@ -1,6 +1,6 @@
 // Validações de formulário no cliente — mensagens em pt-BR, por campo.
 
-import { normalizeDatetimeLocal } from "@/lib/datetime-br";
+import { datetimeLocalSpToMs } from "@/lib/datetime-br";
 
 export type FieldErrors = Record<string, string>;
 
@@ -57,11 +57,9 @@ export function validateFields(
     if (rule.afterField) {
       const other = values[rule.afterField.field];
       const otherStr = other == null ? "" : String(other).trim();
-      const a = normalizeDatetimeLocal(str);
-      const b = normalizeDatetimeLocal(otherStr);
-      const aMs = a ? new Date(a).getTime() : Number.NaN;
-      const bMs = b ? new Date(b).getTime() : Number.NaN;
-      if (otherStr && !Number.isNaN(aMs) && !Number.isNaN(bMs) && aMs <= bMs) {
+      const aMs = datetimeLocalSpToMs(str);
+      const bMs = datetimeLocalSpToMs(otherStr);
+      if (otherStr && aMs != null && bMs != null && aMs <= bMs) {
         errors[field] = rule.afterField.message;
         continue;
       }

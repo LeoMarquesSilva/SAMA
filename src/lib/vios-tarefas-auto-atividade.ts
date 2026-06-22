@@ -11,10 +11,7 @@ import {
   tipoAtividadePorTarefaPai,
 } from "@/lib/vios-tarefas-tipo-map";
 
-function toIso(local: string): string {
-  const d = new Date(local);
-  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-}
+import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 
 export function inferTarefaAutoTipo(t: {
   tarefa_pai?: string | null;
@@ -34,7 +31,10 @@ export function buildAtividadeAutoRow(t: ViosTarefaRow, tipo: TipoAtividade) {
     titulo: tituloCompletoTarefa(t),
     tipo,
     status: "REALIZADA" as const,
-    data_hora_inicio: toIso(inicioLocal || prefill.data_hora_inicio || new Date().toISOString()),
+    data_hora_inicio:
+      datetimeLocalSpToIso(
+        inicioLocal || prefill.data_hora_inicio || new Date().toISOString()
+      ) ?? new Date().toISOString(),
     data_hora_fim: null,
     duracao_minutos: null,
     pessoa_id: pessoaId,

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { atividadeSchema, type AtividadeFormValues } from "@/lib/validations";
 import { diffMinutos } from "@/lib/format";
-import { normalizeDatetimeLocal } from "@/lib/datetime-br";
+import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { CALENDARIO_PATH } from "@/lib/calendario";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
@@ -14,14 +14,6 @@ function revalidateAtividades() {
   revalidatePath(CALENDARIO_PATH);
   revalidatePath("/timesheet");
   revalidatePath("/dashboard");
-}
-
-function toIso(local?: string | null): string | null {
-  if (!local) return null;
-  const normalized = normalizeDatetimeLocal(local);
-  if (!normalized) return null;
-  const d = new Date(normalized);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function buildRow(values: AtividadeFormValues, pessoaId: string) {
@@ -34,8 +26,8 @@ function buildRow(values: AtividadeFormValues, pessoaId: string) {
     titulo: values.titulo,
     tipo: values.tipo,
     status: values.status,
-    data_hora_inicio: toIso(values.data_hora_inicio)!,
-    data_hora_fim: toIso(values.data_hora_fim),
+    data_hora_inicio: datetimeLocalSpToIso(values.data_hora_inicio)!,
+    data_hora_fim: datetimeLocalSpToIso(values.data_hora_fim),
     duracao_minutos: duracao,
     pessoa_id: pessoaId,
     descricao: values.descricao || null,

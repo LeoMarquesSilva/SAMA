@@ -1,6 +1,7 @@
 import "server-only";
 
 import { limparCorpoOutlook } from "@/lib/outlook";
+import { SP_UTC_OFFSET } from "@/lib/datetime-br";
 
 // Credenciais do app no Azure (reaproveita o registro "Legis-app").
 const TENANT = process.env.MICROSOFT_TENANT_ID!;
@@ -79,7 +80,6 @@ type GraphEventRaw = {
 };
 
 const GRAPH_TZ_SP = "America/Sao_Paulo";
-const SP_UTC_OFFSET = "-03:00";
 
 function normalizeGraphTimeZone(tz?: string | null): "UTC" | typeof GRAPH_TZ_SP {
   const t = tz?.trim();

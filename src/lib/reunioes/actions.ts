@@ -6,7 +6,7 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoSchema, type ReuniaoFormValues } from "@/lib/validations";
 import { colaboradorIdPorEmail } from "@/lib/colaborador-email";
 import { diffMinutos } from "@/lib/format";
-import { normalizeDatetimeLocal } from "@/lib/datetime-br";
+import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { CALENDARIO_PATH } from "@/lib/calendario";
 import {
   buscarGravacaoFellow,
@@ -39,17 +39,9 @@ function revalidateReunioes() {
   revalidatePath("/proximos-passos");
 }
 
-function toIso(local?: string | null): string | null {
-  if (!local) return null;
-  const normalized = normalizeDatetimeLocal(local);
-  if (!normalized) return null;
-  const d = new Date(normalized);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
 function buildRow(values: ReuniaoFormValues) {
-  const inicio = toIso(values.data_hora_inicio)!;
-  const fim = toIso(values.data_hora_fim);
+  const inicio = datetimeLocalSpToIso(values.data_hora_inicio)!;
+  const fim = datetimeLocalSpToIso(values.data_hora_fim);
   const duracao =
     values.duracao_minutos && values.duracao_minutos > 0
       ? values.duracao_minutos

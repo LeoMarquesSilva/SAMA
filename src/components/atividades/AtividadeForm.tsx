@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { PersonSelect } from "@/components/ui/PersonSelect";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { atividadeTipoOptions } from "@/lib/constants";
-import { toDatetimeLocal } from "@/lib/format";
+import { toDatetimeLocal, diffMinutos } from "@/lib/format";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
   createAtividade,
@@ -70,10 +70,8 @@ export function AtividadeForm({
     const dur = form.elements.namedItem("duracao_minutos") as HTMLInputElement | null;
     if (!inicio || !fim || !dur) return;
     if (dur.value && dur.value !== lastAutoDur.current) return;
-    const min = Math.round(
-      (new Date(fim).getTime() - new Date(inicio).getTime()) / 60000
-    );
-    if (min > 0) {
+    const min = diffMinutos(inicio, fim);
+    if (min != null && min > 0) {
       dur.value = String(min);
       lastAutoDur.current = String(min);
     }
