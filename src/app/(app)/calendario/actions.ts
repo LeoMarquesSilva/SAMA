@@ -276,6 +276,101 @@ export async function reverterCategorizacaoReuniao(
   return { ok: true };
 }
 
+/** Desfaz categorização a partir da atividade: evento Outlook volta a PENDENTE. */
+export async function reverterCategorizacaoAtividade(
+  atividadeId: string,
+  donoCalendarioId?: string | null
+): Promise<ActionResult> {
+  const pessoa = await getPessoaAtual();
+  if (!pessoa?.id) {
+    return {
+      ok: false,
+      error: "Usuário não vinculado ao cadastro. Contate o administrador.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: atividade } = await supabase
+    .from("atividades_internas")
+    .select("id, outlook_event_id")
+    .eq("id", atividadeId)
+    .maybeSingle();
+
+  if (!atividade) return { ok: false, error: "Atividade não encontrada." };
+  if (!atividade.outlook_event_id) {
+    return { ok: false, error: "Esta atividade não está vinculada ao Outlook." };
+  }
+
+  const alvoPessoaId = donoCalendarioId?.trim() || pessoa.id;
+  if (!pessoa.is_admin && alvoPessoaId !== pessoa.id) {
+    return { ok: false, error: "Sem permissão para reverter esta categorização." };
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      ok: false,
+      error:
+        "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor — necessária para reverter.",
+    };
+  }
+
+  const admin = createAdminClient();
+
+  let { data: eventos, error: evErr } = await admin
+    .from("outlook_eventos")
+    .select("id")
+    .eq("atividade_id", atividadeId)
+    .eq("pessoa_id", alvoPessoaId);
+
+  if (evErr) return { ok: false, error: "Erro ao buscar evento do calendário." };
+
+  if (!eventos?.length) {
+    const fallback = await admin
+      .from("outlook_eventos")
+      .select("id")
+      .eq("outlook_event_id", atividade.outlook_event_id)
+      .eq("pessoa_id", alvoPessoaId);
+    if (fallback.error) {
+      return { ok: false, error: "Erro ao buscar evento do calendário." };
+    }
+    eventos = fallback.data;
+  }
+
+  if (!eventos?.length) {
+    return { ok: false, error: "Evento do calendário não encontrado." };
+  }
+
+  for (const ev of eventos) {
+    const { error } = await admin
+      .from("outlook_eventos")
+      .update({
+        status: "PENDENTE",
+        atividade_id: null,
+        categorizado_em: null,
+      })
+      .eq("id", ev.id);
+    if (error) return { ok: false, error: "Erro ao reverter evento." };
+  }
+
+  const { count } = await admin
+    .from("outlook_eventos")
+    .select("id", { count: "exact", head: true })
+    .eq("atividade_id", atividadeId);
+
+  if (count === 0) {
+    const { error: delErr } = await admin
+      .from("atividades_internas")
+      .delete()
+      .eq("id", atividadeId);
+    if (delErr) return { ok: false, error: "Erro ao excluir atividade." };
+  }
+
+  revalidateCalendario();
+  revalidatePath("/timesheet");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 /** Reunião já registrada para o mesmo evento Outlook (outro participante categorizou). */
 export async function buscarReuniaoPorOutlookEventId(
   outlookEventId: string

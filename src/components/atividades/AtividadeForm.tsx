@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useId, useState, useTransition, type FormEvent } from "react";
+import { Undo2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
 import { DatetimeBrInput } from "@/components/ui/DatetimeBrInput";
@@ -14,6 +15,7 @@ import {
   createAtividade,
   updateAtividade,
 } from "@/lib/atividades/actions";
+import { reverterCategorizacaoAtividade } from "@/app/(app)/calendario/actions";
 import type { AtividadeInterna, TipoAtividade } from "@/types/database";
 
 const TIPOS_COM_QUEM: TipoAtividade[] = [
@@ -29,6 +31,7 @@ export function AtividadeForm({
   atividade,
   prefill,
   afterCreate,
+  donoCalendarioId,
   pessoas,
   podeEscolherPessoa,
   pessoaAtualId,
@@ -40,6 +43,8 @@ export function AtividadeForm({
   atividade?: AtividadeInterna | null;
   prefill?: Partial<AtividadeInterna> | null;
   afterCreate?: (id: string) => Promise<void> | void;
+  /** Dono do calendário Outlook (para reverter categorização). */
+  donoCalendarioId?: string | null;
   pessoas: { id: string; nome: string; avatar_url?: string | null }[];
   podeEscolherPessoa: boolean;
   pessoaAtualId: string | null;
@@ -53,6 +58,7 @@ export function AtividadeForm({
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
+  const [revertPending, startRevertTransition] = useTransition();
   const [tipo, setTipo] = useState(
     src?.tipo ?? (opcoesTipo[0]?.value as TipoAtividade) ?? "DESPACHO"
   );
@@ -145,6 +151,26 @@ export function AtividadeForm({
       } else {
         setError(r.error ?? "Erro ao salvar.");
       }
+    });
+  }
+
+  const podeReverterOutlook =
+    editing && Boolean(atividade?.id && atividade?.outlook_event_id);
+
+  function handleReverterOutlook() {
+    if (!atividade?.id || pending || revertPending) return;
+    setError(undefined);
+    startRevertTransition(async () => {
+      const r = await reverterCategorizacaoAtividade(
+        atividade.id,
+        donoCalendarioId
+      );
+      if (!r.ok) {
+        setError(r.error ?? "Erro ao reverter categorização.");
+        return;
+      }
+      onSaved();
+      onClose();
     });
   }
 
@@ -272,13 +298,35 @@ export function AtividadeForm({
           </p>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Salvando..." : "Salvar"}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-1">
+          {podeReverterOutlook ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 px-2 py-1 text-xs text-slate-500"
+              disabled={pending || revertPending}
+              onClick={handleReverterOutlook}
+            >
+              <Undo2 size={13} />
+              {revertPending ? "Revertendo..." : "Voltar para não categorizado"}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={revertPending}
+              onClick={onClose}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending || revertPending}>
+              {pending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

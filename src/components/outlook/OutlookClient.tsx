@@ -161,6 +161,7 @@ export function OutlookClient({
   const [editReuniao, setEditReuniao] = useState<ReuniaoComRelacoes | null>(null);
   const [editReuniaoDonoId, setEditReuniaoDonoId] = useState<string | null>(null);
   const [editAtividade, setEditAtividade] = useState<AtividadeComPessoa | null>(null);
+  const [editAtividadeDonoId, setEditAtividadeDonoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<CalendarioViewMode>(inicial.viewMode);
   const [sheetEvento, setSheetEvento] =
     useState<CalendarioItem | null>(null);
@@ -363,6 +364,7 @@ export function OutlookClient({
     }
     if (item.itemKind === "atividade" && item.atividade) {
       setEditAtividade(item.atividade);
+      setEditAtividadeDonoId(item.pessoa_id ?? null);
       return;
     }
     setSheetEvento(item);
@@ -657,9 +659,13 @@ export function OutlookClient({
       {editAtividade && (
         <AtividadeForm
           open={true}
-          onClose={() => setEditAtividade(null)}
+          onClose={() => {
+            setEditAtividade(null);
+            setEditAtividadeDonoId(null);
+          }}
           onSaved={() => router.refresh()}
           atividade={editAtividade}
+          donoCalendarioId={editAtividadeDonoId}
           pessoas={pessoas}
           podeEscolherPessoa={verAgendaTodos}
           pessoaAtualId={pessoaAtualId}
