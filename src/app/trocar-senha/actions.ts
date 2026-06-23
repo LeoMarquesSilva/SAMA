@@ -2,10 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { countEventosPendentes, agendaPendentesQueryOpts } from "@/lib/calendario";
-import { countPassosPendentes } from "@/lib/proximos-passos";
-import { setAlertasLoginCookie } from "@/lib/alertas-login";
-import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export type TrocaSenhaState = { error?: string };
 
@@ -45,28 +41,7 @@ export async function trocarSenha(
     };
   }
 
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("id, cargo, departamento, is_admin")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  const onboarding = await getOnboardingFlags(supabase, user.id);
-
-  if (perfil) {
-    const [pendentes, passosPendentes] = await Promise.all([
-      countEventosPendentes(supabase, agendaPendentesQueryOpts(perfil)),
-      countPassosPendentes(supabase, {
-        pessoaId: perfil.id,
-      }),
-    ]);
-
-    if (pendentes > 0 || passosPendentes > 0) {
-      await setAlertasLoginCookie();
-    }
-  }
-
-  redirect(
-    !onboarding.calendarioConcluido ? "/calendario" : "/dashboard"
-  );
+  // Encerra a sessão da troca provisória e força login limpo com a senha nova.
+  await supabase.auth.signOut();
+  redirect("/login?senha=alterada");
 }

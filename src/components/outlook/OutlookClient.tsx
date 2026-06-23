@@ -55,7 +55,12 @@ import {
   type CalendarioFiltroInicial,
   type DashboardPeriodo,
 } from "@/lib/dashboard-filtros";
-import { TIPO_ATIVIDADE_INTERNA, TIPO_REUNIAO, STATUS_REUNIAO } from "@/lib/constants";
+import {
+  EXIBIR_RECLASSIFICACAO_ATIVIDADE,
+  TIPO_ATIVIDADE_INTERNA,
+  TIPO_REUNIAO,
+  STATUS_REUNIAO,
+} from "@/lib/constants";
 import {
   buscarNoMapaPorEmail,
   emailExisteNoMapa,
@@ -976,9 +981,11 @@ function EventoCard({
           <Button size="sm" onClick={onReuniao}>
             <CalendarClock size={15} /> Reclassificação Reunião
           </Button>
-          <Button size="sm" variant="secondary" onClick={onAtividade}>
-            <ClipboardList size={15} /> Reclassificação Atividade
-          </Button>
+          {EXIBIR_RECLASSIFICACAO_ATIVIDADE && (
+            <Button size="sm" variant="secondary" onClick={onAtividade}>
+              <ClipboardList size={15} /> Reclassificação Atividade
+            </Button>
+          )}
           <Button size="sm" variant="ghost" disabled={pending} onClick={onIgnorar}>
             <EyeOff size={15} /> Ignorar
           </Button>

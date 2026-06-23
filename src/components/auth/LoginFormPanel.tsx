@@ -76,6 +76,7 @@ export function LoginFormPanel() {
   const [state, formAction] = useActionState<LoginState, FormData>(login, {});
   const searchParams = useSearchParams();
   const inativo = searchParams.get("erro") === "inativo";
+  const senhaAlterada = searchParams.get("senha") === "alterada";
   const [showPassword, setShowPassword] = useState(false);
 
   const inputClass = clsx(
@@ -134,6 +135,18 @@ export function LoginFormPanel() {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </FieldShell>
+
+          {senhaAlterada && !state.error && (
+            <div
+              role="status"
+              className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+            >
+              <AlertCircle size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+              <p>
+                Senha definida com sucesso. Entre novamente com a nova senha.
+              </p>
+            </div>
+          )}
 
           {inativo && !state.error && (
             <div

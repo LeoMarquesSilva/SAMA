@@ -4,6 +4,9 @@ export const APP_NAME = "SAMA";
 export const APP_FULL_NAME = "Sistema de Análise de Metas e Atividades";
 export const APP_TITLE = `${APP_NAME} — ${APP_FULL_NAME}`;
 
+/** Exibe o botão "Reclassificação Atividade" no calendário (eventos Outlook pendentes). */
+export const EXIBIR_RECLASSIFICACAO_ATIVIDADE = false;
+
 export const CARGO_PESSOA = {
   SOCIO: "Sócio",
   SOCIO_AREA: "Sócio de Área",
