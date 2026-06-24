@@ -48,6 +48,7 @@ export type FellowConteudo = {
   resumo: string;
   proximos_passos: string;
   temResumoIa: boolean;
+  temTopicosIa: boolean;
 };
 
 export type FellowBuscaResult =
@@ -124,6 +125,51 @@ function isActionItemsSection(title: string): boolean {
   return title.trim().toLowerCase() === "action items";
 }
 
+function isTopicsSection(title: string): boolean {
+  const t = title.trim().toLowerCase();
+  return t === "topics" || t === "topics discussed" || t === "tópicos discutidos";
+}
+
+function formatTopicsDiscussed(content: FellowRecapSection["content"]): string {
+  if (!Array.isArray(content)) return "";
+
+  const blocks: string[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== "object") continue;
+
+    if ("title" in item && "bullet_points" in item) {
+      const topic = item as { title: string; bullet_points?: { text: string }[] };
+      const heading = topic.title?.trim();
+      const bullets = (topic.bullet_points ?? [])
+        .map((bp) => bp.text?.trim())
+        .filter(Boolean)
+        .map((text) => `- ${text}`);
+
+      if (!heading && !bullets.length) continue;
+      if (heading) blocks.push(`** *${heading}* **`);
+      blocks.push(...bullets);
+      if (bullets.length) blocks.push("");
+      continue;
+    }
+
+    if ("text" in item) {
+      const text = (item as { text: string }).text?.trim();
+      if (text) blocks.push(`- ${text}`);
+    }
+  }
+
+  return blocks.join("\n").trim();
+}
+
+function combinarResumo(summary: string, topicos: string): string {
+  const parts: string[] = [];
+  if (summary.trim()) parts.push(summary.trim());
+  if (topicos.trim()) {
+    parts.push(`** *Tópicos discutidos* **\n\n${topicos.trim()}`);
+  }
+  return parts.join("\n\n");
+}
+
 function formatActionItems(content: FellowRecapSection["content"]): string {
   if (!Array.isArray(content)) return "";
 
@@ -153,17 +199,27 @@ function formatActionItems(content: FellowRecapSection["content"]): string {
 function extrairAiNotes(aiNotes: FellowRecap[] | null | undefined): {
   resumo: string;
   proximos_passos: string;
+  temResumoIa: boolean;
+  temTopicosIa: boolean;
 } {
-  if (!aiNotes?.length) return { resumo: "", proximos_passos: "" };
+  if (!aiNotes?.length) {
+    return { resumo: "", proximos_passos: "", temResumoIa: false, temTopicosIa: false };
+  }
   const recap = aiNotes.find((n) => n.is_active) ?? aiNotes[0];
 
-  let resumo = "";
+  let summary = "";
+  let topicos = "";
   let proximos_passos = "";
 
   for (const s of recap.sections) {
     if (isSummarySection(s.title)) {
       const body = typeof s.content === "string" ? s.content.trim() : "";
-      if (body) resumo = body;
+      if (body) summary = body;
+      continue;
+    }
+
+    if (isTopicsSection(s.title)) {
+      topicos = formatTopicsDiscussed(s.content);
       continue;
     }
 
@@ -172,7 +228,12 @@ function extrairAiNotes(aiNotes: FellowRecap[] | null | undefined): {
     }
   }
 
-  return { resumo, proximos_passos };
+  return {
+    resumo: combinarResumo(summary, topicos),
+    proximos_passos,
+    temResumoIa: Boolean(summary.trim()),
+    temTopicosIa: Boolean(topicos.trim()),
+  };
 }
 
 function isoDateOnly(d: Date): string {
@@ -231,7 +292,9 @@ export async function buscarGravacaoFellow(input: {
 
   if (!recording) return { status: "sem_gravacao" };
 
-  const { resumo, proximos_passos } = extrairAiNotes(recording.ai_notes);
+  const { resumo, proximos_passos, temResumoIa, temTopicosIa } = extrairAiNotes(
+    recording.ai_notes
+  );
   if (!resumo.trim() && !proximos_passos.trim()) {
     return { status: "sem_conteudo_ia", tituloFellow: recording.title };
   }
@@ -243,7 +306,8 @@ export async function buscarGravacaoFellow(input: {
       tituloFellow: recording.title,
       resumo,
       proximos_passos,
-      temResumoIa: Boolean(resumo.trim()),
+      temResumoIa,
+      temTopicosIa,
     },
   };
 }

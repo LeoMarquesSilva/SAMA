@@ -44,13 +44,17 @@ export function htmlToMarkdown(html: string): string {
   if (!root.childNodes.length) return "";
 
   const lines: string[] = [];
+  let current = "";
+
   for (const child of root.childNodes) {
     if (child.nodeName === "BR") {
-      lines.push("");
+      lines.push(current);
+      current = "";
       continue;
     }
-    lines.push(inlineNodesToMarkdown(child).replace(/\u00a0/g, " "));
+    current += inlineNodesToMarkdown(child).replace(/\u00a0/g, " ");
   }
+  lines.push(current);
 
   return lines.join("\n").replace(/\n+$/, "");
 }

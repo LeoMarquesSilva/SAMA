@@ -39,20 +39,29 @@ export function MarkdownTextarea({
 
   useEffect(() => {
     const el = editorRef.current;
+    // Não reescrever o DOM enquanto o usuário digita — isso reposiciona o cursor
+    // no início e faz as letras aparecerem ao contrário.
     if (!el || syncing.current || document.activeElement === el) return;
+    syncing.current = true;
     el.innerHTML = markdownToHtml(value) || "<br>";
+    syncing.current = false;
   }, [value]);
 
   function syncFromEditor() {
     const el = editorRef.current;
-    if (!el) return;
+    if (!el || syncing.current) return;
 
-    // Apenas extrai o markdown — NÃO reescreve o DOM a cada tecla.
-    // Reescrever o innerHTML colapsava o espaço recém-digitado (HTML colapsa
-    // espaços no fim e htmlToMarkdown faz trim), travando a barra de espaço.
-    // A conversão markdown→HTML acontece no useEffect quando o campo perde o foco.
     syncing.current = true;
     onChange(htmlToMarkdown(el.innerHTML));
+    syncing.current = false;
+  }
+
+  function applyMarkdownToEditor() {
+    const el = editorRef.current;
+    if (!el || syncing.current) return;
+    const markdown = htmlToMarkdown(el.innerHTML);
+    syncing.current = true;
+    el.innerHTML = markdownToHtml(markdown) || "<br>";
     syncing.current = false;
   }
 
@@ -85,6 +94,7 @@ export function MarkdownTextarea({
         aria-labelledby={label ? labelId : undefined}
         data-placeholder="Use **negrito** e *itálico*"
         onInput={syncFromEditor}
+        onBlur={applyMarkdownToEditor}
         onPaste={(e) => {
           e.preventDefault();
           const text = e.clipboardData.getData("text/plain");

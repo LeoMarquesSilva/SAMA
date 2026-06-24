@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoSchema, type ReuniaoFormValues } from "@/lib/validations";
+import type { ReuniaoComRelacoes } from "@/types/database";
 import { colaboradorIdPorEmail } from "@/lib/colaborador-email";
 import { diffMinutos } from "@/lib/format";
 import { datetimeLocalSpToIso } from "@/lib/datetime-br";
@@ -20,6 +21,9 @@ import {
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
 
+const REUNIAO_DETALHE_SELECT =
+  "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))";
+
 export type FellowImportResult = {
   ok: boolean;
   error?: string;
@@ -28,6 +32,7 @@ export type FellowImportResult = {
   proximos_passos?: string;
   titulo_fellow?: string | null;
   tem_resumo_ia?: boolean;
+  tem_topicos_ia?: boolean;
 };
 
 function revalidateReunioes() {
@@ -341,6 +346,20 @@ export async function deleteReuniao(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function buscarReuniaoPorId(
+  id: string
+): Promise<ReuniaoComRelacoes | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reunioes")
+    .select(REUNIAO_DETALHE_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as ReuniaoComRelacoes;
+}
+
 export async function buscarConteudoFellow(input: {
   outlook_event_id?: string | null;
   titulo?: string | null;
@@ -388,6 +407,7 @@ export async function buscarConteudoFellow(input: {
       proximos_passos: conteudo.proximos_passos || undefined,
       titulo_fellow: conteudo.tituloFellow,
       tem_resumo_ia: conteudo.temResumoIa,
+      tem_topicos_ia: conteudo.temTopicosIa,
     };
   } catch (e) {
     if (e instanceof FellowApiError) {

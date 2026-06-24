@@ -26,6 +26,7 @@ import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
   buscarConteudoFellow,
+  buscarReuniaoPorId,
   createReuniao,
   updateReuniao,
 } from "@/lib/reunioes/actions";
@@ -180,6 +181,7 @@ export function ReuniaoForm({
   const fellowAutoFetch =
     open &&
     fellowAtivo &&
+    !editing &&
     (src?.status === "REALIZADA" || status === "REALIZADA");
 
   const fellowSourceKey = [reuniao?.id ?? "", prefillKey].join("|");
@@ -205,12 +207,15 @@ export function ReuniaoForm({
       setFellowResumoStatus("loading");
       setFellowPassosStatus("loading");
     }
-    setResultadoTexto(src?.resultado ?? "");
-    setProximosPassos(src?.proximos_passos ?? "");
+    if (!editing) {
+      setResultadoTexto(src?.resultado ?? "");
+      setProximosPassos(src?.proximos_passos ?? "");
+    }
     if (prefill?.modalidade) setModalidade(prefill.modalidade);
     if (prefill?.status) setStatus(prefill.status);
   }, [
     open,
+    editing,
     fellowAutoFetch,
     prefillKey,
     reuniao?.id,
@@ -219,6 +224,23 @@ export function ReuniaoForm({
     prefill?.modalidade,
     prefill?.status,
   ]);
+
+  useEffect(() => {
+    if (!open || !editing || !reuniao?.id) return;
+
+    let cancelled = false;
+    void buscarReuniaoPorId(reuniao.id).then((fresh) => {
+      if (cancelled || !fresh) return;
+      setResultadoTexto(fresh.resultado ?? "");
+      setProximosPassos(fresh.proximos_passos ?? "");
+      if (fresh.modalidade) setModalidade(fresh.modalidade);
+      if (fresh.status) setStatus(fresh.status);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, editing, reuniao?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -551,6 +573,7 @@ export function ReuniaoForm({
         : "Conteúdo importado do Fellow.",
     ];
     if (r.tem_resumo_ia) partes.push("resumo (Summary)");
+    if (r.tem_topicos_ia) partes.push("tópicos (Topics)");
     if (r.proximos_passos) partes.push("ações (Action items)");
     setFellowMsg(partes.join(" · "));
   }
@@ -837,6 +860,7 @@ export function ReuniaoForm({
               </p>
             )}
             <MarkdownTextarea
+              key={reuniao?.id ?? prefillKey}
               id={fieldId("resultado")}
               name="resultado"
               label="Resumo"
