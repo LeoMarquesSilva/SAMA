@@ -1,8 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CargoPessoa } from "@/lib/constants";
 import { canViewAgendaTodos } from "@/lib/constants";
+import { SP_UTC_OFFSET } from "@/lib/datetime-br";
 
 export const CALENDARIO_PATH = "/calendario";
+
+/** Obrigatoriedade de categorizar eventos já ocorridos — 01/07/2026 00:00 (SP). */
+export const CATEGORIZACAO_OBRIGATORIA_DESDE_ISO = new Date(
+  `2026-07-01T00:00:00${SP_UTC_OFFSET}`
+).toISOString();
 
 /** Janela de eventos carregada na UI (dias antes/depois de hoje). */
 export const CALENDARIO_LOAD_DAYS_BACK = 30;
@@ -32,18 +38,22 @@ export function calendarioPendentesExigiveisCutoff(now = Date.now()): string {
   return new Date(now).toISOString();
 }
 
-/** Conta eventos do calendário aguardando categorização (somente já ocorridos, na janela da UI). */
+/** Início da janela de pendências exigíveis (obrigatoriedade desde 01/07/2026). */
+export function calendarioPendentesExigiveisInicio(): string {
+  return CATEGORIZACAO_OBRIGATORIA_DESDE_ISO;
+}
+
+/** Conta eventos do calendário aguardando categorização (já ocorridos, desde 01/07/2026). */
 export async function countEventosPendentes(
   supabase: SupabaseClient,
   opts: { pessoaId?: string | null; verAgendaTodos?: boolean },
   now = Date.now()
 ): Promise<number> {
-  const { start } = calendarioEventQueryRange(now);
   let q = supabase
     .from("outlook_eventos")
     .select("id", { count: "exact", head: true })
     .eq("status", "PENDENTE")
-    .gte("inicio", start)
+    .gte("inicio", calendarioPendentesExigiveisInicio())
     .lte("inicio", calendarioPendentesExigiveisCutoff(now));
   if (!opts.verAgendaTodos && opts.pessoaId) {
     q = q.eq("pessoa_id", opts.pessoaId);

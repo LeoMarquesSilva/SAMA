@@ -6,6 +6,7 @@ import type {
 } from "@/types/database";
 import { calendarioItemColor } from "@/lib/calendario-events";
 import type { CalendarioColor } from "@/lib/calendario-events";
+import { CATEGORIZACAO_OBRIGATORIA_DESDE_ISO } from "@/lib/calendario";
 import {
   emailsEscritorioIguais,
   normalizeEscritorioEmail,
@@ -415,7 +416,10 @@ export function eventoCalendarioJaOcorreu(
   now = Date.now()
 ): boolean {
   if (!inicio) return false;
-  return new Date(inicio).getTime() <= now;
+  const t = new Date(inicio).getTime();
+  if (Number.isNaN(t)) return false;
+  const min = new Date(CATEGORIZACAO_OBRIGATORIA_DESDE_ISO).getTime();
+  return t >= min && t <= now;
 }
 
 export function itemCalendarioJaOcorreu(
