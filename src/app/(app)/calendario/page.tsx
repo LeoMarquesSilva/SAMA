@@ -1,9 +1,16 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
-import { calendarioEventQueryRange, REUNIAO_CALENDARIO_LIST_SELECT, OUTLOOK_CALENDARIO_LIST_SELECT } from "@/lib/calendario";
+import { ListPageSkeleton } from "@/components/ui/Skeleton";
+import {
+  calendarioEventQueryRange,
+  REUNIAO_CALENDARIO_LIST_SELECT,
+  OUTLOOK_CALENDARIO_LIST_SELECT,
+  resolveCalendarioPessoaScope,
+} from "@/lib/calendario";
 import { parseCalendarioFiltroInicial } from "@/lib/dashboard-filtros";
 import {
   buildDonoCalendarioMap,
@@ -46,6 +53,11 @@ export default async function CalendarioPage({
       };
   const pessoa = await getPessoaAtual();
   const verAgendaTodos = canViewAgendaTodos(pessoa);
+  const pessoaScope = resolveCalendarioPessoaScope(
+    filtroInicial.pessoa,
+    pessoa?.id ?? null,
+    verAgendaTodos
+  );
   const { start, end } = calendarioEventQueryRange();
 
   let outlookQuery = supabase
@@ -55,8 +67,8 @@ export default async function CalendarioPage({
     .lte("inicio", end)
     .order("inicio", { ascending: true, nullsFirst: false });
 
-  if (!verAgendaTodos && pessoa?.id) {
-    outlookQuery = outlookQuery.eq("pessoa_id", pessoa.id);
+  if (pessoaScope.mode === "user") {
+    outlookQuery = outlookQuery.eq("pessoa_id", pessoaScope.pessoaId);
   }
 
   let reunioesQuery = supabase
@@ -76,8 +88,8 @@ export default async function CalendarioPage({
     .neq("tipo", "CIENCIA_NF")
     .order("data_hora_inicio", { ascending: true });
 
-  if (!verAgendaTodos && pessoa?.id) {
-    atividadesQuery = atividadesQuery.eq("pessoa_id", pessoa.id);
+  if (pessoaScope.mode === "user") {
+    atividadesQuery = atividadesQuery.eq("pessoa_id", pessoaScope.pessoaId);
   }
 
   const [
@@ -103,21 +115,26 @@ export default async function CalendarioPage({
   const donoPorReuniao = buildDonoCalendarioMap(eventosOutlook, reunioesAll);
 
   let reunioes = reunioesAll;
-  if (!verAgendaTodos && pessoa?.id) {
+  if (pessoaScope.mode === "user") {
     reunioes = reunioes.filter((r) =>
-      reuniaoVisivelParaUsuario(r, pessoa.id, donoPorReuniao)
+      reuniaoVisivelParaUsuario(r, pessoaScope.pessoaId, donoPorReuniao)
     );
   }
+
+  const mergeUsuarioId =
+    pessoaScope.mode === "user" ? pessoaScope.pessoaId : null;
 
   let items = mergeCalendarioItems(
     eventosOutlook,
     reunioes,
     (atividadesRaw as AtividadeComPessoa[]) ?? [],
     donoPorReuniao,
-    verAgendaTodos ? null : pessoa?.id
+    mergeUsuarioId
   );
 
-  items = agruparReunioesDuplicadasAdmin(items);
+  if (pessoaScope.mode === "all") {
+    items = agruparReunioesDuplicadasAdmin(items);
+  }
 
   const outlookVinculos = eventosOutlook
     .filter((e) => e.reuniao_id)
@@ -136,17 +153,19 @@ export default async function CalendarioPage({
           automática não funcionará até configurar o <code>.env</code>.
         </p>
       )}
-      <OutlookClient
-        items={items}
-        outlookVinculos={outlookVinculos}
-        pessoas={pessoas ?? []}
-        colaboradores={colaboradores ?? []}
-        verAgendaTodos={verAgendaTodos}
-        pessoaAtualId={pessoa?.id ?? null}
-        fellowAtivo={fellowConfigurado()}
-        filtroInicial={filtroInicial}
-        onboardingEnabled={!onboarding.calendarioConcluido}
-      />
+      <Suspense fallback={<ListPageSkeleton />}>
+        <OutlookClient
+          items={items}
+          outlookVinculos={outlookVinculos}
+          pessoas={pessoas ?? []}
+          colaboradores={colaboradores ?? []}
+          verAgendaTodos={verAgendaTodos}
+          pessoaAtualId={pessoa?.id ?? null}
+          fellowAtivo={fellowConfigurado()}
+          filtroInicial={filtroInicial}
+          onboardingEnabled={!onboarding.calendarioConcluido}
+        />
+      </Suspense>
     </div>
   );
 }

@@ -17,6 +17,57 @@ export const REUNIAO_CALENDARIO_LIST_SELECT =
 export const OUTLOOK_CALENDARIO_LIST_SELECT =
   "id, pessoa_id, outlook_event_id, titulo, inicio, fim, duracao_minutos, local, online, link_online, organizador_nome, organizador_email, participantes, status, reuniao_id, atividade_id, categorizado_em, criado_em, atualizado_em, pessoa:usuarios(id, nome, email, avatar_url)";
 
+/** Valor de ?pessoa= para carregar todas as agendas (admin). */
+export const CALENDARIO_PESSOA_TODOS = "todos";
+
+export type CalendarioPessoaScope =
+  | { mode: "all" }
+  | { mode: "user"; pessoaId: string };
+
+/** Define o escopo de dados carregados na página do calendário. */
+export function resolveCalendarioPessoaScope(
+  pessoaParam: string | undefined,
+  pessoaAtualId: string | null,
+  verAgendaTodos: boolean
+): CalendarioPessoaScope {
+  if (!verAgendaTodos) {
+    return pessoaAtualId
+      ? { mode: "user", pessoaId: pessoaAtualId }
+      : { mode: "all" };
+  }
+  if (pessoaParam === CALENDARIO_PESSOA_TODOS) {
+    return { mode: "all" };
+  }
+  if (pessoaParam && pessoaAtualId && pessoaParam !== pessoaAtualId) {
+    return { mode: "user", pessoaId: pessoaParam };
+  }
+  return pessoaAtualId
+    ? { mode: "user", pessoaId: pessoaAtualId }
+    : { mode: "all" };
+}
+
+/** Valor do chip de pessoa ("" = Todos). */
+export function calendarioPessoaChipValue(
+  pessoaParam: string | undefined,
+  pessoaAtualId: string | null,
+  verAgendaTodos: boolean
+): string {
+  if (!verAgendaTodos) return pessoaParam ?? "";
+  if (pessoaParam === CALENDARIO_PESSOA_TODOS) return "";
+  if (!pessoaParam && pessoaAtualId) return pessoaAtualId;
+  return pessoaParam ?? "";
+}
+
+/** Converte chip em parâmetro de URL (?pessoa=). null = omitir (agenda própria). */
+export function calendarioPessoaSearchParam(
+  chipValue: string,
+  pessoaAtualId: string | null
+): string | null {
+  if (!chipValue) return CALENDARIO_PESSOA_TODOS;
+  if (pessoaAtualId && chipValue === pessoaAtualId) return null;
+  return chipValue;
+}
+
 export function markCalendarioPageRefreshed(now = Date.now()) {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(CALENDARIO_PAGE_REFRESH_KEY, String(now));

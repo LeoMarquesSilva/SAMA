@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useTransition, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarClock,
   ClipboardList,
@@ -28,7 +28,11 @@ import {
   reverterEvento,
   vincularCategorizado,
 } from "@/app/(app)/calendario/actions";
-import { markCalendarioPageRefreshed } from "@/lib/calendario";
+import {
+  markCalendarioPageRefreshed,
+  calendarioPessoaChipValue,
+  calendarioPessoaSearchParam,
+} from "@/lib/calendario";
 import type {
   OutlookEventoComPessoa,
   ReuniaoComRelacoes,
@@ -43,8 +47,6 @@ import {
   itemMatchesTipo,
   colaboradorIdsDeEnvolvidos,
   emailsEnvolvidosOutlook,
-  reuniaoGrupoVisivelParaUsuario,
-  itemGrupoVisivelParaUsuario,
   itemTemGrupoCalendario,
   countPendentesExigiveisNoItem,
   statusCalendarioParaUsuario,
@@ -105,7 +107,6 @@ function estadoInicialFiltro(f: CalendarioFiltroInicial) {
   return {
     fStatus: "TODOS" as const,
     fTipo,
-    fPessoa: f.pessoa,
     fKind: f.kind === "reuniao" || f.kind === "atividade" ? f.kind : "",
     fTipoDetalhe: f.tipo,
     fStatusDetalhe: f.status === "REALIZADA" ? f.status : "",
@@ -141,6 +142,8 @@ export function OutlookClient({
   onboardingEnabled?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const inicial = useMemo(
     () => estadoInicialFiltro(filtroInicial ?? parseCalendarioFiltroInicial({})),
     [filtroInicial]
@@ -149,7 +152,13 @@ export function OutlookClient({
   const [msg, setMsg] = useState<string>();
   const [fStatus, setFStatus] = useState<string>(inicial.fStatus);
   const [fTipo, setFTipo] = useState<CalendarioTipoFiltro>(inicial.fTipo);
-  const [fPessoa, setFPessoa] = useState<string>(inicial.fPessoa);
+  const [fPessoa, setFPessoa] = useState<string>(() =>
+    calendarioPessoaChipValue(
+      filtroInicial?.pessoa,
+      pessoaAtualId,
+      verAgendaTodos
+    )
+  );
   const [fKind, setFKind] = useState(inicial.fKind);
   const [fTipoDetalhe, setFTipoDetalhe] = useState(inicial.fTipoDetalhe);
   const [fStatusDetalhe, setFStatusDetalhe] = useState(inicial.fStatusDetalhe);
@@ -174,6 +183,29 @@ export function OutlookClient({
     router.refresh();
   }
 
+  useEffect(() => {
+    setFPessoa(
+      calendarioPessoaChipValue(
+        filtroInicial?.pessoa,
+        pessoaAtualId,
+        verAgendaTodos
+      )
+    );
+  }, [filtroInicial?.pessoa, pessoaAtualId, verAgendaTodos]);
+
+  function navegarPessoaCalendario(chipValue: string) {
+    setFPessoa(chipValue);
+    startTransition(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      const pessoaParam = calendarioPessoaSearchParam(chipValue, pessoaAtualId);
+      if (pessoaParam) params.set("pessoa", pessoaParam);
+      else params.delete("pessoa");
+      markCalendarioPageRefreshed();
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    });
+  }
+
   // Avatar real para participantes internos (casado por e-mail).
   const avatarPorEmail = useMemo(() => {
     const m = new Map<string, string | null>();
@@ -187,12 +219,6 @@ export function OutlookClient({
     }
     return m;
   }, [colaboradores, pessoas]);
-
-  // Pessoas que de fato têm eventos importados (para o seletor).
-  const pessoasComEventos = useMemo(() => {
-    const ids = new Set(items.map((e) => e.pessoa_id).filter(Boolean));
-    return pessoas.filter((p) => ids.has(p.id));
-  }, [items, pessoas]);
 
   const donoPorReuniao = useMemo(() => {
     const map = new Map<
@@ -257,21 +283,6 @@ export function OutlookClient({
       }
 
       if (!itemMatchesTipo(e, fTipo)) return false;
-      if (verAgendaTodos && fPessoa) {
-        if (itemTemGrupoCalendario(e)) {
-          if (!itemGrupoVisivelParaUsuario(e, fPessoa, outlookVinculos)) {
-            return false;
-          }
-        } else if (e.itemKind === "reuniao" && e.reuniao) {
-          if (!reuniaoGrupoVisivelParaUsuario(e, fPessoa, outlookVinculos)) {
-            return false;
-          }
-        } else if (e.itemKind === "atividade") {
-          if (e.atividade?.pessoa_id !== fPessoa) return false;
-        } else if (e.pessoa_id !== fPessoa) {
-          return false;
-        }
-      }
       return true;
     });
   }, [
@@ -282,10 +293,6 @@ export function OutlookClient({
     fKind,
     fTipoDetalhe,
     fTipo,
-    fPessoa,
-    verAgendaTodos,
-    donoPorReuniao,
-    outlookVinculos,
   ]);
 
   const lista = useMemo(() => {
@@ -329,8 +336,18 @@ export function OutlookClient({
     () => items.reduce((n, e) => n + countPendentesExigiveisNoItem(e), 0),
     [items]
   );
+  const escopoAgendaLabel = useMemo(() => {
+    if (!verAgendaTodos) return null;
+    if (!fPessoa) return "Todas as agendas";
+    if (fPessoa === pessoaAtualId) return "Sua agenda";
+    const p = pessoas.find((x) => x.id === fPessoa);
+    return p ? `Agenda de ${p.nome.split(/\s+/)[0]}` : null;
+  }, [verAgendaTodos, fPessoa, pessoaAtualId, pessoas]);
+
   const filtrosAtivos = Boolean(
-    fPessoa ||
+    (verAgendaTodos &&
+      ((fPessoa === "" && pessoaAtualId) ||
+        (fPessoa && pessoaAtualId && fPessoa !== pessoaAtualId))) ||
       fTipo !== "TODOS" ||
       fKind ||
       fTipoDetalhe ||
@@ -472,6 +489,9 @@ export function OutlookClient({
         </h1>
         <p className="text-sm text-slate-500">
           {pendentes} não categorizado(s) · reuniões e atividades no calendário
+          {escopoAgendaLabel && (
+            <span className="text-slate-400"> · {escopoAgendaLabel}</span>
+          )}
         </p>
       </div>
 
@@ -494,12 +514,14 @@ export function OutlookClient({
         fTipo={fTipo}
         onFTipoChange={setFTipo}
         tipoCounts={tipoCounts}
-        pessoas={pessoasComEventos}
+        pessoas={pessoas}
         fPessoa={fPessoa}
-        onFPessoaChange={setFPessoa}
+        onFPessoaChange={navegarPessoaCalendario}
         filtrosAtivos={filtrosAtivos}
         onLimparFiltros={() => {
-          setFPessoa("");
+          if (verAgendaTodos && pessoaAtualId) {
+            navegarPessoaCalendario(pessoaAtualId);
+          }
           setFTipo("TODOS");
           setFStatus("TODOS");
           setFKind("");
