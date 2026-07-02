@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { trocarSenha, type TrocaSenhaState } from "./actions";
 import { Input } from "@/components/ui/Input";
@@ -17,10 +18,15 @@ function SubmitButton() {
 }
 
 export default function TrocarSenhaPage() {
+  const router = useRouter();
   const [state, formAction] = useActionState<TrocaSenhaState, FormData>(
     trocarSenha,
     {}
   );
+
+  useEffect(() => {
+    if (state.redirectTo) router.replace(state.redirectTo);
+  }, [state.redirectTo, router]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 p-4">

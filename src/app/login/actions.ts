@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   countEventosPendentes,
@@ -11,7 +10,7 @@ import { getOnboardingFlags } from "@/lib/onboarding/state";
 import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
 
-export type LoginState = { error?: string };
+export type LoginState = { error?: string; redirectTo?: string };
 
 export async function login(
   _prev: LoginState,
@@ -61,7 +60,7 @@ export async function login(
   }
 
   if (perfil.senha_provisoria) {
-    redirect("/trocar-senha");
+    return { redirectTo: "/trocar-senha" };
   }
 
   // A sincronização do Outlook não roda mais no login (era bloqueante).
@@ -80,11 +79,11 @@ export async function login(
 
   const onboarding = await getOnboardingFlags(supabase, user.id);
 
-  redirect(
-    landingPathComOnboarding({
+  return {
+    redirectTo: landingPathComOnboarding({
       cargo: perfil.cargo,
       pendentes,
       onboardingCalendarioConcluido: onboarding.calendarioConcluido,
-    })
-  );
+    }),
+  };
 }

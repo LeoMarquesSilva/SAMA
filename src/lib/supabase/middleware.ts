@@ -56,9 +56,15 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     const { data: perfil } = await supabase
       .from("usuarios")
-      .select("id, cargo, departamento, is_admin")
+      .select("id, cargo, departamento, is_admin, senha_provisoria")
       .eq("auth_user_id", user.id)
       .maybeSingle();
+
+    const url = request.nextUrl.clone();
+    if (perfil?.senha_provisoria) {
+      url.pathname = "/trocar-senha";
+      return NextResponse.redirect(url);
+    }
 
     const pendentes = perfil
       ? await countEventosPendentes(supabase, agendaPendentesQueryOpts(perfil))
@@ -66,7 +72,6 @@ export async function updateSession(request: NextRequest) {
 
     const onboarding = await getOnboardingFlags(supabase, user.id);
 
-    const url = request.nextUrl.clone();
     url.pathname = landingPathComOnboarding({
       cargo: perfil?.cargo as CargoPessoa | undefined,
       pendentes,

@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Eye,
@@ -73,11 +73,16 @@ function FieldShell({
 }
 
 export function LoginFormPanel() {
+  const router = useRouter();
   const [state, formAction] = useActionState<LoginState, FormData>(login, {});
   const searchParams = useSearchParams();
   const inativo = searchParams.get("erro") === "inativo";
   const senhaAlterada = searchParams.get("senha") === "alterada";
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (state.redirectTo) router.replace(state.redirectTo);
+  }, [state.redirectTo, router]);
 
   const inputClass = clsx(
     "w-full rounded-xl border border-slate-200 bg-slate-50/80 py-3 pl-11 text-sm text-slate-800 shadow-sm transition",

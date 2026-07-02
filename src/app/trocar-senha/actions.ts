@@ -1,9 +1,8 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type TrocaSenhaState = { error?: string };
+export type TrocaSenhaState = { error?: string; redirectTo?: string };
 
 export async function trocarSenha(
   _prev: TrocaSenhaState,
@@ -26,7 +25,7 @@ export async function trocarSenha(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) return { redirectTo: "/login" };
 
   const { error } = await supabase.auth.updateUser({ password: senha });
   if (error) {
@@ -43,5 +42,5 @@ export async function trocarSenha(
 
   // Encerra a sessão da troca provisória e força login limpo com a senha nova.
   await supabase.auth.signOut();
-  redirect("/login?senha=alterada");
+  return { redirectTo: "/login?senha=alterada" };
 }
