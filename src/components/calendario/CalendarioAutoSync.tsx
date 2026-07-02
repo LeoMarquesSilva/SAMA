@@ -3,6 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { sincronizarCalendarioAutomatico } from "@/app/(app)/calendario/actions";
+import {
+  calendarioPageRefreshedRecently,
+  markCalendarioPageRefreshed,
+} from "@/lib/calendario";
 
 const STORAGE_KEY = "sama_cal_sync_at";
 const COOLDOWN_MS = 5 * 60 * 1000;
@@ -22,9 +26,13 @@ export function CalendarioAutoSync() {
 
     const last = Number(sessionStorage.getItem(STORAGE_KEY) ?? 0);
     if (last && Date.now() - last < COOLDOWN_MS) return;
+    if (calendarioPageRefreshedRecently()) return;
 
     sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
-    void sincronizarCalendarioAutomatico().then(() => router.refresh());
+    void sincronizarCalendarioAutomatico().then(() => {
+      markCalendarioPageRefreshed();
+      router.refresh();
+    });
   }, [router]);
 
   return null;

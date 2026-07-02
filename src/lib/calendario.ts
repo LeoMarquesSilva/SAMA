@@ -5,6 +5,32 @@ import { SP_UTC_OFFSET } from "@/lib/datetime-br";
 
 export const CALENDARIO_PATH = "/calendario";
 
+/** Evita sync Outlook logo após refresh manual do calendário (ex.: após categorizar). */
+export const CALENDARIO_PAGE_REFRESH_KEY = "sama_cal_page_refreshed_at";
+export const CALENDARIO_PAGE_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
+
+/** Select enxuto para listagem do calendário — textos longos vêm no modal via buscarReuniaoPorId. */
+export const REUNIAO_CALENDARIO_LIST_SELECT =
+  "id, titulo, tipo, modalidade, status, data_hora_inicio, data_hora_fim, duracao_minutos, cliente_id, link_online, local, outlook_event_id, criado_por_id, tema, gravacao_url, ata_arquivo_url, motivo_cancelamento, cancelado_em, criado_em, atualizado_em, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))";
+
+/** Select enxuto para eventos Outlook na listagem — corpo do convite não é necessário na grade. */
+export const OUTLOOK_CALENDARIO_LIST_SELECT =
+  "id, pessoa_id, outlook_event_id, titulo, inicio, fim, duracao_minutos, local, online, link_online, organizador_nome, organizador_email, participantes, status, reuniao_id, atividade_id, categorizado_em, criado_em, atualizado_em, pessoa:usuarios(id, nome, email, avatar_url)";
+
+export function markCalendarioPageRefreshed(now = Date.now()) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(CALENDARIO_PAGE_REFRESH_KEY, String(now));
+}
+
+export function calendarioPageRefreshedRecently(
+  withinMs = CALENDARIO_PAGE_REFRESH_COOLDOWN_MS,
+  now = Date.now()
+): boolean {
+  if (typeof window === "undefined") return false;
+  const last = Number(sessionStorage.getItem(CALENDARIO_PAGE_REFRESH_KEY) ?? 0);
+  return last > 0 && now - last < withinMs;
+}
+
 /** Obrigatoriedade de categorizar eventos já ocorridos — 01/07/2026 00:00 (SP). */
 export const CATEGORIZACAO_OBRIGATORIA_DESDE_ISO = new Date(
   `2026-07-01T00:00:00${SP_UTC_OFFSET}`

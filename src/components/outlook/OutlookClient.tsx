@@ -28,6 +28,7 @@ import {
   reverterEvento,
   vincularCategorizado,
 } from "@/app/(app)/calendario/actions";
+import { markCalendarioPageRefreshed } from "@/lib/calendario";
 import type {
   OutlookEventoComPessoa,
   ReuniaoComRelacoes,
@@ -167,6 +168,11 @@ export function OutlookClient({
     useState<CalendarioItem | null>(null);
   const [grupoReuniaoItem, setGrupoReuniaoItem] =
     useState<CalendarioItem | null>(null);
+
+  function refreshCalendario() {
+    markCalendarioPageRefreshed();
+    router.refresh();
+  }
 
   // Avatar real para participantes internos (casado por e-mail).
   const avatarPorEmail = useMemo(() => {
@@ -387,20 +393,20 @@ export function OutlookClient({
               : "")
         );
       }
-      router.refresh();
+      refreshCalendario();
     });
   }
 
   function ignorar(id: string) {
     startTransition(async () => {
       await ignorarEvento(id);
-      router.refresh();
+      refreshCalendario();
     });
   }
   function reverter(id: string) {
     startTransition(async () => {
       await reverterEvento(id);
-      router.refresh();
+      refreshCalendario();
     });
   }
 
@@ -597,7 +603,7 @@ export function OutlookClient({
         <ReuniaoForm
           open={true}
           onClose={() => setReuniaoEvento(null)}
-          onSaved={() => router.refresh()}
+          onSaved={() => refreshCalendario()}
           prefill={prefillReuniao(reuniaoEvento)}
           afterCreate={async (id) => {
             const v = await vincularCategorizado(
@@ -621,7 +627,7 @@ export function OutlookClient({
         <AtividadeForm
           open={true}
           onClose={() => setAtividadeEvento(null)}
-          onSaved={() => router.refresh()}
+          onSaved={() => refreshCalendario()}
           prefill={prefillAtividade(atividadeEvento)}
           afterCreate={async (id) => {
             const v = await vincularCategorizado(
@@ -647,7 +653,7 @@ export function OutlookClient({
             setEditReuniao(null);
             setEditReuniaoDonoId(null);
           }}
-          onSaved={() => router.refresh()}
+          onSaved={() => refreshCalendario()}
           reuniao={editReuniao}
           donoCalendarioId={editReuniaoDonoId}
           colaboradores={colaboradores}
@@ -663,7 +669,7 @@ export function OutlookClient({
             setEditAtividade(null);
             setEditAtividadeDonoId(null);
           }}
-          onSaved={() => router.refresh()}
+          onSaved={() => refreshCalendario()}
           atividade={editAtividade}
           donoCalendarioId={editAtividadeDonoId}
           pessoas={pessoas}

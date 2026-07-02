@@ -3,7 +3,7 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
-import { calendarioEventQueryRange } from "@/lib/calendario";
+import { calendarioEventQueryRange, REUNIAO_CALENDARIO_LIST_SELECT, OUTLOOK_CALENDARIO_LIST_SELECT } from "@/lib/calendario";
 import { parseCalendarioFiltroInicial } from "@/lib/dashboard-filtros";
 import {
   buildDonoCalendarioMap,
@@ -50,7 +50,7 @@ export default async function CalendarioPage({
 
   let outlookQuery = supabase
     .from("outlook_eventos")
-    .select("*, pessoa:usuarios(id, nome, email, avatar_url)")
+    .select(OUTLOOK_CALENDARIO_LIST_SELECT)
     .gte("inicio", start)
     .lte("inicio", end)
     .order("inicio", { ascending: true, nullsFirst: false });
@@ -61,9 +61,7 @@ export default async function CalendarioPage({
 
   let reunioesQuery = supabase
     .from("reunioes")
-    .select(
-      "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))"
-    )
+    .select(REUNIAO_CALENDARIO_LIST_SELECT)
     .gte("data_hora_inicio", start)
     .lte("data_hora_inicio", end)
     .order("data_hora_inicio", { ascending: true });
@@ -100,8 +98,8 @@ export default async function CalendarioPage({
       .order("nome"),
   ]);
 
-  const eventosOutlook = (eventos as OutlookEventoComPessoa[]) ?? [];
-  const reunioesAll = (reunioesRaw as ReuniaoComRelacoes[]) ?? [];
+  const eventosOutlook = (eventos as unknown as OutlookEventoComPessoa[]) ?? [];
+  const reunioesAll = (reunioesRaw as unknown as ReuniaoComRelacoes[]) ?? [];
   const donoPorReuniao = buildDonoCalendarioMap(eventosOutlook, reunioesAll);
 
   let reunioes = reunioesAll;
