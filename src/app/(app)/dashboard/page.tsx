@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { AvatarGroup } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/server";
-import { getPessoaAtual } from "@/lib/currentPessoa";
 import { formatDateTime } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
 import { DashboardFiltros } from "@/components/dashboard/DashboardFiltros";
@@ -23,7 +22,11 @@ import {
   reuniaoVisivelParaUsuario,
 } from "@/lib/calendario-items";
 import { buildProximasReunioes } from "@/lib/dashboard-proximas";
-import type { OutlookEventoComPessoa, ReuniaoComRelacoes } from "@/types/database";
+import type {
+  OutlookEventoComPessoa,
+  Pessoa,
+  ReuniaoComRelacoes,
+} from "@/types/database";
 import {
   dashboardIntervalo,
   parseDashboardDayKey,
@@ -31,7 +34,6 @@ import {
 } from "@/lib/dashboard-filtros";
 import { countEventosPendentes } from "@/lib/calendario";
 import { canViewAgendaTodos } from "@/lib/constants";
-import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export const dynamic = "force-dynamic";
 
@@ -53,14 +55,22 @@ export default async function DashboardPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const onboarding = user
-    ? await getOnboardingFlags(supabase, user.id)
-    : {
-        calendarioConcluido: true,
-        dashboardConcluido: true,
-        proximosPassosConcluido: true,
-      };
-  const eu = await getPessoaAtual();
+  // Uma única leitura de `usuarios` alimenta perfil (eu) e flags de onboarding —
+  // evita repetir `auth.getUser()` (round-trip à Auth) e a query de perfil,
+  // que antes rodavam em dobro via getPessoaAtual()/getOnboardingFlags().
+  const { data: perfilRow } = user
+    ? await supabase
+        .from("usuarios")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .maybeSingle()
+    : { data: null };
+  const eu = (perfilRow as Pessoa) ?? null;
+  const onboarding = {
+    calendarioConcluido: eu?.onboarding_calendario_concluido ?? true,
+    dashboardConcluido: eu?.onboarding_dashboard_concluido ?? true,
+    proximosPassosConcluido: eu?.onboarding_proximos_passos_concluido ?? true,
+  };
   const verAgendaTodos = canViewAgendaTodos(eu);
   const pessoaScope = verAgendaTodos ? fPessoa : eu?.id ?? "__none__";
 
@@ -125,6 +135,7 @@ export default async function DashboardPage({
     { data: pessoas },
     { data: proximasReunioesRaw },
     { data: proximasOutlookRaw },
+    pendentes,
   ] = await Promise.all([
     reunioesQ,
     outlookDonoQ,
@@ -132,12 +143,11 @@ export default async function DashboardPage({
     supabase.from("usuarios").select("id, nome, avatar_url").order("nome"),
     proximasReunioesQ,
     proximasOutlookQ,
+    countEventosPendentes(supabase, {
+      pessoaId: pendentesPessoaId ?? undefined,
+      verAgendaTodos: verAgendaTodos && !pendentesPessoaId,
+    }),
   ]);
-
-  const pendentes = await countEventosPendentes(supabase, {
-    pessoaId: pendentesPessoaId ?? undefined,
-    verAgendaTodos: verAgendaTodos && !pendentesPessoaId,
-  });
 
   type RRow = {
     id: string;

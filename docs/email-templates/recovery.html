@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Redefinir senha — SAMA</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background-color:#101f2e;border-radius:14px;padding:10px 14px;vertical-align:middle;">
+                    <span style="font-size:15px;font-weight:800;color:#ffffff;letter-spacing:1px;">S</span>
+                  </td>
+                  <td style="padding-left:12px;vertical-align:middle;">
+                    <span style="font-size:22px;font-weight:700;color:#101f2e;letter-spacing:-0.3px;">SAMA</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background-color:#ffffff;border-radius:20px;border:1px solid #e3e8ed;box-shadow:0 2px 8px rgba(0,0,0,0.04);overflow:hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+
+                <!-- Accent bar -->
+                <tr>
+                  <td style="background-color:#101f2e;height:4px;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                  <td style="padding:40px 36px 36px;">
+
+                    <!-- Icon -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="background-color:#f3f5f7;border-radius:14px;width:48px;height:48px;text-align:center;vertical-align:middle;">
+                          <span style="font-size:24px;line-height:48px;">🔐</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#101f2e;line-height:1.3;">
+                      Redefinir sua senha
+                    </h1>
+                    <p style="margin:0 0 28px;font-size:15px;color:#647989;line-height:1.6;">
+                      Recebemos uma solicitação para redefinir a senha da sua conta no SAMA. Clique no botão abaixo para escolher uma nova senha.
+                    </p>
+
+                    <!-- CTA Button -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td align="center" style="padding-bottom:28px;">
+                          <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;background-color:#101f2e;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;letter-spacing:0.2px;mso-padding-alt:0;text-align:center;">
+                            <!--[if mso]><i style="letter-spacing:36px;mso-font-width:-100%;mso-text-raise:21" hidden>&nbsp;</i><![endif]-->
+                            <span style="mso-text-raise:10pt;">Criar nova senha</span>
+                            <!--[if mso]><i style="letter-spacing:36px;mso-font-width:-100%" hidden>&nbsp;</i><![endif]-->
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Fallback link -->
+                    <p style="margin:0 0 24px;font-size:13px;color:#97a8b8;line-height:1.5;text-align:center;">
+                      Se o botão não funcionar, copie e cole este link no navegador:<br />
+                      <a href="{{ .ConfirmationURL }}" style="color:#3d5163;word-break:break-all;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                    </p>
+
+                    <!-- Divider -->
+                    <hr style="border:none;border-top:1px solid #e3e8ed;margin:0 0 20px;" />
+
+                    <p style="margin:0;font-size:13px;color:#97a8b8;line-height:1.5;">
+                      Se você não solicitou esta redefinição, ignore este e-mail. Sua senha permanecerá inalterada.
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:28px 16px 0;text-align:center;">
+              <p style="margin:0 0 4px;font-size:12px;color:#97a8b8;line-height:1.5;">
+                SAMA — Sistema de Análise de Metas e Atividades
+              </p>
+              <p style="margin:0;font-size:11px;color:#c5ced8;">
+                Bismarchi Pires Advogados
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import {
   countEventosPendentes,
   landingPathComOnboarding,
@@ -11,6 +11,16 @@ import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
 
 export type LoginState = { error?: string; redirectTo?: string };
+
+export type RecuperarSenhaState = { error?: string; success?: string };
+
+const MENSAGEM_RECUPERACAO_ENVIADA =
+  "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha em alguns minutos. Verifique também a caixa de spam.";
+
+function recuperacaoRedirectUrl() {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return `${base.replace(/\/$/, "")}/auth/callback?next=/redefinir-senha`;
+}
 
 export async function login(
   _prev: LoginState,
@@ -86,4 +96,44 @@ export async function login(
       onboardingCalendarioConcluido: onboarding.calendarioConcluido,
     }),
   };
+}
+
+export async function solicitarRecuperacaoSenha(
+  _prev: RecuperarSenhaState,
+  formData: FormData
+): Promise<RecuperarSenhaState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    return { error: "Informe seu e-mail corporativo." };
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      error:
+        "Recuperação de senha indisponível no momento. Contate o administrador.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: pessoa } = await admin
+    .from("usuarios")
+    .select("ativo, auth_user_id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (!pessoa?.ativo || !pessoa.auth_user_id) {
+    return { success: MENSAGEM_RECUPERACAO_ENVIADA };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: recuperacaoRedirectUrl(),
+  });
+
+  if (error) {
+    console.error("[recuperar-senha]", error.message);
+  }
+
+  return { success: MENSAGEM_RECUPERACAO_ENVIADA };
 }

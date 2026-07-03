@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { tipoReuniaoOptions } from "@/lib/constants";
@@ -36,6 +37,12 @@ export function DashboardFiltros({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [, startTransition] = useTransition();
+
+  // Estado otimista: o chip reage instantaneamente ao clique, enquanto a
+  // navegação (que busca os novos dados no servidor) roda em transição.
+  const [pessoaOtimista, setPessoaOtimista] = useState(pessoa);
+  useEffect(() => setPessoaOtimista(pessoa), [pessoa]);
 
   function update(patch: Record<string, string>) {
     const params = new URLSearchParams();
@@ -43,6 +50,8 @@ export function DashboardFiltros({
     const nextData = patch.data ?? dataDia;
     const nextPessoa = patch.pessoa ?? pessoa;
     const nextTipo = patch.tipo ?? tipo;
+
+    if (patch.pessoa !== undefined) setPessoaOtimista(patch.pessoa);
 
     if (nextP === "dia") {
       params.set("p", "dia");
@@ -52,7 +61,9 @@ export function DashboardFiltros({
     }
     if (nextPessoa) params.set("pessoa", nextPessoa);
     if (nextTipo) params.set("tipo", nextTipo);
-    router.push(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   }
 
   return (
@@ -103,7 +114,7 @@ export function DashboardFiltros({
       {filtrarPorPessoa && (
         <PessoaChips
           pessoas={pessoas}
-          value={pessoa}
+          value={pessoaOtimista}
           onChange={(id) => update({ pessoa: id })}
         />
       )}

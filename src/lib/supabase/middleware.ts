@@ -6,7 +6,7 @@ import type { CargoPessoa } from "@/lib/constants";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-const PUBLIC_PATHS = ["/login", "/trocar-senha", "/auth/signout"];
+const PUBLIC_PATHS = ["/login", "/trocar-senha", "/redefinir-senha", "/auth/signout", "/auth/callback"];
 
 /**
  * Atualiza a sessão Supabase a cada requisição e protege rotas autenticadas.

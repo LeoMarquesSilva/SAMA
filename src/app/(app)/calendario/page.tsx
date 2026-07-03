@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
@@ -21,10 +20,10 @@ import {
 import { canViewAgendaTodos } from "@/lib/constants";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
-import { getOnboardingFlags } from "@/lib/onboarding/state";
 import type {
   AtividadeComPessoa,
   OutlookEventoComPessoa,
+  Pessoa,
   ReuniaoComRelacoes,
 } from "@/types/database";
 
@@ -38,20 +37,29 @@ export default async function CalendarioPage({
   const sp = await searchParams;
   const filtroInicial = parseCalendarioFiltroInicial(sp);
 
-  await ensureColaboradoresSync();
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const onboarding = user
-    ? await getOnboardingFlags(supabase, user.id)
-    : {
-        calendarioConcluido: true,
-        dashboardConcluido: true,
-        proximosPassosConcluido: true,
-      };
-  const pessoa = await getPessoaAtual();
+  // Uma única leitura de `usuarios` alimenta perfil e flags de onboarding —
+  // evita repetir `auth.getUser()` (round-trip à Auth) e a query de perfil.
+  const [{ data: perfilRow }] = await Promise.all([
+    user
+      ? supabase
+          .from("usuarios")
+          .select("*")
+          .eq("auth_user_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    ensureColaboradoresSync(),
+  ]);
+  const pessoa = (perfilRow as Pessoa) ?? null;
+  const onboarding = {
+    calendarioConcluido: pessoa?.onboarding_calendario_concluido ?? true,
+    dashboardConcluido: pessoa?.onboarding_dashboard_concluido ?? true,
+    proximosPassosConcluido:
+      pessoa?.onboarding_proximos_passos_concluido ?? true,
+  };
   const verAgendaTodos = canViewAgendaTodos(pessoa);
   const pessoaScope = resolveCalendarioPessoaScope(
     filtroInicial.pessoa,
