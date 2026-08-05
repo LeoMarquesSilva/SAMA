@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { dayKey, groupSingleDayEventsByDay } from "@/lib/calendario-events";
@@ -43,13 +43,30 @@ export function CalendarioMobileView({
   eventos,
   onSelectEvento,
   pessoaAtualId = null,
+  focusLatestEvent = false,
 }: {
   eventos: CalendarioItem[];
   onSelectEvento: (e: CalendarioItem) => void;
   pessoaAtualId?: string | null;
+  /** Quando true (ex.: filtro "Não categorizados"), abre no mês do evento mais recente. */
+  focusLatestEvent?: boolean;
 }) {
   const [gridMode, setGridMode] = useState<GridMode>("mes");
   const [cursorDate, setCursorDate] = useState(() => todayDateInTz());
+
+  const latestEventDayKey = useMemo(() => {
+    let best: string | null = null;
+    for (const e of eventos) {
+      if (!e.inicio) continue;
+      if (!best || e.inicio > best) best = e.inicio;
+    }
+    return best ? dayKeyInTz(best) : null;
+  }, [eventos]);
+
+  useEffect(() => {
+    if (!focusLatestEvent || !latestEventDayKey) return;
+    setCursorDate(dateFromDayKey(latestEventDayKey));
+  }, [focusLatestEvent, latestEventDayKey]);
 
   const singleByDay = useMemo(
     () => groupSingleDayEventsByDay(eventos),

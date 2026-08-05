@@ -87,6 +87,7 @@ export function buildCalendarioLinkFromDashboard(
   params.set("view", "lista");
 
   if (card.card === "pendente") {
+    params.set("status", "PENDENTE");
     if (opts.pessoa) params.set("pessoa", opts.pessoa);
     return `${CALENDARIO_PATH}?${params.toString()}`;
   }

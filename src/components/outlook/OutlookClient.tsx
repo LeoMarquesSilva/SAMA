@@ -106,15 +106,20 @@ function estadoInicialFiltro(f: CalendarioFiltroInicial) {
         ? "REUNIOES"
         : "TODOS";
 
+  const pendente = f.status === "PENDENTE";
   return {
-    fStatus: "TODOS" as const,
+    fStatus: pendente ? ("PENDENTE" as const) : ("TODOS" as const),
     fTipo,
     fKind: f.kind === "reuniao" || f.kind === "atividade" ? f.kind : "",
     fTipoDetalhe: f.tipo,
     fStatusDetalhe: f.status === "REALIZADA" ? f.status : "",
     fPeriodo: periodo,
     fDataDia: f.data,
-    viewMode: f.view === "lista" ? ("lista" as const) : ("calendario" as const),
+    // Pendentes já ocorreram — lista é o modo mais útil; URL view=lista também.
+    viewMode:
+      f.view === "lista" || pendente
+        ? ("lista" as const)
+        : ("calendario" as const),
   };
 }
 
@@ -547,7 +552,11 @@ export function OutlookClient({
         onAtualizar={() => sincronizar("eu")}
         onSincronizarTodos={() => sincronizar("todos")}
         fStatus={fStatus as "TODOS" | "PENDENTE"}
-        onFStatusChange={setFStatus}
+        onFStatusChange={(v) => {
+          setFStatus(v);
+          // Pendentes são eventos já ocorridos — na grade do mês atual parecem "sumir".
+          if (v === "PENDENTE") setViewMode("lista");
+        }}
         statusCounts={counts}
         fTipo={fTipo}
         onFTipoChange={setFTipo}
@@ -583,6 +592,7 @@ export function OutlookClient({
               eventos={lista}
               onSelectEvento={onSelectItem}
               pessoaAtualId={pessoaAtualId}
+              focusLatestEvent={fStatus === "PENDENTE"}
             />
           )}
 
