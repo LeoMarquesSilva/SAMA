@@ -264,7 +264,10 @@ export function OutlookClient({
         }
       }
 
-      if (fStatusDetalhe === "PENDENTE" && !isOutlookPendenteExigivel(e)) return false;
+      // Não passar a fn direto ao filter: o 2º arg vira índice e quebra o `now`.
+      if (fStatusDetalhe === "PENDENTE" && !isOutlookPendenteExigivel(e)) {
+        return false;
+      }
 
       if (fStatusDetalhe === "REALIZADA") {
         if (e.itemKind === "outlook") return false;
@@ -305,7 +308,9 @@ export function OutlookClient({
   const lista = useMemo(() => {
     const base =
       fStatus === "PENDENTE"
-        ? filtradoBase.filter(isOutlookPendenteExigivel)
+        ? // Callback explícito: `.filter(isOutlookPendenteExigivel)` passa o
+          // índice do array como 2º arg (`now`) e zera o filtro.
+          filtradoBase.filter((e) => isOutlookPendenteExigivel(e))
         : filtradoBase;
     return [...base].sort((a, b) => {
       const ta = a.inicio ? new Date(a.inicio).getTime() : Number.NEGATIVE_INFINITY;

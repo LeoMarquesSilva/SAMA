@@ -418,8 +418,10 @@ export function eventoCalendarioJaOcorreu(
   if (!inicio) return false;
   const t = new Date(inicio).getTime();
   if (Number.isNaN(t)) return false;
+  // Protege contra `.filter(fn)` passando o índice do array como 2º arg.
+  const agora = Number.isFinite(now) && now > 1e12 ? now : Date.now();
   const min = new Date(CATEGORIZACAO_OBRIGATORIA_DESDE_ISO).getTime();
-  return t >= min && t <= now;
+  return t >= min && t <= agora;
 }
 
 export function itemCalendarioJaOcorreu(
