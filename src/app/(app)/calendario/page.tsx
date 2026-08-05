@@ -28,6 +28,8 @@ import type {
 } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+/** Sync Graph (várias mailboxes) pode passar de 60s na Vercel. */
+export const maxDuration = 300;
 
 export default async function CalendarioPage({
   searchParams,

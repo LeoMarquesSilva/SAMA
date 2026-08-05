@@ -21,12 +21,243 @@ export type SyncResult = {
   detalhes?: string[];
 };
 
+export type PessoaSync = { id: string; email: string; nome: string };
+
+export type SyncPessoaResult = {
+  ok: boolean;
+  pessoaId: string;
+  nome: string;
+  importados: number;
+  removidos: number;
+  error?: string;
+};
+
+const SYNC_CONCURRENCY = 3;
+
 function revalidateCalendario() {
   revalidatePath(CALENDARIO_PATH);
   revalidatePath("/outlook");
   revalidatePath("/dashboard");
   revalidatePath("/tarefas");
   revalidatePath("/proximos-passos");
+}
+
+async function resolverPessoasSync(
+  escopo: "eu" | "todos"
+): Promise<{ pessoas: PessoaSync[]; error?: string }> {
+  const supabase = await createClient();
+  const eu = await getPessoaAtual();
+  const verAgendaTodos = canViewAgendaTodos(eu);
+
+  if (escopo === "todos") {
+    if (!verAgendaTodos) {
+      return {
+        pessoas: [],
+        error: "Sem permissão para sincronizar todas as agendas.",
+      };
+    }
+    const { data } = await supabase
+      .from("usuarios")
+      .select("id, email, nome")
+      .not("email", "is", null);
+    const pessoas = (data ?? []).filter(
+      (p): p is PessoaSync => Boolean(p.email?.trim())
+    );
+    return { pessoas };
+  }
+
+  if (!eu?.email) return { pessoas: [] };
+  return {
+    pessoas: [{ id: eu.id, email: eu.email, nome: eu.nome }],
+  };
+}
+
+async function syncPessoaInterna(
+  p: PessoaSync,
+  start: string,
+  end: string
+): Promise<SyncPessoaResult> {
+  const supabase = await createClient();
+  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createAdminClient()
+    : null;
+
+  try {
+    const eventos = await getCalendarEvents(p.email, start, end);
+    const graphIds = eventos.map((e) => e.outlookEventId);
+    const rows = eventos.map((e) => ({
+      pessoa_id: p.id,
+      outlook_event_id: e.outlookEventId,
+      titulo: e.titulo,
+      inicio: e.inicio,
+      fim: e.fim,
+      duracao_minutos: e.duracaoMinutos,
+      local: e.local,
+      online: e.online,
+      link_online: e.linkOnline,
+      organizador_nome: e.organizadorNome,
+      organizador_email: e.organizadorEmail,
+      participantes: e.participantes,
+      corpo_preview: e.corpoPreview,
+    }));
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from("outlook_eventos").upsert(rows, {
+        onConflict: "pessoa_id,outlook_event_id",
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    const cleanup = await removerEventosOrfaosOutlook(supabase, {
+      pessoaId: p.id,
+      syncStart: start,
+      syncEnd: end,
+      graphOutlookEventIds: graphIds,
+      admin,
+    });
+
+    await supabase.from("outlook_sync_logs").insert({
+      pessoa_id: p.id,
+      eventos_importados: rows.length,
+      status: "SUCESSO",
+    });
+
+    return {
+      ok: true,
+      pessoaId: p.id,
+      nome: p.nome,
+      importados: rows.length,
+      removidos: cleanup.removidos,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "erro";
+    await supabase.from("outlook_sync_logs").insert({
+      pessoa_id: p.id,
+      eventos_importados: 0,
+      status: "ERRO",
+      mensagem_erro: msg.slice(0, 500),
+    });
+    return {
+      ok: false,
+      pessoaId: p.id,
+      nome: p.nome,
+      importados: 0,
+      removidos: 0,
+      error: msg.slice(0, 120),
+    };
+  }
+}
+
+async function mapPool<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+
+  const n = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: n }, () => worker()));
+  return results;
+}
+
+/** Lista pessoas que serão sincronizadas (para progresso no client). */
+export async function listarPessoasParaSync(
+  escopo: "eu" | "todos" = "eu"
+): Promise<{ ok: boolean; pessoas?: PessoaSync[]; error?: string }> {
+  if (!outlookConfigurado()) {
+    return {
+      ok: false,
+      error:
+        "Credenciais da Microsoft não configuradas (.env: MICROSOFT_TENANT_ID / SHAREPOINT_CLIENT_ID / SHAREPOINT_CLIENT_SECRET).",
+    };
+  }
+
+  const { pessoas, error } = await resolverPessoasSync(escopo);
+  if (error) return { ok: false, error };
+  if (pessoas.length === 0) {
+    return { ok: false, error: "Nenhuma pessoa com e-mail para sincronizar." };
+  }
+  return { ok: true, pessoas };
+}
+
+/** Sincroniza o calendário de uma pessoa (chamado pelo client com progresso). */
+export async function sincronizarOutlookPessoa(
+  pessoaId: string
+): Promise<SyncPessoaResult> {
+  if (!outlookConfigurado()) {
+    return {
+      ok: false,
+      pessoaId,
+      nome: "",
+      importados: 0,
+      removidos: 0,
+      error: "Credenciais da Microsoft não configuradas.",
+    };
+  }
+
+  const eu = await getPessoaAtual();
+  if (!eu) {
+    return {
+      ok: false,
+      pessoaId,
+      nome: "",
+      importados: 0,
+      removidos: 0,
+      error: "Não autenticado.",
+    };
+  }
+
+  if (!canViewAgendaTodos(eu) && pessoaId !== eu.id) {
+    return {
+      ok: false,
+      pessoaId,
+      nome: eu.nome,
+      importados: 0,
+      removidos: 0,
+      error: "Sem permissão para sincronizar outra pessoa.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: p } = await supabase
+    .from("usuarios")
+    .select("id, email, nome")
+    .eq("id", pessoaId)
+    .maybeSingle();
+
+  if (!p?.email) {
+    return {
+      ok: false,
+      pessoaId,
+      nome: p?.nome ?? "",
+      importados: 0,
+      removidos: 0,
+      error: "Pessoa sem e-mail.",
+    };
+  }
+
+  const { start, end } = calendarioSyncRange();
+  return syncPessoaInterna(
+    { id: p.id, email: p.email, nome: p.nome },
+    start,
+    end
+  );
+}
+
+/** Alinha horários e revalida após um lote de syncs no client. */
+export async function finalizarSyncOutlook(): Promise<ActionResult> {
+  const supabase = await createClient();
+  await alinharRegistrosComOutlook(supabase);
+  revalidateCalendario();
+  return { ok: true };
 }
 
 /** Sincroniza o calendário da pessoa logada (chamado no login ou pelo client). */
@@ -41,7 +272,7 @@ export async function sincronizarCalendarioAutomatico(): Promise<void> {
 
 /**
  * Sincroniza o calendário das pessoas via Microsoft Graph (app-only).
- * - `escopo`: "todos" (admin) sincroniza todas as pessoas com e-mail;
+ * - `escopo`: "todos" (admin/sócio fundador) sincroniza todas as pessoas com e-mail;
  *   "eu" sincroniza apenas a pessoa logada.
  * - Janela alinhada ao calendário da UI (30 dias atrás / 90 à frente).
  * - Upsert do Graph + remoção de eventos órfãos na mesma janela.
@@ -57,26 +288,16 @@ export async function sincronizarOutlook(
     };
   }
 
-  const supabase = await createClient();
-  const eu = await getPessoaAtual();
-  const verAgendaTodos = canViewAgendaTodos(eu);
-
-  let pessoas: { id: string; email: string; nome: string }[] = [];
-  if (escopo === "todos" && verAgendaTodos) {
-    const { data } = await supabase
-      .from("usuarios")
-      .select("id, email, nome")
-      .not("email", "is", null);
-    pessoas = data ?? [];
-  } else if (eu) {
-    pessoas = [{ id: eu.id, email: eu.email, nome: eu.nome }];
-  }
-
+  const { pessoas, error } = await resolverPessoasSync(escopo);
+  if (error) return { ok: false, error };
   if (pessoas.length === 0) {
     return { ok: false, error: "Nenhuma pessoa com e-mail para sincronizar." };
   }
 
   const { start, end } = calendarioSyncRange();
+  const results = await mapPool(pessoas, SYNC_CONCURRENCY, (p) =>
+    syncPessoaInterna(p, start, end)
+  );
 
   let importados = 0;
   let removidos = 0;
@@ -84,68 +305,17 @@ export async function sincronizarOutlook(
   let pessoasErro = 0;
   const detalhes: string[] = [];
 
-  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createAdminClient()
-    : null;
-
-  for (const p of pessoas) {
-    try {
-      const eventos = await getCalendarEvents(p.email, start, end);
-      const graphIds = eventos.map((e) => e.outlookEventId);
-      const rows = eventos.map((e) => ({
-        pessoa_id: p.id,
-        outlook_event_id: e.outlookEventId,
-        titulo: e.titulo,
-        inicio: e.inicio,
-        fim: e.fim,
-        duracao_minutos: e.duracaoMinutos,
-        local: e.local,
-        online: e.online,
-        link_online: e.linkOnline,
-        organizador_nome: e.organizadorNome,
-        organizador_email: e.organizadorEmail,
-        participantes: e.participantes,
-        corpo_preview: e.corpoPreview,
-      }));
-
-      if (rows.length > 0) {
-        const { error } = await supabase
-          .from("outlook_eventos")
-          .upsert(rows, {
-            onConflict: "pessoa_id,outlook_event_id",
-          });
-        if (error) throw new Error(error.message);
-      }
-
-      const cleanup = await removerEventosOrfaosOutlook(supabase, {
-        pessoaId: p.id,
-        syncStart: start,
-        syncEnd: end,
-        graphOutlookEventIds: graphIds,
-        admin,
-      });
-      removidos += cleanup.removidos;
-
-      importados += rows.length;
-      pessoasOk += 1;
-      await supabase.from("outlook_sync_logs").insert({
-        pessoa_id: p.id,
-        eventos_importados: rows.length,
-        status: "SUCESSO",
-      });
-    } catch (err) {
+  for (const r of results) {
+    importados += r.importados;
+    removidos += r.removidos;
+    if (r.ok) pessoasOk += 1;
+    else {
       pessoasErro += 1;
-      const msg = err instanceof Error ? err.message : "erro";
-      detalhes.push(`${p.nome}: ${msg.slice(0, 120)}`);
-      await supabase.from("outlook_sync_logs").insert({
-        pessoa_id: p.id,
-        eventos_importados: 0,
-        status: "ERRO",
-        mensagem_erro: msg.slice(0, 500),
-      });
+      if (r.error) detalhes.push(`${r.nome}: ${r.error}`);
     }
   }
 
+  const supabase = await createClient();
   await alinharRegistrosComOutlook(supabase);
 
   revalidateCalendario();

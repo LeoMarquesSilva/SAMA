@@ -23,7 +23,9 @@ import { limparCorpoOutlook } from "@/lib/outlook";
 import { ReuniaoForm } from "@/components/reunioes/ReuniaoForm";
 import { AtividadeForm } from "@/components/atividades/AtividadeForm";
 import {
-  sincronizarOutlook,
+  listarPessoasParaSync,
+  sincronizarOutlookPessoa,
+  finalizarSyncOutlook,
   ignorarEvento,
   reverterEvento,
   vincularCategorizado,
@@ -394,22 +396,58 @@ export function OutlookClient({
   }
 
   function sincronizar(escopo: "eu" | "todos") {
-    setMsg(undefined);
+    setMsg("Preparando sincronização…");
     startTransition(async () => {
-      const r = await sincronizarOutlook(escopo);
-      if (!r.ok) {
-        setMsg(r.error ?? "Erro na sincronização.");
-      } else {
-        setMsg(
-          `Sincronizado: ${r.importados} evento(s)` +
-            (r.removidos ? ` · ${r.removidos} removido(s)` : "") +
-            ` · ${r.pessoasOk} ok` +
-            (r.pessoasErro ? ` · ${r.pessoasErro} com erro` : "") +
-            (r.detalhes && r.detalhes.length
-              ? ` — ${r.detalhes.slice(0, 2).join("; ")}`
-              : "")
-        );
+      const lista = await listarPessoasParaSync(escopo);
+      if (!lista.ok || !lista.pessoas?.length) {
+        setMsg(lista.error ?? "Erro na sincronização.");
+        return;
       }
+
+      const pessoas = lista.pessoas;
+      const total = pessoas.length;
+      let done = 0;
+      let importados = 0;
+      let removidos = 0;
+      let pessoasOk = 0;
+      let pessoasErro = 0;
+      const detalhes: string[] = [];
+      const queue = [...pessoas];
+      const concurrency = Math.min(3, total);
+
+      setMsg(`Sincronizando 0/${total}…`);
+
+      async function worker() {
+        while (queue.length > 0) {
+          const p = queue.shift();
+          if (!p) return;
+          setMsg(`Sincronizando ${done}/${total} — ${p.nome}…`);
+          const r = await sincronizarOutlookPessoa(p.id);
+          done += 1;
+          importados += r.importados;
+          removidos += r.removidos;
+          if (r.ok) pessoasOk += 1;
+          else {
+            pessoasErro += 1;
+            if (r.error) detalhes.push(`${r.nome || p.nome}: ${r.error}`);
+          }
+          setMsg(
+            `Sincronizando ${done}/${total}` +
+              (queue.length ? ` — próximo…` : "…")
+          );
+        }
+      }
+
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+      await finalizarSyncOutlook();
+
+      setMsg(
+        `Sincronizado: ${importados} evento(s)` +
+          (removidos ? ` · ${removidos} removido(s)` : "") +
+          ` · ${pessoasOk} ok` +
+          (pessoasErro ? ` · ${pessoasErro} com erro` : "") +
+          (detalhes.length ? ` — ${detalhes.slice(0, 2).join("; ")}` : "")
+      );
       refreshCalendario();
     });
   }

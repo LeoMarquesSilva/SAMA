@@ -11,8 +11,14 @@ const CLIENT_SECRET =
   process.env.MICROSOFT_CLIENT_SECRET ?? process.env.SHAREPOINT_CLIENT_SECRET!;
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
+/** Evita hang infinito quando o Graph demora/504 em uma mailbox. */
+const GRAPH_FETCH_TIMEOUT_MS = 30_000;
 
 let cache: { token: string; exp: number } | null = null;
+
+function graphSignal(ms = GRAPH_FETCH_TIMEOUT_MS): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
 
 export function outlookConfigurado(): boolean {
   return Boolean(TENANT && CLIENT_ID && CLIENT_SECRET);
@@ -33,6 +39,7 @@ async function getToken(): Promise<string> {
         grant_type: "client_credentials",
       }),
       cache: "no-store",
+      signal: graphSignal(15_000),
     }
   );
 
@@ -147,13 +154,25 @@ export async function getCalendarEvents(
     | null = `${GRAPH}/users/${encodeURIComponent(email)}/calendarView?${params}`;
 
   while (url) {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Prefer: 'outlook.timezone="America/Sao_Paulo"',
-      },
-      cache: "no-store",
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: 'outlook.timezone="America/Sao_Paulo"',
+        },
+        cache: "no-store",
+        signal: graphSignal(),
+      });
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new Error(
+          `Graph timeout (${GRAPH_FETCH_TIMEOUT_MS / 1000}s) ao ler calendário de ${email}`
+        );
+      }
+      throw err;
+    }
 
     if (!res.ok) {
       const txt = await res.text();
