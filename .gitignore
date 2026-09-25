@@ -13,7 +13,10 @@ next-env.d.ts
 
 # misc
 .DS_Store
+.local/
 *.pem
+*.pfx
+*.cer
 
 # debug
 npm-debug.log*
@@ -30,3 +33,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# robô de agendamento VIOS (repositório próprio) e lixo local
+/sama-rpa/
+/_to_delete/

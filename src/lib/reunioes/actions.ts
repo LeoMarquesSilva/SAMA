@@ -18,8 +18,19 @@ import {
   FELLOW_MSG_SEM_GRAVACAO,
   FELLOW_MSG_SEM_IA,
 } from "@/lib/fellow-messages";
+import {
+  formatarTodosMapeados,
+  mapearActionItemsFellow,
+} from "@/lib/fellow-assignees";
+import { proximosPassosUnificados } from "@/lib/reuniao-todos";
+import { compactChecklist, parseChecklist } from "@/lib/proximos-passos-checklist";
 
-export type ActionResult = { ok: boolean; error?: string; id?: string };
+export type ActionResult = {
+  ok: boolean;
+  error?: string;
+  id?: string;
+  proximosPassos?: string;
+};
 
 const REUNIAO_DETALHE_SELECT =
   "*, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))";
@@ -66,8 +77,14 @@ function buildRow(values: ReuniaoFormValues) {
     tema: values.tema || null,
     objetivos: values.objetivos || null,
     resultado: values.resultado || null,
-    proximos_passos: values.proximos_passos || null,
+    proximos_passos: values.proximos_passos
+      ? compactChecklist(parseChecklist(values.proximos_passos)) || null
+      : null,
     ata_texto: values.ata_texto || null,
+    pauta: values.pauta ?? null,
+    sala: values.sala || null,
+    emails_cliente: values.emails_cliente ?? null,
+    origem: values.origem ?? "OUTLOOK",
     motivo_cancelamento:
       values.status === "CANCELADA" ? values.motivo_cancelamento || null : null,
     cancelado_em: values.status === "CANCELADA" ? new Date().toISOString() : null,
@@ -401,10 +418,23 @@ export async function buscarConteudoFellow(input: {
     }
 
     const conteudo = resultado.conteudo;
+    const supabase = await createClient();
+    const { data: cols } = await supabase
+      .from("colaboradores")
+      .select("id, nome, email")
+      .eq("ativo", true);
+    const itensFellow = mapearActionItemsFellow(
+      conteudo.actionItems ?? [],
+      cols ?? []
+    );
+    const passos =
+      itensFellow.length > 0
+        ? formatarTodosMapeados(itensFellow)
+        : conteudo.proximos_passos || undefined;
     return {
       ok: true,
       resultado: conteudo.resumo || undefined,
-      proximos_passos: conteudo.proximos_passos || undefined,
+      proximos_passos: passos,
       titulo_fellow: conteudo.tituloFellow,
       tem_resumo_ia: conteudo.temResumoIa,
       tem_topicos_ia: conteudo.temTopicosIa,
@@ -456,4 +486,37 @@ export async function importarFellowReuniao(id: string): Promise<FellowImportRes
 
   revalidateReunioes();
   return resultado;
+}
+
+export async function listarReunioesAnterioresCliente(
+  clienteId: string,
+  exceptId?: string | null
+): Promise<
+  {
+    id: string;
+    titulo: string;
+    data_hora_inicio: string;
+    pauta: unknown;
+    proximos_passos: string | null;
+    resultado: string | null;
+  }[]
+> {
+  if (!clienteId.trim()) return [];
+  const supabase = await createClient();
+  let q = supabase
+    .from("reunioes")
+    .select("id, titulo, data_hora_inicio, pauta, todos, proximos_passos, resultado")
+    .eq("cliente_id", clienteId)
+    .order("data_hora_inicio", { ascending: false })
+    .limit(12);
+  if (exceptId) q = q.neq("id", exceptId);
+  const { data } = await q;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    titulo: r.titulo,
+    data_hora_inicio: r.data_hora_inicio,
+    pauta: r.pauta,
+    proximos_passos: proximosPassosUnificados(r.proximos_passos, r.todos),
+    resultado: r.resultado,
+  }));
 }

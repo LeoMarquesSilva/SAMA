@@ -4,8 +4,12 @@ import { useEffect, useId, useRef, useState, useTransition, type FormEvent } fro
 import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
+import { EmailChips } from "@/components/ui/EmailChips";
 import { MarkdownTextarea } from "@/components/ui/MarkdownTextarea";
-import { DatetimeBrInput } from "@/components/ui/DatetimeBrInput";
+import {
+  OutlookDateTimeRange,
+  proximoSlotLocal,
+} from "@/components/ui/OutlookDateTimeRange";
 import { Button } from "@/components/ui/Button";
 import { ParticipantesPicker } from "@/components/colaboradores/ParticipantesPicker";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
@@ -21,7 +25,7 @@ import {
 } from "@/lib/constants";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import type { TipoReuniao, ModalidadeReuniao } from "@/types/database";
-import { toDatetimeLocal, diffMinutos } from "@/lib/format";
+import { toDatetimeLocal } from "@/lib/format";
 import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { validateFields, type FieldErrors } from "@/lib/validate";
 import {
@@ -35,10 +39,27 @@ import { resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTitulo
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
-import { Loader2, Undo2 } from "lucide-react";
+import { Loader2, Send, Undo2 } from "lucide-react";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useFellowFetchProgress } from "@/components/reunioes/useFellowFetchProgress";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
+import { AgendarViosModal } from "@/components/reunioes/AgendarViosModal";
+import { PautaFields } from "@/components/reunioes/PautaFields";
+import { ReunioesAnterioresPanel } from "@/components/reunioes/ReunioesAnterioresPanel";
+import { parsePauta, pautaVazia, type PautaReuniao } from "@/lib/pauta";
+import {
+  checklistTemItens,
+  marcarPassosEnviadosVios,
+  mesclarChecklists,
+  removerDoChecklist,
+} from "@/lib/proximos-passos-checklist";
+import { proximosPassosUnificados } from "@/lib/reuniao-todos";
+import { SALA_SOMENTE_ONLINE } from "@/lib/salas";
+import {
+  agendarReuniaoViaB,
+  enviarReuniaoAoVios,
+  sincronizarReuniaoNoOutlook,
+} from "@/lib/reunioes/outlook-write";
 import { ReuniaoOutlookCabecalho } from "@/components/reunioes/ReuniaoOutlookCabecalho";
 import {
   FellowImportLabelActions,
@@ -101,6 +122,7 @@ export function ReuniaoForm({
   usuarios = [],
   fellowAtivo = false,
   donoCalendarioId,
+  modoViaB = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -113,15 +135,20 @@ export function ReuniaoForm({
   fellowAtivo?: boolean;
   /** Dono do calendário Outlook (admin abrindo reunião de outro sócio). */
   donoCalendarioId?: string | null;
+  /** Via B: agendar no SAMA e criar no Outlook. */
+  modoViaB?: boolean;
 }) {
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
-  /** Horários vêm do Outlook — não editáveis neste sistema. */
+  const origemSama = src?.origem === "SAMA" || modoViaB;
+  /** Via A: horários vêm do Outlook. Via B: editáveis no SAMA. */
   const horarioSomenteLeitura = Boolean(
-    src?.outlook_event_id ||
-      prefill?.outlook_event_id ||
-      prefill?.dono_calendario_id ||
-      reuniao?.outlook_event_id
+    !modoViaB &&
+      !origemSama &&
+      (src?.outlook_event_id ||
+        prefill?.outlook_event_id ||
+        prefill?.dono_calendario_id ||
+        reuniao?.outlook_event_id)
   );
   const formFieldId = useId();
   const fieldId = (name: string) => `${formFieldId}-${name}`;
@@ -143,9 +170,20 @@ export function ReuniaoForm({
   const [fellowImportMotivo, setFellowImportMotivo] =
     useState<FellowImportMotivo>();
   const [resultadoTexto, setResultadoTexto] = useState(src?.resultado ?? "");
-  const [proximosPassos, setProximosPassos] = useState(src?.proximos_passos ?? "");
+  const [proximosPassos, setProximosPassos] = useState(() =>
+    proximosPassosUnificados(src?.proximos_passos, src?.todos)
+  );
   const tituloRef = useRef<HTMLInputElement>(null);
   const inicioRef = useRef<HTMLInputElement>(null);
+  const slotPadrao = proximoSlotLocal();
+  const [slotInicio, setSlotInicio] = useState(() =>
+    src?.data_hora_inicio
+      ? toDatetimeLocal(src.data_hora_inicio)
+      : slotPadrao.inicio
+  );
+  const [slotFim, setSlotFim] = useState(() =>
+    src?.data_hora_fim ? toDatetimeLocal(src.data_hora_fim) : slotPadrao.fim
+  );
   const clienteManualRef = useRef(false);
   const tituloDebounceRef = useRef<number>(0);
   const [clienteSugerido, setClienteSugerido] = useState(false);
@@ -164,6 +202,28 @@ export function ReuniaoForm({
       kind: "empresa",
     };
   });
+  const [clienteIdAtual, setClienteIdAtual] = useState(
+    src?.cliente_id ?? src?.cliente?.ci ?? ""
+  );
+  const [pauta, setPauta] = useState<PautaReuniao>(() => parsePauta(src?.pauta));
+  const [sala, setSala] = useState(src?.sala ?? (modoViaB ? SALA_SOMENTE_ONLINE : ""));
+  const [emailsCliente, setEmailsCliente] = useState<string[]>(
+    src?.emails_cliente ?? []
+  );
+  const [viosMsg, setViosMsg] = useState<string>();
+  const [viosAberto, setViosAberto] = useState(false);
+  const reuniaoJaPassou = Boolean(
+    editing &&
+      reuniao?.id &&
+      (status === "REALIZADA" ||
+        (src?.data_hora_fim
+          ? new Date(src.data_hora_fim).getTime() < Date.now()
+          : src?.data_hora_inicio
+            ? new Date(src.data_hora_inicio).getTime() < Date.now()
+            : false))
+  );
+  const podeAgendarVios =
+    reuniaoJaPassou && checklistTemItens(proximosPassos);
 
   const participantesIniciais = (src?.participantes ?? [])
     .filter((p) => p.colaborador_id)
@@ -209,7 +269,22 @@ export function ReuniaoForm({
     }
     if (!editing) {
       setResultadoTexto(src?.resultado ?? "");
-      setProximosPassos(src?.proximos_passos ?? "");
+      setProximosPassos(
+        proximosPassosUnificados(src?.proximos_passos, src?.todos)
+      );
+      setPauta(parsePauta(src?.pauta));
+      setSala(src?.sala ?? (modoViaB ? SALA_SOMENTE_ONLINE : ""));
+      setEmailsCliente(src?.emails_cliente ?? []);
+      setClienteIdAtual(src?.cliente_id ?? src?.cliente?.ci ?? "");
+      const padrao = proximoSlotLocal();
+      setSlotInicio(
+        src?.data_hora_inicio
+          ? toDatetimeLocal(src.data_hora_inicio)
+          : padrao.inicio
+      );
+      setSlotFim(
+        src?.data_hora_fim ? toDatetimeLocal(src.data_hora_fim) : padrao.fim
+      );
     }
     if (prefill?.modalidade) setModalidade(prefill.modalidade);
     if (prefill?.status) setStatus(prefill.status);
@@ -232,7 +307,9 @@ export function ReuniaoForm({
     void buscarReuniaoPorId(reuniao.id).then((fresh) => {
       if (cancelled || !fresh) return;
       setResultadoTexto(fresh.resultado ?? "");
-      setProximosPassos(fresh.proximos_passos ?? "");
+      setProximosPassos(
+        proximosPassosUnificados(fresh.proximos_passos, fresh.todos)
+      );
       if (fresh.modalidade) setModalidade(fresh.modalidade);
       if (fresh.status) setStatus(fresh.status);
     });
@@ -368,23 +445,6 @@ export function ReuniaoForm({
     src?.titulo,
   ]);
 
-  // Preenche a duração ao informar início + fim (sem sobrescrever valor manual).
-  const lastAutoDur = useRef<string>("");
-  function autoFillDuracao(e: FormEvent<HTMLInputElement>) {
-    const form = e.currentTarget.form;
-    if (!form) return;
-    const inicio = (form.elements.namedItem("data_hora_inicio") as HTMLInputElement)?.value;
-    const fim = (form.elements.namedItem("data_hora_fim") as HTMLInputElement)?.value;
-    const dur = form.elements.namedItem("duracao_minutos") as HTMLInputElement | null;
-    if (!inicio || !fim || !dur) return;
-    if (dur.value && dur.value !== lastAutoDur.current) return;
-    const min = diffMinutos(inicio, fim);
-    if (min != null && min > 0) {
-      dur.value = String(min);
-      lastAutoDur.current = String(min);
-    }
-  }
-
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(undefined);
@@ -405,13 +465,15 @@ export function ReuniaoForm({
       objetivos: String(fd.get("objetivos") ?? ""),
       resultado:
         status === "REALIZADA" ? resultadoTexto : String(fd.get("resultado") ?? ""),
-      proximos_passos:
-        status === "REALIZADA"
-          ? proximosPassos
-          : String(fd.get("proximos_passos") ?? ""),
+      proximos_passos: proximosPassos,
       motivo_cancelamento: String(fd.get("motivo_cancelamento") ?? ""),
       participantes: fd.getAll("participantes").map(String),
       participantes_externos: parseExternos(fd.get("participantes_externos")),
+      pauta,
+      sala: sala || undefined,
+      emails_cliente: emailsCliente,
+      origem: origemSama || modoViaB ? "SAMA" : "OUTLOOK",
+      ata_texto: String(fd.get("ata_texto") ?? src?.ata_texto ?? ""),
       ...(prefill?.dono_calendario_id
         ? { dono_calendario_id: prefill.dono_calendario_id }
         : {}),
@@ -485,8 +547,12 @@ export function ReuniaoForm({
       }
 
       const r = editing
-        ? await updateReuniao(reuniao!.id, values)
-        : await createReuniao(values);
+        ? origemSama
+          ? await sincronizarReuniaoNoOutlook(reuniao!.id, values)
+          : await updateReuniao(reuniao!.id, values)
+        : modoViaB
+          ? await agendarReuniaoViaB(values)
+          : await createReuniao(values);
       if (r.ok) {
         if (!editing && r.id && afterCreate) {
           try {
@@ -582,7 +648,7 @@ export function ReuniaoForm({
     const titulo =
       tituloRef.current?.value?.trim() || src?.titulo?.trim() || "";
     const data_hora_inicio =
-      inicioRef.current?.value ||
+      slotInicio ||
       (src?.data_hora_inicio ? toDatetimeLocal(src.data_hora_inicio) : "");
 
     return {
@@ -677,12 +743,19 @@ export function ReuniaoForm({
   }
 
   return (
+    <>
     <Modal
       open={open}
       onClose={handleClose}
       closeDisabled={fellowBusy}
-      title={editing ? "Editar Reclassificação Reunião" : "Reclassificação Reunião"}
-      size="xl"
+      title={
+        modoViaB
+          ? "Agendar reunião"
+          : editing
+            ? "Editar Reclassificação Reunião"
+            : "Reclassificação Reunião"
+      }
+      size="2xl"
     >
       <div className="relative">
         {fellowBusy && (
@@ -740,8 +813,8 @@ export function ReuniaoForm({
           />
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="flex flex-col gap-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
+          <div className="flex flex-col gap-1 xl:col-span-3">
             <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
               Tipo
               <InfoTooltip text={TIPO_REUNIAO_DESCRICAO[tipo as TipoReuniaoKey]} />
@@ -753,46 +826,111 @@ export function ReuniaoForm({
               options={tipoReuniaoOptions()}
             />
           </div>
-          <SelectMenu
-            name="status"
-            label="Status"
-            value={status}
-            onChange={(v) => setStatus(v as typeof status)}
-            options={Object.entries(STATUS_REUNIAO).map(([v, l]) => ({
-              value: v,
-              label: l,
-            }))}
-          />
-          <SelectMenu
-            name="modalidade"
-            label="Modalidade"
-            value={modalidade}
-            onChange={(v) => setModalidade(v as typeof modalidade)}
-            options={Object.entries(MODALIDADE_REUNIAO).map(([v, l]) => ({
-              value: v,
-              label: l,
-            }))}
-          />
+          {modoViaB && !editing ? (
+            <input type="hidden" name="status" value="AGENDADA" />
+          ) : (
+            <div className="xl:col-span-2">
+              <SelectMenu
+                name="status"
+                label="Status"
+                value={status}
+                onChange={(v) => setStatus(v as typeof status)}
+                options={Object.entries(STATUS_REUNIAO).map(([v, l]) => ({
+                  value: v,
+                  label: l,
+                }))}
+              />
+            </div>
+          )}
+          <div className="xl:col-span-3">
+            <SelectMenu
+              name="modalidade"
+              label="Modalidade"
+              value={modalidade}
+              onChange={(v) => {
+                const next = v as typeof modalidade;
+                setModalidade(next);
+                if (!modoViaB) return;
+                if (next === "ONLINE") setSala(SALA_SOMENTE_ONLINE);
+                if (next === "PRESENCIAL_ESCRITORIO" && sala === SALA_SOMENTE_ONLINE) {
+                  setSala("SALA_1");
+                }
+              }}
+              options={Object.entries(MODALIDADE_REUNIAO).map(([v, l]) => ({
+                value: v,
+                label: l,
+              }))}
+            />
+          </div>
+          <div
+            className={
+              modoViaB && !editing ? "sm:col-span-2 xl:col-span-6" : "xl:col-span-4"
+            }
+          >
+            <ClienteSelect
+              name="cliente_id"
+              required
+              allowCreateLead={tipo === "CAPTACAO"}
+              tooltip={
+                tipo === "CAPTACAO"
+                  ? "Em Captação, vincule o contato da reunião. Se ainda não estiver na base, use + Captação — o nome será salvo em MAIÚSCULAS, categorizado como Captação e vinculado a você."
+                  : "Vincule o cliente relacionado à reunião. O campo é obrigatório."
+              }
+              defaultValue={clientePrefill?.ci ?? ""}
+              defaultLabel={clientePrefill?.nome ?? ""}
+              defaultGrupo={clientePrefill?.grupo}
+              defaultKind={clientePrefill?.kind}
+              onUserChange={() => {
+                clienteManualRef.current = true;
+                setClienteSugerido(false);
+              }}
+              onClienteChange={(ci) => setClienteIdAtual(ci ?? "")}
+              error={fieldErrors.cliente_id}
+            />
+          </div>
         </div>
-
-        <ClienteSelect
-          name="cliente_id"
-          required
-          allowCreateLead={tipo === "CAPTACAO"}
-          tooltip={
-            tipo === "CAPTACAO"
-              ? "Em Captação, vincule o contato da reunião. Se ainda não estiver na base, use + Captação — o nome será salvo em MAIÚSCULAS, categorizado como Captação e vinculado a você."
-              : "Vincule o cliente relacionado à reunião. O campo é obrigatório."
+        <ReunioesAnterioresPanel
+          clienteId={clienteIdAtual || null}
+          exceptId={reuniao?.id}
+          onTrazerPauta={setPauta}
+          onRestaurarPauta={() => setPauta(parsePauta(src?.pauta) ?? pautaVazia())}
+          onTrazerPassos={(passos) =>
+            setProximosPassos((atual) => mesclarChecklists(atual, passos))
           }
-          defaultValue={clientePrefill?.ci ?? ""}
-          defaultLabel={clientePrefill?.nome ?? ""}
-          defaultGrupo={clientePrefill?.grupo}
-          defaultKind={clientePrefill?.kind}
-          onUserChange={() => {
-            clienteManualRef.current = true;
-            setClienteSugerido(false);
-          }}
-          error={fieldErrors.cliente_id}
+          onRemoverPassos={(passos) =>
+            setProximosPassos((atual) => removerDoChecklist(atual, passos))
+          }
+        />
+        <PautaFields value={pauta} onChange={setPauta} />
+        <ProximosPassosChecklist
+          value={proximosPassos}
+          onChange={setProximosPassos}
+          error={fieldErrors.proximos_passos}
+          simples
+          colaboradores={colaboradores}
+          labelAdornment={
+            <>
+              {status === "REALIZADA" && fellowAtivo ? (
+                <FellowImportLabelActions
+                  status={fellowPassosStatus}
+                  detail={fellowPassosDetail}
+                  motivo={fellowImportMotivo}
+                  reserveRefreshSpace
+                />
+              ) : null}
+              {podeAgendarVios && (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => setViosAberto(true)}
+                >
+                  <Send size={14} />
+                  Enviar para Agendamento
+                </Button>
+              )}
+            </>
+          }
         />
         {clienteSugerido && (
           <p className="-mt-2 text-xs text-brand-700">
@@ -810,37 +948,29 @@ export function ReuniaoForm({
         />
 
         {!horarioSomenteLeitura && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <DatetimeBrInput
-              id={fieldId("data_hora_inicio")}
-              name="data_hora_inicio"
-              label="Início"
-              ref={inicioRef}
-              defaultValue={toDatetimeLocal(src?.data_hora_inicio)}
-              error={fieldErrors.data_hora_inicio}
-              onChange={autoFillDuracao}
-              required
-            />
-            <DatetimeBrInput
-              id={fieldId("data_hora_fim")}
-              name="data_hora_fim"
-              label="Fim"
-              defaultValue={toDatetimeLocal(src?.data_hora_fim)}
-              error={fieldErrors.data_hora_fim}
-              onChange={autoFillDuracao}
-              required
-            />
-            <Input
-              id={fieldId("duracao_minutos")}
-              name="duracao_minutos"
-              type="number"
-              min={1}
-              label="Duração (min)"
-              defaultValue={src?.duracao_minutos ?? ""}
-              error={fieldErrors.duracao_minutos}
-              required
-            />
-          </div>
+          <OutlookDateTimeRange
+            inicio={slotInicio}
+            fim={slotFim}
+            onChange={({ inicio, fim }) => {
+              setSlotInicio(inicio);
+              setSlotFim(fim);
+            }}
+            errorInicio={fieldErrors.data_hora_inicio}
+            errorFim={fieldErrors.data_hora_fim}
+            errorDuracao={fieldErrors.duracao_minutos}
+            sala={modoViaB ? sala : undefined}
+            onSalaChange={modoViaB ? setSala : undefined}
+          />
+        )}
+
+        {modoViaB && (
+          <EmailChips
+            label="E-mails do cliente"
+            value={emailsCliente}
+            onChange={setEmailsCliente}
+            placeholder="Digite o e-mail e pressione Enter"
+            error={fieldErrors.emails_cliente}
+          />
         )}
 
         {status === "REALIZADA" && (
@@ -880,20 +1010,12 @@ export function ReuniaoForm({
               onChange={setResultadoTexto}
               error={fieldErrors.resultado}
             />
-            <ProximosPassosChecklist
-              value={proximosPassos}
-              onChange={setProximosPassos}
-              error={fieldErrors.proximos_passos}
-              labelAdornment={
-                fellowAtivo ? (
-                  <FellowImportLabelActions
-                    status={fellowPassosStatus}
-                    detail={fellowPassosDetail}
-                    motivo={fellowImportMotivo}
-                    reserveRefreshSpace
-                  />
-                ) : undefined
-              }
+            <Textarea
+              id={fieldId("ata_texto")}
+              name="ata_texto"
+              label="Ata (modelo Reestruturação — editável)"
+              defaultValue={src?.ata_texto ?? src?.resultado ?? ""}
+              rows={6}
             />
           </>
         )}
@@ -940,6 +1062,11 @@ export function ReuniaoForm({
             {error}
           </p>
         )}
+        {(viosMsg || src?.vios_envio_status === "erro") && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {viosMsg ?? src?.vios_envio_erro}
+          </p>
+        )}
 
         <div className="flex items-center justify-between gap-2 pt-1">
           {podeReverterOutlook ? (
@@ -967,12 +1094,34 @@ export function ReuniaoForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={pending || fellowBusy || revertPending}>
-              {pending ? "Salvando..." : "Salvar"}
+              {pending ? "Salvando..." : modoViaB && !editing ? "Agendar e enviar ao Outlook" : "Salvar"}
             </Button>
           </div>
         </div>
       </form>
       </div>
     </Modal>
+    <AgendarViosModal
+      open={viosAberto}
+      onClose={() => setViosAberto(false)}
+      proximosPassos={proximosPassos}
+      colaboradores={colaboradores}
+      areaPadrao={undefined}
+      onEnviar={async (passos) => {
+        const r = await enviarReuniaoAoVios(reuniao!.id, passos);
+        if (r.ok) {
+          setProximosPassos((atual) =>
+            r.proximosPassos ??
+            marcarPassosEnviadosVios(
+              atual,
+              passos.map((p) => p.text)
+            )
+          );
+        }
+        setViosMsg(r.ok ? undefined : r.error ?? "Falha no envio.");
+        return r;
+      }}
+    />
+    </>
   );
 }

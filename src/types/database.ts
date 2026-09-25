@@ -135,6 +135,25 @@ export type Reuniao = {
   ata_arquivo_url: string | null;
   motivo_cancelamento: string | null;
   cancelado_em: string | null;
+  origem?: "SAMA" | "OUTLOOK" | null;
+  pauta?: {
+    objetivo?: string;
+    assuntos?: { titulo?: string; descricao?: string }[];
+    pendencias?: string;
+  } | null;
+  todos?: {
+    text: string;
+    done?: boolean;
+    prazo?: string | null;
+    colaborador_id?: string | null;
+    responsavel_email?: string | null;
+    responsavel_nome?: string | null;
+  }[] | null;
+  sala?: string | null;
+  emails_cliente?: string[] | null;
+  sharepoint_item_id?: string | null;
+  vios_envio_status?: "enviado" | "erro" | null;
+  vios_envio_erro?: string | null;
   criado_em: string;
   atualizado_em: string;
 };

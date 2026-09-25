@@ -9,6 +9,7 @@ const panelSizes = {
   md: "sm:max-w-lg",
   lg: "sm:max-w-2xl",
   xl: "sm:max-w-4xl",
+  "2xl": "sm:max-w-6xl",
 } as const;
 
 export function Modal({
@@ -18,6 +19,7 @@ export function Modal({
   children,
   size = "md",
   closeDisabled = false,
+  stacked = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +27,7 @@ export function Modal({
   children: React.ReactNode;
   size?: keyof typeof panelSizes;
   closeDisabled?: boolean;
+  stacked?: boolean;
 }) {
   function tryClose() {
     if (closeDisabled) return;
@@ -53,7 +56,7 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 flex items-end justify-center sm:items-center sm:p-6"
-      style={{ zIndex: Z.modal }}
+      style={{ zIndex: stacked ? Z.confirm : Z.modal }}
     >
       <div
         className="absolute inset-0 bg-slate-900/40"
@@ -64,10 +67,13 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={clsx(
-          "relative flex max-h-[min(92vh,920px)] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl",
+          "relative flex w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl",
+          size === "2xl"
+            ? "max-h-[min(94vh,980px)]"
+            : "max-h-[min(92vh,920px)]",
           panelSizes[size]
         )}
-        style={{ zIndex: Z.modal + 1 }}
+        style={{ zIndex: (stacked ? Z.confirm : Z.modal) + 1 }}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <h2 className="text-base font-semibold text-slate-800 sm:text-lg">

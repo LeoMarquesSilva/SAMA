@@ -93,6 +93,27 @@ export const reuniaoSchema = z
       .default([]),
     /** Dono do calendário Outlook (não persiste — só define organizador ao categorizar). */
     dono_calendario_id: z.string().uuid().optional().or(z.literal("")),
+    pauta: z
+      .object({
+        objetivo: z.string().optional().default(""),
+        assuntos: z
+          .array(
+            z.object({
+              titulo: z.string().optional().default(""),
+              descricao: z.string().optional().default(""),
+            })
+          )
+          .optional()
+          .default([]),
+        pendencias: z.string().optional().default(""),
+      })
+      .optional(),
+    sala: z.string().optional(),
+    emails_cliente: z
+      .array(z.string().trim().email("E-mail do cliente inválido."))
+      .optional(),
+    origem: z.enum(["SAMA", "OUTLOOK"]).optional(),
+    criar_outlook: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (

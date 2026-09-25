@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { FellowActionItemRaw } from "@/lib/fellow-assignees";
+
 type FellowActionItem = {
   text: string;
   status?: string;
@@ -47,6 +49,7 @@ export type FellowConteudo = {
   tituloFellow: string | null;
   resumo: string;
   proximos_passos: string;
+  actionItems: FellowActionItemRaw[];
   temResumoIa: boolean;
   temTopicosIa: boolean;
 };
@@ -170,46 +173,68 @@ function combinarResumo(summary: string, topicos: string): string {
   return parts.join("\n\n");
 }
 
+function extrairActionItemsRaw(
+  content: FellowRecapSection["content"]
+): FellowActionItemRaw[] {
+  if (!Array.isArray(content)) return [];
+
+  const items: FellowActionItemRaw[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== "object" || !("text" in item)) continue;
+    const action = item as FellowActionItem;
+    const text = action.text?.trim();
+    if (!text) continue;
+    items.push({
+      text,
+      done: action.status === "Done",
+      prazo: action.due_date?.trim() || null,
+      assignees: (action.assignees ?? []).map((a) => ({
+        full_name: a.full_name?.trim(),
+        email: a.email?.trim(),
+      })),
+    });
+  }
+  return items;
+}
+
 function formatActionItems(content: FellowRecapSection["content"]): string {
-  if (!Array.isArray(content)) return "";
-
-  return content
-    .map((item) => {
-      if (!item || typeof item !== "object" || !("text" in item)) return "";
-      const action = item as FellowActionItem;
-      const text = action.text?.trim();
-      if (!text) return "";
-
-      const done = action.status === "Done";
-      const assignees = (action.assignees ?? [])
-        .map((a) => a.full_name?.trim())
+  return extrairActionItemsRaw(content)
+    .map((action) => {
+      const assignees = action.assignees
+        .map((a) => a.email?.trim() || a.full_name?.trim())
         .filter(Boolean)
         .join(", ");
-      const due = action.due_date?.trim();
-      const extras = [assignees, due ? `prazo: ${due}` : ""]
+      const extras = [assignees, action.prazo ? `prazo: ${action.prazo}` : ""]
         .filter(Boolean)
         .join(" · ");
-      const label = extras ? `${text} (${extras})` : text;
-      return `- [${done ? "x" : " "}] ${label}`;
+      const label = extras ? `${action.text} (${extras})` : action.text;
+      return `- [${action.done ? "x" : " "}] ${label}`;
     })
-    .filter(Boolean)
     .join("\n");
 }
 
 function extrairAiNotes(aiNotes: FellowRecap[] | null | undefined): {
   resumo: string;
   proximos_passos: string;
+  actionItems: FellowActionItemRaw[];
   temResumoIa: boolean;
   temTopicosIa: boolean;
 } {
   if (!aiNotes?.length) {
-    return { resumo: "", proximos_passos: "", temResumoIa: false, temTopicosIa: false };
+    return {
+      resumo: "",
+      proximos_passos: "",
+      actionItems: [],
+      temResumoIa: false,
+      temTopicosIa: false,
+    };
   }
   const recap = aiNotes.find((n) => n.is_active) ?? aiNotes[0];
 
   let summary = "";
   let topicos = "";
   let proximos_passos = "";
+  let actionItems: FellowActionItemRaw[] = [];
 
   for (const s of recap.sections) {
     if (isSummarySection(s.title)) {
@@ -224,6 +249,7 @@ function extrairAiNotes(aiNotes: FellowRecap[] | null | undefined): {
     }
 
     if (isActionItemsSection(s.title)) {
+      actionItems = extrairActionItemsRaw(s.content);
       proximos_passos = formatActionItems(s.content);
     }
   }
@@ -231,6 +257,7 @@ function extrairAiNotes(aiNotes: FellowRecap[] | null | undefined): {
   return {
     resumo: combinarResumo(summary, topicos),
     proximos_passos,
+    actionItems,
     temResumoIa: Boolean(summary.trim()),
     temTopicosIa: Boolean(topicos.trim()),
   };
@@ -292,10 +319,9 @@ export async function buscarGravacaoFellow(input: {
 
   if (!recording) return { status: "sem_gravacao" };
 
-  const { resumo, proximos_passos, temResumoIa, temTopicosIa } = extrairAiNotes(
-    recording.ai_notes
-  );
-  if (!resumo.trim() && !proximos_passos.trim()) {
+  const { resumo, proximos_passos, actionItems, temResumoIa, temTopicosIa } =
+    extrairAiNotes(recording.ai_notes);
+  if (!resumo.trim() && !proximos_passos.trim() && !actionItems.length) {
     return { status: "sem_conteudo_ia", tituloFellow: recording.title };
   }
 
@@ -306,6 +332,7 @@ export async function buscarGravacaoFellow(input: {
       tituloFellow: recording.title,
       resumo,
       proximos_passos,
+      actionItems,
       temResumoIa,
       temTopicosIa,
     },

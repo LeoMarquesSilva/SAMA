@@ -227,3 +227,193 @@ export async function getCalendarEvents(
 
   return eventos;
 }
+
+export type GraphAttendee = {
+  email: string;
+  nome?: string;
+  tipo?: "required" | "optional" | "resource";
+};
+
+export type GraphEventInput = {
+  organizerEmail: string;
+  titulo: string;
+  inicioLocal: string;
+  fimLocal: string;
+  bodyHtml?: string;
+  attendees?: GraphAttendee[];
+  location?: string | null;
+  isOnlineMeeting?: boolean;
+};
+
+export type GraphEventCreated = {
+  outlookEventId: string;
+  joinUrl: string | null;
+};
+
+async function graphJson<T>(
+  path: string,
+  init: RequestInit
+): Promise<T> {
+  const token = await getToken();
+  const res = await fetch(`${GRAPH}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: 'outlook.timezone="America/Sao_Paulo"',
+      ...(init.headers ?? {}),
+    },
+    cache: "no-store",
+    signal: graphSignal(),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Graph ${res.status}: ${txt.slice(0, 280)}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+function eventPayload(input: GraphEventInput) {
+  return {
+    subject: input.titulo,
+    start: { dateTime: input.inicioLocal, timeZone: GRAPH_TZ_SP },
+    end: { dateTime: input.fimLocal, timeZone: GRAPH_TZ_SP },
+    body: input.bodyHtml
+      ? { contentType: "HTML", content: input.bodyHtml }
+      : undefined,
+    location: input.location ? { displayName: input.location } : undefined,
+    attendees: (input.attendees ?? []).map((a) => ({
+      emailAddress: { address: a.email, name: a.nome },
+      type: a.tipo ?? "required",
+    })),
+    isOnlineMeeting: Boolean(input.isOnlineMeeting),
+    onlineMeetingProvider: input.isOnlineMeeting
+      ? "teamsForBusiness"
+      : undefined,
+  };
+}
+
+export async function createCalendarEvent(
+  input: GraphEventInput
+): Promise<GraphEventCreated> {
+  const data = await graphJson<{
+    id: string;
+    onlineMeeting?: { joinUrl?: string } | null;
+  }>(`/users/${encodeURIComponent(input.organizerEmail)}/events`, {
+    method: "POST",
+    body: JSON.stringify(eventPayload(input)),
+  });
+  return {
+    outlookEventId: data.id,
+    joinUrl: data.onlineMeeting?.joinUrl ?? null,
+  };
+}
+
+export async function updateCalendarEvent(
+  organizerEmail: string,
+  outlookEventId: string,
+  input: Omit<GraphEventInput, "organizerEmail">
+): Promise<GraphEventCreated> {
+  const data = await graphJson<{
+    id: string;
+    onlineMeeting?: { joinUrl?: string } | null;
+  }>(
+    `/users/${encodeURIComponent(organizerEmail)}/events/${encodeURIComponent(outlookEventId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(
+        eventPayload({ ...input, organizerEmail })
+      ),
+    }
+  );
+  return {
+    outlookEventId: data.id,
+    joinUrl: data.onlineMeeting?.joinUrl ?? null,
+  };
+}
+
+export async function cancelCalendarEvent(
+  organizerEmail: string,
+  outlookEventId: string,
+  comment?: string
+): Promise<void> {
+  await graphJson(
+    `/users/${encodeURIComponent(organizerEmail)}/events/${encodeURIComponent(outlookEventId)}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify({ comment: comment ?? "Cancelado pelo SAMA." }),
+    }
+  );
+}
+
+export type GraphScheduleSlot = {
+  email: string;
+  availabilityView: string;
+  scheduleItems: {
+    status: string;
+    start: string | null;
+    end: string | null;
+    subject?: string;
+  }[];
+};
+
+/** Livre/ocupado dos internos (e salas) no intervalo. Intervalo em minutos: 15 ou 30. */
+export async function getSchedule(opts: {
+  organizerEmail: string;
+  emails: string[];
+  startISO: string;
+  endISO: string;
+  intervalMinutes?: 15 | 30;
+}): Promise<GraphScheduleSlot[]> {
+  const data = await graphJson<{
+    value: {
+      scheduleId?: string;
+      availabilityView?: string;
+      scheduleItems?: {
+        status?: string;
+        subject?: string;
+        start?: { dateTime?: string; timeZone?: string };
+        end?: { dateTime?: string; timeZone?: string };
+      }[];
+    }[];
+  }>(`/users/${encodeURIComponent(opts.organizerEmail)}/calendar/getSchedule`, {
+    method: "POST",
+    body: JSON.stringify({
+      schedules: opts.emails,
+      startTime: { dateTime: opts.startISO, timeZone: "UTC" },
+      endTime: { dateTime: opts.endISO, timeZone: "UTC" },
+      availabilityViewInterval: opts.intervalMinutes ?? 15,
+    }),
+  });
+
+  return (data.value ?? []).map((row) => ({
+    email: row.scheduleId ?? "",
+    availabilityView: row.availabilityView ?? "",
+    scheduleItems: (row.scheduleItems ?? []).map((item) => ({
+      status: item.status ?? "busy",
+      subject: item.subject,
+      start: graphDateTimeToIso(
+        item.start?.dateTime,
+        item.start?.timeZone ?? "UTC"
+      ),
+      end: graphDateTimeToIso(item.end?.dateTime, item.end?.timeZone ?? "UTC"),
+    })),
+  }));
+}
+
+export async function findUsersByDisplayPrefix(
+  prefix: string
+): Promise<{ displayName: string; mail: string | null }[]> {
+  const safe = prefix.replace(/'/g, "''");
+  const data = await graphJson<{
+    value?: { displayName?: string; mail?: string; userPrincipalName?: string }[];
+  }>(
+    `/users?$select=displayName,mail,userPrincipalName&$filter=startsWith(displayName,'${safe}')&$top=25`,
+    { method: "GET" }
+  );
+  return (data.value ?? []).map((u) => ({
+    displayName: u.displayName ?? "",
+    mail: u.mail ?? u.userPrincipalName ?? null,
+  }));
+}
