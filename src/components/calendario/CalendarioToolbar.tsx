@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, X } from "lucide-react";
+import { CalendarPlus, RefreshCw, X } from "lucide-react";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
 import {
@@ -96,8 +96,10 @@ export function CalendarioToolbar({
   onViewModeChange,
   pending,
   verAgendaTodos,
+  verFiltroPessoas,
   onAtualizar,
   onSincronizarTodos,
+  onAgendar,
   fStatus,
   onFStatusChange,
   statusCounts,
@@ -114,8 +116,10 @@ export function CalendarioToolbar({
   onViewModeChange: (mode: CalendarioViewMode) => void;
   pending: boolean;
   verAgendaTodos: boolean;
+  verFiltroPessoas?: boolean;
   onAtualizar: () => void;
   onSincronizarTodos: () => void;
+  onAgendar?: () => void;
   fStatus: StatusFiltro;
   onFStatusChange: (v: StatusFiltro) => void;
   statusCounts: Record<StatusFiltro, number>;
@@ -136,6 +140,12 @@ export function CalendarioToolbar({
       <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <CalendarioViewToggle value={viewMode} onChange={onViewModeChange} />
         <div className="flex flex-wrap gap-2">
+          {onAgendar && (
+            <Button size="sm" onClick={onAgendar}>
+              <CalendarPlus size={16} />
+              Agendar
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -185,7 +195,7 @@ export function CalendarioToolbar({
           ]}
         />
 
-        {verAgendaTodos && pessoas.length > 0 && (
+        {(verFiltroPessoas ?? verAgendaTodos) && pessoas.length > 0 && (
           <div className="border-t border-slate-100 pt-4">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Colaborador

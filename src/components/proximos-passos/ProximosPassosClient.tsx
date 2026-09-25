@@ -254,17 +254,33 @@ export function ProximosPassosClient({
                           >
                             {item.text}
                           </span>
-                          <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
-                            {item.done ? (
-                              <>
-                                <CheckCircle2 size={12} className="text-emerald-500" />
-                                Realizada
-                              </>
-                            ) : (
-                              <>
-                                <Circle size={12} className="text-amber-500" />
-                                Pendente
-                              </>
+                          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                            <span className="inline-flex items-center gap-1">
+                              {item.done ? (
+                                <>
+                                  <CheckCircle2 size={12} className="text-emerald-500" />
+                                  Realizada
+                                </>
+                              ) : (
+                                <>
+                                  <Circle size={12} className="text-amber-500" />
+                                  Pendente
+                                </>
+                              )}
+                            </span>
+                            {item.colaborador_id && (
+                              <span>
+                                {colaboradores.find((c) => c.id === item.colaborador_id)
+                                  ?.nome ?? "Responsável BP"}
+                              </span>
+                            )}
+                            {item.prazo && (
+                              <span>
+                                Prazo{" "}
+                                {item.prazo.includes("-")
+                                  ? item.prazo.split("-").reverse().join("/")
+                                  : item.prazo}
+                              </span>
                             )}
                           </span>
                         </span>

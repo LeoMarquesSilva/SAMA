@@ -2,7 +2,7 @@
 export const Z = {
   nav: 40,
   modal: 100,
-  popover: 110,
   toast: 120,
   confirm: 130,
+  popover: 140,
 } as const;

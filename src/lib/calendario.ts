@@ -11,7 +11,7 @@ export const CALENDARIO_PAGE_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
 
 /** Select enxuto para listagem do calendário — textos longos vêm no modal via buscarReuniaoPorId. */
 export const REUNIAO_CALENDARIO_LIST_SELECT =
-  "id, titulo, tipo, modalidade, status, data_hora_inicio, data_hora_fim, duracao_minutos, cliente_id, link_online, local, outlook_event_id, criado_por_id, tema, gravacao_url, ata_arquivo_url, motivo_cancelamento, cancelado_em, criado_em, atualizado_em, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))";
+  "id, titulo, tipo, modalidade, status, data_hora_inicio, data_hora_fim, duracao_minutos, cliente_id, link_online, local, outlook_event_id, criado_por_id, tema, gravacao_url, ata_arquivo_url, motivo_cancelamento, cancelado_em, criado_em, atualizado_em, origem, sala, pauta, todos, vios_envio_status, sharepoint_item_id, cliente:pessoas(ci, nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, papel, nome, email, colaborador:colaboradores(id, nome, avatar_url, email, departamento, usuario_id))";
 
 /** Select enxuto para eventos Outlook na listagem — corpo do convite não é necessário na grade. */
 export const OUTLOOK_CALENDARIO_LIST_SELECT =
@@ -28,17 +28,26 @@ export type CalendarioPessoaScope =
 export function resolveCalendarioPessoaScope(
   pessoaParam: string | undefined,
   pessoaAtualId: string | null,
-  verAgendaTodos: boolean
+  verAgendaTodos: boolean,
+  pessoaIdsVisiveis: string[] = []
 ): CalendarioPessoaScope {
-  if (!verAgendaTodos) {
+  const visiveis = new Set(pessoaIdsVisiveis);
+  if (verAgendaTodos) {
+    if (pessoaParam === CALENDARIO_PESSOA_TODOS) {
+      return { mode: "all" };
+    }
+    if (pessoaParam && pessoaAtualId && pessoaParam !== pessoaAtualId) {
+      return { mode: "user", pessoaId: pessoaParam };
+    }
     return pessoaAtualId
       ? { mode: "user", pessoaId: pessoaAtualId }
       : { mode: "all" };
   }
-  if (pessoaParam === CALENDARIO_PESSOA_TODOS) {
-    return { mode: "all" };
-  }
-  if (pessoaParam && pessoaAtualId && pessoaParam !== pessoaAtualId) {
+  if (
+    pessoaParam &&
+    pessoaParam !== CALENDARIO_PESSOA_TODOS &&
+    visiveis.has(pessoaParam)
+  ) {
     return { mode: "user", pessoaId: pessoaParam };
   }
   return pessoaAtualId

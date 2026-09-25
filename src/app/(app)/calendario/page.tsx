@@ -17,7 +17,7 @@ import {
   mergeCalendarioItems,
   reuniaoVisivelParaUsuario,
 } from "@/lib/calendario-items";
-import { canViewAgendaTodos } from "@/lib/constants";
+import { canViewAgendaTodos, podeVerAgendaDe } from "@/lib/constants";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
 import type {
@@ -63,12 +63,21 @@ export default async function CalendarioPage({
       pessoa?.onboarding_proximos_passos_concluido ?? true,
   };
   const verAgendaTodos = canViewAgendaTodos(pessoa);
+  const { start, end } = calendarioEventQueryRange();
+
+  const { data: pessoasRaw } = await supabase
+    .from("usuarios")
+    .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
+    .order("nome");
+  const pessoasVisiveis = (pessoasRaw ?? []).filter((p) =>
+    podeVerAgendaDe(pessoa, p)
+  );
   const pessoaScope = resolveCalendarioPessoaScope(
     filtroInicial.pessoa,
     pessoa?.id ?? null,
-    verAgendaTodos
+    verAgendaTodos,
+    pessoasVisiveis.map((p) => p.id)
   );
-  const { start, end } = calendarioEventQueryRange();
 
   let outlookQuery = supabase
     .from("outlook_eventos")
@@ -106,19 +115,18 @@ export default async function CalendarioPage({
     { data: eventos },
     { data: reunioesRaw },
     { data: atividadesRaw },
-    { data: pessoas },
     { data: colaboradores },
   ] = await Promise.all([
     outlookQuery,
     reunioesQuery,
     atividadesQuery,
-    supabase.from("usuarios").select("id, nome, email, avatar_url").order("nome"),
     supabase
       .from("colaboradores")
       .select("id, nome, email, departamento, avatar_url, usuario_id")
       .eq("ativo", true)
       .order("nome"),
   ]);
+  const pessoas = pessoasVisiveis;
 
   const eventosOutlook = (eventos as unknown as OutlookEventoComPessoa[]) ?? [];
   const reunioesAll = (reunioesRaw as unknown as ReuniaoComRelacoes[]) ?? [];
@@ -170,6 +178,7 @@ export default async function CalendarioPage({
           pessoas={pessoas ?? []}
           colaboradores={colaboradores ?? []}
           verAgendaTodos={verAgendaTodos}
+          verFiltroPessoas={pessoas.length > 1}
           pessoaAtualId={pessoa?.id ?? null}
           fellowAtivo={fellowConfigurado()}
           filtroInicial={filtroInicial}

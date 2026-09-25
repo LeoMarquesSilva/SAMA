@@ -16,6 +16,7 @@ import {
   deletePessoa,
   ativarPessoa,
   desativarPessoa,
+  ativarPendentes,
 } from "@/app/(app)/pessoas/actions";
 import type { Pessoa } from "@/types/database";
 
@@ -192,11 +193,32 @@ export function PessoasClient({
             com login
           </p>
         </div>
-        <Button onClick={openNew} disabled={!isAdmin}>
-          <Plus size={16} />
-          <span className="hidden sm:inline">Nova pessoa</span>
-          <span className="sm:hidden">Nova</span>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {isAdmin && pessoas.some((p) => !p.ativo) && (
+            <Button
+              variant="secondary"
+              disabled={busyId === "lote"}
+              onClick={() => {
+                startTransition(async () => {
+                  setBusyId("lote");
+                  const r = await ativarPendentes();
+                  setBusyId(null);
+                  if (!r.ok) toastError(r.error ?? "Falha ao ativar pendentes.");
+                  else success(`${r.ativados ?? 0} login(s) ativado(s).`);
+                  router.refresh();
+                });
+              }}
+            >
+              <Power size={16} />
+              Ativar pendentes
+            </Button>
+          )}
+          <Button onClick={openNew} disabled={!isAdmin}>
+            <Plus size={16} />
+            <span className="hidden sm:inline">Nova pessoa</span>
+            <span className="sm:hidden">Nova</span>
+          </Button>
+        </div>
       </div>
 
       {/* MOBILE: cards */}

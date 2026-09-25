@@ -224,3 +224,29 @@ export async function desativarPessoa(id: string): Promise<ActionResult> {
   revalidatePath("/pessoas");
   return { ok: true };
 }
+
+export async function ativarPendentes(): Promise<
+  ActionResult & { ativados?: number }
+> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("ativo", false);
+  const ids = (data ?? []).map((p) => p.id);
+  let ativados = 0;
+  for (const id of ids) {
+    const r = await ativarPessoa(id);
+    if (r.ok) ativados += 1;
+  }
+  revalidatePath("/pessoas");
+  return {
+    ok: ativados > 0 || ids.length === 0,
+    ativados,
+    error:
+      ids.length > 0 && ativados === 0
+        ? "Nenhum login pôde ser ativado."
+        : undefined,
+  };
+}

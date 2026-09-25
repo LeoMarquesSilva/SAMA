@@ -129,6 +129,7 @@ export function OutlookClient({
   pessoas,
   colaboradores,
   verAgendaTodos,
+  verFiltroPessoas = false,
   pessoaAtualId,
   fellowAtivo = false,
   filtroInicial,
@@ -143,6 +144,7 @@ export function OutlookClient({
   pessoas: PessoaOpt[];
   colaboradores: ColaboradorOpt[];
   verAgendaTodos: boolean;
+  verFiltroPessoas?: boolean;
   pessoaAtualId: string | null;
   fellowAtivo?: boolean;
   filtroInicial?: CalendarioFiltroInicial;
@@ -184,6 +186,7 @@ export function OutlookClient({
     useState<CalendarioItem | null>(null);
   const [grupoReuniaoItem, setGrupoReuniaoItem] =
     useState<CalendarioItem | null>(null);
+  const [agendarOpen, setAgendarOpen] = useState(false);
 
   function refreshCalendario() {
     markCalendarioPageRefreshed();
@@ -554,8 +557,10 @@ export function OutlookClient({
         onViewModeChange={setViewMode}
         pending={pending}
         verAgendaTodos={verAgendaTodos}
+        verFiltroPessoas={verFiltroPessoas || verAgendaTodos}
         onAtualizar={() => sincronizar("eu")}
         onSincronizarTodos={() => sincronizar("todos")}
+        onAgendar={() => setAgendarOpen(true)}
         fStatus={fStatus as "TODOS" | "PENDENTE"}
         onFStatusChange={(v) => {
           setFStatus(v);
@@ -671,6 +676,21 @@ export function OutlookClient({
             )
           )}
         </div>
+      )}
+
+      {agendarOpen && (
+        <ReuniaoForm
+          open
+          modoViaB
+          onClose={() => setAgendarOpen(false)}
+          onSaved={() => {
+            setAgendarOpen(false);
+            refreshCalendario();
+          }}
+          colaboradores={colaboradores}
+          usuarios={pessoas}
+          fellowAtivo={fellowAtivo}
+        />
       )}
 
       {/* Form de reunião pré-preenchido */}

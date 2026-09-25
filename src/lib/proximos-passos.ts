@@ -6,6 +6,7 @@ import {
   serializeChecklist,
   type ChecklistItem,
 } from "@/lib/proximos-passos-checklist";
+import { proximosPassosUnificados } from "@/lib/reuniao-todos";
 import type { ReuniaoComRelacoes, TipoReuniao } from "@/types/database";
 
 export const PROXIMOS_PASSOS_PATH = "/proximos-passos";
@@ -19,6 +20,8 @@ export type PassoReuniaoItem = {
   itemIndex: number;
   text: string;
   done: boolean;
+  colaborador_id?: string | null;
+  prazo?: string | null;
 };
 
 export type PassoReuniaoGrupo = {
@@ -29,9 +32,9 @@ export type PassoReuniaoGrupo = {
 };
 
 export function expandirPassosReuniao(r: ReuniaoComRelacoes): PassoReuniaoItem[] {
-  const itens = parseChecklist(r.proximos_passos).filter(
-    (item) => item.text.trim().length > 0
-  );
+  const itens = parseChecklist(
+    proximosPassosUnificados(r.proximos_passos, r.todos)
+  ).filter((item) => item.text.trim().length > 0);
   const clienteNome =
     r.cliente?.grupo_cliente ?? r.cliente?.nome ?? null;
 
@@ -44,6 +47,8 @@ export function expandirPassosReuniao(r: ReuniaoComRelacoes): PassoReuniaoItem[]
     itemIndex,
     text: item.text,
     done: item.done,
+    colaborador_id: item.colaborador_id,
+    prazo: item.prazo,
   }));
 }
 

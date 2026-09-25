@@ -6,7 +6,7 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { getCalendarEvents, outlookConfigurado } from "@/lib/graph";
 import { clearAlertasLoginCookie } from "@/lib/alertas-login";
 import { CALENDARIO_PATH, calendarioSyncRange } from "@/lib/calendario";
-import { canViewAgendaTodos } from "@/lib/constants";
+import { canViewAgendaTodos, podeVerAgendaDe } from "@/lib/constants";
 import { alinharRegistrosComOutlook } from "@/lib/outlook-sync-horarios";
 import { removerEventosOrfaosOutlook } from "@/lib/outlook-sync-cleanup";
 
@@ -215,7 +215,13 @@ export async function sincronizarOutlookPessoa(
     };
   }
 
-  if (!canViewAgendaTodos(eu) && pessoaId !== eu.id) {
+  const supabasePerm = await createClient();
+  const { data: alvo } = await supabasePerm
+    .from("usuarios")
+    .select("id, departamento")
+    .eq("id", pessoaId)
+    .maybeSingle();
+  if (!podeVerAgendaDe(eu, alvo ?? { id: pessoaId })) {
     return {
       ok: false,
       pessoaId,

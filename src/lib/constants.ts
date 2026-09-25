@@ -51,12 +51,29 @@ type PessoaAgenda = {
   departamento: string | null;
 };
 
-/** Agenda de todos: administradores ou sócio fundador. */
+/** Agenda de todos: administradores ou qualquer sócio (ECOA F1.2). */
 export function canViewAgendaTodos(
   pessoa: PessoaAgenda | null | undefined
 ): boolean {
   if (!pessoa) return false;
-  return pessoa.is_admin || isSocioFundador(pessoa.cargo, pessoa.departamento);
+  return pessoa.is_admin || pessoa.cargo === "SOCIO";
+}
+
+type PessoaAgendaComId = PessoaAgenda & { id?: string | null };
+
+/** Própria agenda, mesma área ou visão global (sócio/admin). */
+export function podeVerAgendaDe(
+  viewer: PessoaAgendaComId | null | undefined,
+  target: { id?: string | null; departamento?: string | null }
+): boolean {
+  if (!viewer) return false;
+  if (canViewAgendaTodos(viewer)) return true;
+  if (viewer.id && target.id && viewer.id === target.id) return true;
+  return Boolean(
+    viewer.departamento &&
+      target.departamento &&
+      viewer.departamento === target.departamento
+  );
 }
 
 /** Rótulo de cargo na UI — distingue Sócio fundador dos demais cargos Sócio. */
