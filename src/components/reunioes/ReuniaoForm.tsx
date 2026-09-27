@@ -44,6 +44,10 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useFellowFetchProgress } from "@/components/reunioes/useFellowFetchProgress";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
 import { AgendarViosModal } from "@/components/reunioes/AgendarViosModal";
+import {
+  listarAgendamentosVios,
+  type AgendamentoViosStatus,
+} from "@/lib/vios-status-actions";
 import { PautaFields } from "@/components/reunioes/PautaFields";
 import { ReunioesAnterioresPanel } from "@/components/reunioes/ReunioesAnterioresPanel";
 import { parsePauta, pautaVazia, type PautaReuniao } from "@/lib/pauta";
@@ -211,6 +215,31 @@ export function ReuniaoForm({
     src?.emails_cliente ?? []
   );
   const [viosMsg, setViosMsg] = useState<string>();
+  const [agendamentosVios, setAgendamentosVios] = useState<AgendamentoViosStatus[]>([]);
+  const [viosRecarregar, setViosRecarregar] = useState(0);
+
+  // Situação no VIOS de cada passo enviado (atualiza sozinho enquanto há itens na fila)
+  useEffect(() => {
+    const reuniaoId = reuniao?.id;
+    if (!open || !reuniaoId) return;
+    let vivo = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const carregar = async () => {
+      const lista = await listarAgendamentosVios(reuniaoId).catch(
+        () => [] as AgendamentoViosStatus[]
+      );
+      if (!vivo) return;
+      setAgendamentosVios(lista);
+      if (lista.some((a) => a.status !== "concluido" && a.status !== "erro")) {
+        timer = setTimeout(carregar, 15_000);
+      }
+    };
+    void carregar();
+    return () => {
+      vivo = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [open, reuniao?.id, viosRecarregar]);
   const [viosAberto, setViosAberto] = useState(false);
   const reuniaoJaPassou = Boolean(
     editing &&
@@ -908,6 +937,7 @@ export function ReuniaoForm({
           error={fieldErrors.proximos_passos}
           simples
           colaboradores={colaboradores}
+          agendamentosVios={agendamentosVios}
           labelAdornment={
             <>
               {status === "REALIZADA" && fellowAtivo ? (
@@ -1114,9 +1144,10 @@ export function ReuniaoForm({
             r.proximosPassos ??
             marcarPassosEnviadosVios(
               atual,
-              passos.map((p) => p.text)
+              passos.map((p) => p.texto_checklist || p.text)
             )
           );
+          setViosRecarregar((n) => n + 1);
         }
         setViosMsg(r.ok ? undefined : r.error ?? "Falha no envio.");
         return r;

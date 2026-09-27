@@ -17,8 +17,8 @@ import {
   buscarOpcoesVios,
   usuarioViosDoColaborador,
   type OpcaoVios,
-  type OpcoesPastaVios,
 } from "@/lib/vios-opcoes";
+import { resolverOpcoesVios } from "@/lib/vios-status-actions";
 
 type PastaTipo = "Processo" | "Atendimento";
 
@@ -28,9 +28,17 @@ type Linha = ViosPassoEnvio & {
   enviadoViosEm?: string | null;
 };
 
+type DadosOpcoes = {
+  titulo: string | null;
+  area: string | null;
+  etapas: OpcaoVios[];
+  etiquetas: OpcaoVios[];
+  usuarios: OpcaoVios[];
+};
+
 type EstadoOpcoes =
-  | { status: "carregando" }
-  | { status: "ok"; dados: OpcoesPastaVios }
+  | { status: "carregando"; noVios?: boolean }
+  | { status: "ok"; dados: DadosOpcoes }
   | { status: "erro"; erro: string };
 
 const ETIQUETA_PADRAO = "PROVIDÊNCIA";
@@ -74,6 +82,7 @@ export function AgendarViosModal({
       .map((i) => ({
         selecionado: false,
         text: i.text.trim(),
+        texto_checklist: i.text.trim(),
         colaborador_id: i.colaborador_id ?? "",
         prazo: i.prazo ?? "",
         tipo: "",
@@ -110,7 +119,7 @@ export function AgendarViosModal({
   }
 
   /** Preenche padrões (etiqueta PROVIDÊNCIA e responsável do SAMA) quando as opções chegam. */
-  function aplicarPadroes(dados: OpcoesPastaVios, k: string) {
+  function aplicarPadroes(dados: DadosOpcoes, k: string) {
     setLinhas((atual) =>
       atual.map((l) => {
         if (chave(l.pastaTipo, numeroDaLinha(l)) !== k) return l;
@@ -133,14 +142,22 @@ export function AgendarViosModal({
     );
   }
 
-  async function carregarOpcoes(linha: Linha, atualizar = false) {
-    const numero = numeroDaLinha(linha);
-    if (!numero) return;
-    const tipo = (linha.pastaTipo ?? "Processo") as PastaTipo;
+  /** Resolve as opções da pasta: catálogo (instantâneo) ou, se preciso, o próprio VIOS. */
+  async function carregarOpcoes(tipo: PastaTipo, numero: string) {
     const k = chave(tipo, numero);
     setOpcoes((o) => ({ ...o, [k]: { status: "carregando" } }));
     try {
-      const dados = await buscarOpcoesVios(tipo, numero, atualizar);
+      let dados: DadosOpcoes;
+      const r = await resolverOpcoesVios(tipo, numero);
+      if (r.ok) {
+        dados = r;
+      } else if (r.precisaVios) {
+        setOpcoes((o) => ({ ...o, [k]: { status: "carregando", noVios: true } }));
+        const v = await buscarOpcoesVios(tipo, numero);
+        dados = { titulo: v.titulo, area: (v as { area?: string | null }).area ?? null, etapas: v.etapas, etiquetas: v.etiquetas, usuarios: v.usuarios };
+      } else {
+        throw new Error(r.erro);
+      }
       setOpcoes((o) => ({ ...o, [k]: { status: "ok", dados } }));
       aplicarPadroes(dados, k);
     } catch (e) {
@@ -150,6 +167,24 @@ export function AgendarViosModal({
       }));
     }
   }
+
+  // Carrega sozinho quando a pasta é informada (sem botão): espera a digitação parar.
+  const pendentes = linhas
+    .filter((l) => l.selecionado && numeroDaLinha(l).length >= 3)
+    .map((l) => chave(l.pastaTipo, numeroDaLinha(l)))
+    .filter((k, i, a) => a.indexOf(k) === i && !opcoes[k])
+    .join(";");
+  useEffect(() => {
+    if (!pendentes) return;
+    const t = setTimeout(() => {
+      for (const k of pendentes.split(";")) {
+        const [tipo, ...resto] = k.split("|");
+        void carregarOpcoes(tipo as PastaTipo, resto.join("|"));
+      }
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendentes]);
 
   function enviar() {
     setErro(undefined);
@@ -170,7 +205,11 @@ export function AgendarViosModal({
       }
       const op = opcoes[chave(l.pastaTipo, numeroDaLinha(l))];
       if (op?.status !== "ok") {
-        return setErro(`Busque as opções do VIOS para a pasta do passo ${n}.`);
+        return setErro(
+          op?.status === "erro"
+            ? `Pasta do passo ${n}: ${op.erro}`
+            : `Aguarde carregar as opções do VIOS para a pasta do passo ${n}.`
+        );
       }
       if (!l.tarefa_id) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
       if (!l.responsavel_vios) return setErro(`Selecione o responsável do passo ${n}.`);
@@ -179,6 +218,7 @@ export function AgendarViosModal({
       const r = await onEnviar(
         selecionadas.map((l) => ({
           text: l.text,
+          texto_checklist: l.texto_checklist,
           colaborador_id: l.colaborador_id,
           prazo: l.prazo,
           tipo: l.etiqueta || "Providências",
@@ -214,10 +254,9 @@ export function AgendarViosModal({
     >
       <div className="space-y-4">
         <p className="text-sm text-slate-500">
-          Marque os passos que vão para o VIOS. Informe a pasta ou o processo e
-          clique em <strong>Buscar no VIOS</strong>: as tarefas, etiquetas e
-          responsáveis mostrados são exatamente os que o VIOS aceita nessa pasta.
-          O robô agenda em até ~2 minutos.
+          Marque os passos que vão para o VIOS e informe a pasta ou o processo:
+          as tarefas, etiquetas e responsáveis mostrados são exatamente os que o
+          VIOS aceita nessa pasta. O robô agenda em até ~2 minutos.
         </p>
 
         {linhas.length === 0 ? (
@@ -271,7 +310,7 @@ export function AgendarViosModal({
                       </label>
 
                       {/* 1) Pasta / processo */}
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[12rem_1fr_auto] sm:items-end">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[12rem_1fr] sm:items-end">
                         <SelectMenu
                           label="Pasta do Agendamento"
                           value={linha.pastaTipo ?? "Processo"}
@@ -306,12 +345,6 @@ export function AgendarViosModal({
                                   : { pasta: e.target.value, tarefa_id: "", tarefa: "" }
                               )
                             }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                void carregarOpcoes(linha);
-                              }
-                            }}
                             placeholder={
                               (linha.pastaTipo ?? "Processo") === "Processo"
                                 ? "0000000-00.0000.0.00.0000"
@@ -320,23 +353,14 @@ export function AgendarViosModal({
                             className={campo}
                           />
                         </label>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={!numero || op?.status === "carregando"}
-                          onClick={() => void carregarOpcoes(linha, op?.status === "ok")}
-                        >
-                          {op?.status === "carregando"
-                            ? "Consultando VIOS…"
-                            : op?.status === "ok"
-                              ? "Atualizar do VIOS"
-                              : "Buscar no VIOS"}
-                        </Button>
+
                       </div>
 
                       {op?.status === "carregando" && (
                         <p className="text-xs text-slate-500">
-                          O robô está abrindo a pasta no VIOS (pode levar até 30 s na primeira vez).
+                          {op.noVios
+                            ? "Pasta nova para o SAMA: o robô está consultando o VIOS (até ~30 s, só na primeira vez)…"
+                            : "Carregando opções do VIOS…"}
                         </p>
                       )}
                       {op?.status === "erro" && (
@@ -346,9 +370,8 @@ export function AgendarViosModal({
                       )}
                       {dados && (
                         <p className="text-xs text-slate-500">
-                          <Badge tone="blue">{dados.titulo || `CI ${dados.ci_pasta}`}</Badge>{" "}
-                          {dados.etapas.length} tipos de tarefa disponíveis nesta pasta
-                          {dados.fonte === "cache" ? " (lista em cache)" : ""}.
+                          <Badge tone="blue">{dados.titulo || "Pasta do VIOS"}</Badge>{" "}
+                          {dados.etapas.length} tipos de tarefa disponíveis nesta pasta.
                         </p>
                       )}
 
@@ -364,7 +387,7 @@ export function AgendarViosModal({
                             })
                           }
                           emptyOption="Selecione"
-                          placeholder={semOpcoes ? "Busque a pasta no VIOS" : "Selecione"}
+                          placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
                           disabled={semOpcoes}
                           searchable
                           options={dados ? opcoesSelect(dados.etapas) : []}
@@ -379,7 +402,7 @@ export function AgendarViosModal({
                             })
                           }
                           emptyOption="Sem etiqueta"
-                          placeholder={semOpcoes ? "Busque a pasta no VIOS" : "Selecione"}
+                          placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
                           disabled={semOpcoes}
                           options={dados ? opcoesSelect(dados.etiquetas) : []}
                         />
@@ -388,7 +411,7 @@ export function AgendarViosModal({
                           value={linha.responsavel_vios ?? ""}
                           onChange={(v) => patch(index, { responsavel_vios: v })}
                           emptyOption="Selecione"
-                          placeholder={semOpcoes ? "Busque a pasta no VIOS" : "Selecione"}
+                          placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
                           disabled={semOpcoes}
                           searchable
                           options={(dados?.usuarios ?? []).map((u) => ({

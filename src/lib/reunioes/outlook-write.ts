@@ -475,13 +475,14 @@ export async function enviarReuniaoAoVios(
                 tarefaId: p.tarefa_id,
                 etiquetaId: p.etiqueta_id,
                 etiqueta: p.etiqueta,
+                textoChecklist: p.texto_checklist,
               };
             })
           );
 
     const proximosPassos = marcarPassosEnviadosVios(
       reuniao.proximos_passos,
-      passos.map((p) => p.text)
+      passos.map((p) => (p as ViosPassoEnvio).texto_checklist || p.text)
     );
     const admin = createAdminClient();
     await admin
