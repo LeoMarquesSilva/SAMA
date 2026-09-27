@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { clsx } from "clsx";
 
 function iniciais(nome: string): string {
@@ -24,7 +27,8 @@ export function Avatar({
   size?: number;
   className?: string;
 }) {
-  if (src) {
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+  if (src && brokenSrc !== src) {
     // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
@@ -33,6 +37,7 @@ export function Avatar({
         title={nome}
         style={{ width: size, height: size }}
         className={clsx("shrink-0 rounded-full object-cover", className)}
+        onError={() => setBrokenSrc(src)}
       />
     );
   }

@@ -220,7 +220,8 @@ export function OutlookClient({
   const avatarPorEmail = useMemo(() => {
     const m = new Map<string, string | null>();
     for (const c of colaboradores) {
-      registrarEmailNoMapa(m, c.email, c.avatar_url ?? null);
+      if (!c.avatar_url) continue;
+      registrarEmailNoMapa(m, c.email, c.avatar_url);
     }
     for (const p of pessoas) {
       if (!buscarNoMapaPorEmail(m, p.email)) {

@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import { AvatarGroup } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/server";
+import {
+  avatarDaPessoa,
+  mapaAvatarColaboradorPorEmail,
+} from "@/lib/colaboradores";
 import { formatDateTime } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
 import { DashboardFiltros } from "@/components/dashboard/DashboardFiltros";
@@ -140,7 +144,7 @@ export default async function DashboardPage({
     reunioesQ,
     outlookDonoQ,
     atividadesQ,
-    supabase.from("usuarios").select("id, nome, avatar_url").order("nome"),
+    supabase.from("usuarios").select("id, nome, email, avatar_url").order("nome"),
     proximasReunioesQ,
     proximasOutlookQ,
     countEventosPendentes(supabase, {
@@ -195,6 +199,12 @@ export default async function DashboardPage({
     })
   );
 
+  const avatares = await mapaAvatarColaboradorPorEmail(supabase);
+  const pessoasComFoto = (pessoas ?? []).map((p) => ({
+    ...p,
+    avatar_url: avatarDaPessoa(p.email, p.avatar_url, avatares),
+  }));
+
   const atividadesPorTipo = atividadeTipoOptionsAtividades().map(
     ({ value, label }) => ({
       key: value,
@@ -222,7 +232,7 @@ export default async function DashboardPage({
           dataDia={periodo === "dia" ? dataDia : ""}
           pessoa={fPessoa}
           tipo={fTipo}
-          pessoas={pessoas ?? []}
+          pessoas={pessoasComFoto}
           filtrarPorPessoa={verAgendaTodos}
         />
       </div>

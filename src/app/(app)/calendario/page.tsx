@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { ensureColaboradoresSync } from "@/lib/colaboradores";
+import {
+  avatarDaPessoa,
+  ensureColaboradoresSync,
+  mapaAvatarColaboradorPorEmail,
+  urlDeFotoUtil,
+} from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
 import { ListPageSkeleton } from "@/components/ui/Skeleton";
@@ -16,6 +21,7 @@ import {
   agruparReunioesDuplicadasAdmin,
   mergeCalendarioItems,
   reuniaoVisivelParaUsuario,
+  type CalendarioItem,
 } from "@/lib/calendario-items";
 import { canViewAgendaTodos, podeVerAgendaDe } from "@/lib/constants";
 import { outlookConfigurado } from "@/lib/graph";
@@ -65,13 +71,19 @@ export default async function CalendarioPage({
   const verAgendaTodos = canViewAgendaTodos(pessoa);
   const { start, end } = calendarioEventQueryRange();
 
-  const { data: pessoasRaw } = await supabase
-    .from("usuarios")
-    .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
-    .order("nome");
-  const pessoasVisiveis = (pessoasRaw ?? []).filter((p) =>
-    podeVerAgendaDe(pessoa, p)
-  );
+  const [{ data: pessoasRaw }, avatares] = await Promise.all([
+    supabase
+      .from("usuarios")
+      .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
+      .order("nome"),
+    mapaAvatarColaboradorPorEmail(supabase),
+  ]);
+  const pessoasVisiveis = (pessoasRaw ?? [])
+    .filter((p) => podeVerAgendaDe(pessoa, p))
+    .map((p) => ({
+      ...p,
+      avatar_url: avatarDaPessoa(p.email, p.avatar_url, avatares),
+    }));
   const pessoaScope = resolveCalendarioPessoaScope(
     filtroInicial.pessoa,
     pessoa?.id ?? null,
@@ -154,6 +166,11 @@ export default async function CalendarioPage({
     items = agruparReunioesDuplicadasAdmin(items);
   }
 
+  const fotoPorPessoaId = new Map(
+    pessoasVisiveis.map((p) => [p.id, p.avatar_url])
+  );
+  items = items.map((item) => aplicarFotoDoCadastro(item, fotoPorPessoaId));
+
   const outlookVinculos = eventosOutlook
     .filter((e) => e.reuniao_id)
     .map((e) => ({
@@ -176,7 +193,10 @@ export default async function CalendarioPage({
           items={items}
           outlookVinculos={outlookVinculos}
           pessoas={pessoas ?? []}
-          colaboradores={colaboradores ?? []}
+          colaboradores={(colaboradores ?? []).map((c) => ({
+            ...c,
+            avatar_url: urlDeFotoUtil(c.avatar_url),
+          }))}
           verAgendaTodos={verAgendaTodos}
           verFiltroPessoas={pessoas.length > 1}
           pessoaAtualId={pessoa?.id ?? null}
@@ -187,4 +207,43 @@ export default async function CalendarioPage({
       </Suspense>
     </div>
   );
+}
+
+function comFoto<T extends { id: string; avatar_url?: string | null }>(
+  pessoa: T | null | undefined,
+  fotos: Map<string, string | null>
+): T | null | undefined {
+  if (!pessoa || !fotos.has(pessoa.id)) return pessoa;
+  return { ...pessoa, avatar_url: fotos.get(pessoa.id) ?? null };
+}
+
+/** O evento guarda a foto do cadastro de usuários (site fora do ar). Troca pela resolvida. */
+function aplicarFotoDoCadastro(
+  item: CalendarioItem,
+  fotos: Map<string, string | null>
+): CalendarioItem {
+  return {
+    ...item,
+    pessoa: comFoto(item.pessoa, fotos) ?? null,
+    grupoPessoas: item.grupoPessoas?.map((p) => comFoto(p, fotos) ?? p),
+    grupoReunioes: item.grupoReunioes?.map((g) => ({
+      ...g,
+      pessoa: comFoto(g.pessoa, fotos) ?? null,
+    })),
+    grupoOutlook: item.grupoOutlook?.map((g) => ({
+      ...g,
+      pessoa: comFoto(g.pessoa, fotos) ?? null,
+      item: {
+        ...g.item,
+        pessoa: comFoto(g.item.pessoa, fotos) ?? null,
+      },
+    })),
+    atividade: item.atividade
+      ? {
+          ...item.atividade,
+          pessoa: comFoto(item.atividade.pessoa, fotos) ?? null,
+          com_pessoa: comFoto(item.atividade.com_pessoa, fotos) ?? null,
+        }
+      : item.atividade,
+  };
 }

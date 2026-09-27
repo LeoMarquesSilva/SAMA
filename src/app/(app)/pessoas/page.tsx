@@ -3,6 +3,10 @@ import { requireUsuariosAccess } from "@/lib/auth";
 import { authLastSignInByUserId } from "@/lib/auth-users.server";
 import { PessoasClient } from "@/components/pessoas/PessoasClient";
 import type { Pessoa } from "@/types/database";
+import {
+  avatarDaPessoa,
+  mapaAvatarColaboradorPorEmail,
+} from "@/lib/colaboradores";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +19,15 @@ export default async function PessoasPage({
 
   const { novo } = await searchParams;
   const supabase = await createClient();
-  const [{ data }, lastSignIn] = await Promise.all([
+  const [{ data }, lastSignIn, avatares] = await Promise.all([
     supabase.from("usuarios").select("*").order("nome", { ascending: true }),
     authLastSignInByUserId(),
+    mapaAvatarColaboradorPorEmail(supabase),
   ]);
 
   const pessoas: Pessoa[] = ((data as Pessoa[]) ?? []).map((p) => ({
     ...p,
+    avatar_url: avatarDaPessoa(p.email, p.avatar_url, avatares),
     ultimo_acesso_em: p.auth_user_id
       ? (lastSignIn.get(p.auth_user_id) ?? null)
       : null,

@@ -1,18 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { createResponsumClient } from "@/lib/responsum";
 import { variantesEmailEscritorio } from "@/lib/email-escritorio";
+import { urlDeFotoUtil } from "@/lib/avatar-url";
+import { mapaFotosOrquestrai } from "@/lib/orquestrai-fotos";
 
 const STALE_MS = 6 * 60 * 60 * 1000; // 6h
 
-/** URLs oficiais do site quando o espelho do Responsum está desatualizado. */
-const AVATAR_URL_OVERRIDES: Record<string, string> = {
-  "renato@bismarchipires.com.br":
-    "https://www.bismarchipires.com.br/img/team/trabalhista/renato-vallim.jpg",
-};
-
-function avatarUrlColaborador(email: string, avatarUrl: string | null): string | null {
-  return AVATAR_URL_OVERRIDES[email.trim().toLowerCase()] ?? avatarUrl;
-}
+export { urlDeFotoUtil };
 
 export type ColaboradorOpt = {
   id: string;
@@ -62,7 +56,7 @@ export async function sincronizarColaboradores(): Promise<{
     nome: r.name,
     email: r.email,
     departamento: r.department ?? null,
-    avatar_url: avatarUrlColaborador(r.email, r.avatar_url ?? null),
+    avatar_url: urlDeFotoUtil(r.avatar_url ?? null),
     ativo: true,
     usuario_id:
       variantesEmailEscritorio(r.email)
@@ -123,4 +117,55 @@ export async function ensureColaboradoresSync() {
   if ((count ?? 0) === 0 || stale) {
     await sincronizarColaboradores();
   }
+}
+
+type ClienteColaboradores = {
+  from: (table: "colaboradores") => {
+    select: (columns: string) => {
+      eq: (
+        column: "ativo",
+        value: boolean
+      ) => PromiseLike<{
+        data: { email: string; avatar_url: string | null }[] | null;
+      }>;
+    };
+  };
+};
+
+/** Fotos do espelho de colaboradores, indexadas pelo e-mail do escritório. */
+export async function mapaAvatarColaboradorPorEmail(
+  supabase: ClienteColaboradores
+): Promise<Map<string, string>> {
+  const { data } = await supabase
+    .from("colaboradores")
+    .select("email, avatar_url")
+    .eq("ativo", true);
+  const mapa = new Map<string, string>();
+  for (const c of data ?? []) {
+    const foto = urlDeFotoUtil(c.avatar_url);
+    if (!foto) continue;
+    for (const v of variantesEmailEscritorio(c.email)) {
+      mapa.set(v.toLowerCase(), foto);
+    }
+  }
+  const oficiais = await mapaFotosOrquestrai();
+  for (const [email, foto] of oficiais) {
+    mapa.set(email, foto);
+  }
+  return mapa;
+}
+
+/** Foto do mapa (ORQESTRAI por cima da cópia local). Ignora o site do escritório. */
+export function avatarDaPessoa(
+  email: string | null | undefined,
+  avatarUsuario: string | null | undefined,
+  mapa: Map<string, string>
+): string | null {
+  if (email) {
+    for (const v of variantesEmailEscritorio(email)) {
+      const foto = mapa.get(v.toLowerCase());
+      if (foto) return foto;
+    }
+  }
+  return urlDeFotoUtil(avatarUsuario);
 }

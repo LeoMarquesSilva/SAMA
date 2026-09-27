@@ -12,6 +12,10 @@ import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
 import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
 import type { CargoPessoa } from "@/lib/constants";
+import {
+  avatarDaPessoa,
+  mapaAvatarColaboradorPorEmail,
+} from "@/lib/colaboradores";
 
 export default async function AppLayout({
   children,
@@ -65,6 +69,7 @@ export default async function AppLayout({
     pessoaId: pessoaRow?.id,
   });
   const showAlertasLogin = await shouldShowAlertasLoginBanner();
+  const avatares = await mapaAvatarColaboradorPorEmail(supabase);
 
   const badges: Record<string, number> = {};
   if (pendentes) badges[CALENDARIO_PATH] = pendentes;
@@ -96,7 +101,11 @@ export default async function AppLayout({
             <Header
               nome={pessoa?.nome ?? null}
               email={user.email ?? "—"}
-              avatarUrl={pessoa?.avatar_url ?? null}
+              avatarUrl={avatarDaPessoa(
+                pessoa?.email,
+                pessoa?.avatar_url,
+                avatares
+              )}
             />
             <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-6">
               {children}
