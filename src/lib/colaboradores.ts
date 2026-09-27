@@ -134,9 +134,9 @@ type ClienteColaboradores = {
 
 /** Fotos do espelho de colaboradores, indexadas pelo e-mail do escritório. */
 export async function mapaAvatarColaboradorPorEmail(
-  supabase: ClienteColaboradores
+  supabase: unknown
 ): Promise<Map<string, string>> {
-  const { data } = await supabase
+  const { data } = await (supabase as ClienteColaboradores)
     .from("colaboradores")
     .select("email, avatar_url")
     .eq("ativo", true);
