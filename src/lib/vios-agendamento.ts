@@ -149,6 +149,12 @@ export type ViosPassoEnvio = {
   prazo: string;
   tipo: string;
   tarefa?: string;
+  /** Ids/nomes exatos do VIOS (vindos de vios-opcoes). */
+  tarefa_id?: string;
+  etiqueta_id?: string;
+  etiqueta?: string;
+  /** Nome do responsável exatamente como no VIOS. */
+  responsavel_vios?: string;
   area?: string;
   pastaTipo?: string;
   pasta?: string;

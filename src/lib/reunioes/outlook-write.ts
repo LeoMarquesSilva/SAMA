@@ -464,13 +464,17 @@ export async function enviarReuniaoAoVios(
             pessoa.id,
             passos.map((passo, i) => {
               const p = passo as ViosPassoEnvio;
-              if (!p.colaborador_id) {
+              if (!p.colaborador_id && !p.responsavel_vios?.trim()) {
                 throw new Error(`Selecione o Responsável no passo ${i + 1}.`);
               }
               return {
                 ...casos[i],
                 pastaTipo: p.pastaTipo === "Atendimento" ? "Atendimento" : "Processo",
                 colaboradorId: p.colaborador_id,
+                responsavelVios: p.responsavel_vios,
+                tarefaId: p.tarefa_id,
+                etiquetaId: p.etiqueta_id,
+                etiqueta: p.etiqueta,
               };
             })
           );

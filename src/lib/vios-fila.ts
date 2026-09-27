@@ -11,6 +11,11 @@ import type { CasoAgendamentoVios } from "@/lib/vios-entrada";
 export type CasoFilaVios = CasoAgendamentoVios & {
   pastaTipo: "Processo" | "Atendimento";
   colaboradorId: string;
+  /** Nome exato do usuário no VIOS (tem prioridade sobre o colaborador). */
+  responsavelVios?: string;
+  tarefaId?: string;
+  etiquetaId?: string;
+  etiqueta?: string;
 };
 
 export async function enfileirarCasosVios(
@@ -23,16 +28,16 @@ export async function enfileirarCasosVios(
   const admin = createAdminClient();
 
   const ids = [...new Set(casos.map((c) => c.colaboradorId).filter(Boolean))];
-  const { data: colabs, error: colabErr } = await admin
-    .from("colaboradores")
-    .select("id, nome, email")
-    .in("id", ids);
+  const { data: colabs, error: colabErr } = ids.length
+    ? await admin.from("colaboradores").select("id, nome, email").in("id", ids)
+    : { data: [] as { id: string; nome: string; email: string | null }[], error: null };
   if (colabErr) throw new Error("Falha ao ler os responsáveis (colaboradores).");
   const porId = new Map((colabs ?? []).map((c) => [c.id, c]));
 
   const linhas = casos.map((c, i) => {
     const colab = porId.get(c.colaboradorId);
-    if (!colab?.nome) throw new Error(`Responsável do passo ${i + 1} não encontrado.`);
+    const responsavel = c.responsavelVios?.trim() || colab?.nome;
+    if (!responsavel) throw new Error(`Responsável do passo ${i + 1} não encontrado.`);
     return {
       reuniao_id: reuniaoId,
       criado_por_id: criadoPorId,
@@ -42,8 +47,11 @@ export async function enfileirarCasosVios(
       data: c.data,
       pasta: c.pasta,
       pasta_tipo: c.pastaTipo,
-      responsavel: colab.nome,
-      responsavel_email: colab.email ?? null,
+      responsavel,
+      responsavel_email: colab?.email ?? null,
+      tarefa_id: c.tarefaId || null,
+      etiqueta_id: c.etiquetaId || null,
+      etiqueta: c.etiqueta || null,
       status: "pendente",
     };
   });
