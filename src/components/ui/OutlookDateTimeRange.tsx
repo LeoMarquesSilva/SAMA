@@ -6,7 +6,10 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { clsx } from "clsx";
 import { Z } from "@/lib/zIndex";
 import { diffMinutos } from "@/lib/format";
-import { OutlookDisponibilidade } from "@/components/ui/OutlookDisponibilidade";
+import {
+  OutlookDisponibilidade,
+  type PessoaAgenda,
+} from "@/components/ui/OutlookDisponibilidade";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { salaOptions, type SalaReuniao } from "@/lib/salas";
 
@@ -363,6 +366,7 @@ export function OutlookDateTimeRange({
   errorDuracao,
   sala,
   onSalaChange,
+  pessoas = [],
 }: {
   inicio: string;
   fim: string;
@@ -372,6 +376,7 @@ export function OutlookDateTimeRange({
   errorDuracao?: string;
   sala?: string;
   onSalaChange?: (sala: SalaReuniao) => void;
+  pessoas?: PessoaAgenda[];
 }) {
   const formId = useId();
   const duracao = diffMinutos(inicio, fim) ?? 30;
@@ -475,6 +480,7 @@ export function OutlookDateTimeRange({
       {sala !== undefined && (
         <OutlookDisponibilidade
           sala={sala}
+          pessoas={pessoas}
           inicio={inicio}
           fim={fim}
           onPick={(i, f) => emit(i, f)}

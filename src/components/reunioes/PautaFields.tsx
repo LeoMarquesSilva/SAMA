@@ -30,20 +30,12 @@ export function PautaFields({
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Pauta
       </p>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <Textarea
-          label="1. Objetivo da reunião"
-          value={pauta.objetivo}
-          onChange={(e) => patch({ objetivo: e.target.value })}
-          rows={4}
-        />
-        <Textarea
-          label="3. Pendências / pontos para decisão"
-          value={pauta.pendencias}
-          onChange={(e) => patch({ pendencias: e.target.value })}
-          rows={4}
-        />
-      </div>
+      <Textarea
+        label="1. Objetivo da reunião"
+        value={pauta.objetivo}
+        onChange={(e) => patch({ objetivo: e.target.value })}
+        rows={4}
+      />
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium text-slate-700">
@@ -104,6 +96,12 @@ export function PautaFields({
           </div>
         ))}
       </div>
+      <Textarea
+        label="3. Pendências / pontos para decisão"
+        value={pauta.pendencias}
+        onChange={(e) => patch({ pendencias: e.target.value })}
+        rows={4}
+      />
     </div>
   );
 }

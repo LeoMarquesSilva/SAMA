@@ -145,7 +145,7 @@ export async function getCalendarEvents(
     $select:
       "id,subject,bodyPreview,isCancelled,isOnlineMeeting,onlineMeeting,start,end,location,organizer,attendees",
     $orderby: "start/dateTime",
-    $top: "100",
+    $top: "500",
   });
 
   const eventos: GraphEvento[] = [];

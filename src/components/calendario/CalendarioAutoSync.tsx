@@ -29,6 +29,7 @@ export function CalendarioAutoSync() {
     if (calendarioPageRefreshedRecently()) return;
 
     sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
+    markCalendarioPageRefreshed();
     void sincronizarCalendarioAutomatico().then(() => {
       markCalendarioPageRefreshed();
       router.refresh();

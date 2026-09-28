@@ -30,21 +30,20 @@ export default async function AppLayout({
   // Salvaguarda além do middleware.
   if (!user) redirect("/login");
 
-  // Carrega o perfil de domínio vinculado ao login.
-  const { data: pessoa } = await supabase
-    .from("usuarios")
-    .select("nome, email, avatar_url, senha_provisoria")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+  const [{ data: pessoa }, { data: pessoaRow }] = await Promise.all([
+    supabase
+      .from("usuarios")
+      .select("nome, email, avatar_url, senha_provisoria")
+      .eq("auth_user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("id, is_admin, cargo, departamento")
+      .eq("auth_user_id", user.id)
+      .maybeSingle(),
+  ]);
 
-  // Força troca da senha provisória antes de usar o sistema.
   if (pessoa?.senha_provisoria) redirect("/trocar-senha");
-
-  const { data: pessoaRow } = await supabase
-    .from("usuarios")
-    .select("id, is_admin, cargo, departamento")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
 
   const isAdmin = pessoaRow?.is_admin ?? false;
   const navContext = {
@@ -52,24 +51,24 @@ export default async function AppLayout({
     isAdmin,
   };
 
-  const pendentes = await countEventosPendentes(
-    supabase,
-    agendaPendentesQueryOpts(
-      pessoaRow
-        ? {
-            id: pessoaRow.id,
-            is_admin: pessoaRow.is_admin,
-            cargo: (pessoaRow.cargo ?? "COLABORADOR") as CargoPessoa,
-            departamento: pessoaRow.departamento,
-          }
-        : null
-    )
-  );
-  const passosPendentes = await countPassosPendentes(supabase, {
-    pessoaId: pessoaRow?.id,
-  });
-  const showAlertasLogin = await shouldShowAlertasLoginBanner();
-  const avatares = await mapaAvatarColaboradorPorEmail(supabase);
+  const [pendentes, passosPendentes, showAlertasLogin, avatares] = await Promise.all([
+    countEventosPendentes(
+      supabase,
+      agendaPendentesQueryOpts(
+        pessoaRow
+          ? {
+              id: pessoaRow.id,
+              is_admin: pessoaRow.is_admin,
+              cargo: (pessoaRow.cargo ?? "COLABORADOR") as CargoPessoa,
+              departamento: pessoaRow.departamento,
+            }
+          : null
+      )
+    ),
+    countPassosPendentes(supabase, { pessoaId: pessoaRow?.id }),
+    shouldShowAlertasLoginBanner(),
+    mapaAvatarColaboradorPorEmail(supabase),
+  ]);
 
   const badges: Record<string, number> = {};
   if (pendentes) badges[CALENDARIO_PATH] = pendentes;
@@ -86,7 +85,6 @@ export default async function AppLayout({
             "atividades_internas",
             "timesheet_entradas",
             "usuarios",
-            "vios_tarefas",
           ]}
         />
         <div className="flex h-screen overflow-hidden">

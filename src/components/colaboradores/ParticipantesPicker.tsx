@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X, Users, ChevronDown, Plus, UserPlus } from "lucide-react";
 import { clsx } from "clsx";
 import { Avatar } from "@/components/ui/Avatar";
@@ -45,6 +45,7 @@ export function ParticipantesPicker({
   name = "participantes",
   externosName = "participantes_externos",
   error,
+  onPessoasChange,
 }: {
   colaboradores: ColaboradorOpt[];
   usuarios?: UsuarioRef[];
@@ -53,6 +54,8 @@ export function ParticipantesPicker({
   name?: string;
   externosName?: string;
   error?: string;
+  /** Participantes internos, para consultar a agenda no horário. */
+  onPessoasChange?: (pessoas: { nome: string; email: string }[]) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultSelected)
@@ -89,6 +92,31 @@ export function ParticipantesPicker({
     }
     return m;
   }, [usuarios]);
+
+  const pessoasAvisadas = useRef("");
+  useEffect(() => {
+    if (!onPessoasChange) return;
+    const pessoas: { nome: string; email: string }[] = [];
+    const vistos = new Set<string>();
+    for (const c of colaboradores) {
+      if (!selected.has(c.id) || !c.email) continue;
+      const email = c.email.trim().toLowerCase();
+      if (!email || vistos.has(email)) continue;
+      vistos.add(email);
+      pessoas.push({ nome: c.nome, email });
+    }
+    for (const e of externos) {
+      const email = e.email.trim().toLowerCase();
+      if (!email || vistos.has(email) || !isEmailEscritorio(email)) continue;
+      const usuario = buscarNoMapaPorEmail(usuarioPorEmail, email);
+      vistos.add(email);
+      pessoas.push({ nome: usuario?.nome ?? e.nome, email });
+    }
+    const chave = JSON.stringify(pessoas);
+    if (chave === pessoasAvisadas.current) return;
+    pessoasAvisadas.current = chave;
+    onPessoasChange(pessoas);
+  }, [colaboradores, externos, onPessoasChange, selected, usuarioPorEmail]);
 
   const departamentos = useMemo(() => {
     const set = new Set<string>();

@@ -71,24 +71,16 @@ export default async function CalendarioPage({
   const verAgendaTodos = canViewAgendaTodos(pessoa);
   const { start, end } = calendarioEventQueryRange();
 
-  const [{ data: pessoasRaw }, avatares] = await Promise.all([
-    supabase
-      .from("usuarios")
-      .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
-      .order("nome"),
-    mapaAvatarColaboradorPorEmail(supabase),
-  ]);
-  const pessoasVisiveis = (pessoasRaw ?? [])
-    .filter((p) => podeVerAgendaDe(pessoa, p))
-    .map((p) => ({
-      ...p,
-      avatar_url: avatarDaPessoa(p.email, p.avatar_url, avatares),
-    }));
+  const { data: pessoasRaw } = await supabase
+    .from("usuarios")
+    .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
+    .order("nome");
+  const pessoasBase = (pessoasRaw ?? []).filter((p) => podeVerAgendaDe(pessoa, p));
   const pessoaScope = resolveCalendarioPessoaScope(
     filtroInicial.pessoa,
     pessoa?.id ?? null,
     verAgendaTodos,
-    pessoasVisiveis.map((p) => p.id)
+    pessoasBase.map((p) => p.id)
   );
 
   let outlookQuery = supabase
@@ -128,6 +120,7 @@ export default async function CalendarioPage({
     { data: reunioesRaw },
     { data: atividadesRaw },
     { data: colaboradores },
+    avatares,
   ] = await Promise.all([
     outlookQuery,
     reunioesQuery,
@@ -137,8 +130,12 @@ export default async function CalendarioPage({
       .select("id, nome, email, departamento, avatar_url, usuario_id")
       .eq("ativo", true)
       .order("nome"),
+    mapaAvatarColaboradorPorEmail(supabase),
   ]);
-  const pessoas = pessoasVisiveis;
+  const pessoas = pessoasBase.map((p) => ({
+    ...p,
+    avatar_url: avatarDaPessoa(p.email, p.avatar_url, avatares),
+  }));
 
   const eventosOutlook = (eventos as unknown as OutlookEventoComPessoa[]) ?? [];
   const reunioesAll = (reunioesRaw as unknown as ReuniaoComRelacoes[]) ?? [];
@@ -166,9 +163,7 @@ export default async function CalendarioPage({
     items = agruparReunioesDuplicadasAdmin(items);
   }
 
-  const fotoPorPessoaId = new Map(
-    pessoasVisiveis.map((p) => [p.id, p.avatar_url])
-  );
+  const fotoPorPessoaId = new Map(pessoas.map((p) => [p.id, p.avatar_url]));
   items = items.map((item) => aplicarFotoDoCadastro(item, fotoPorPessoaId));
 
   const outlookVinculos = eventosOutlook

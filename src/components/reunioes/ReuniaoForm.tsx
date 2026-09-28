@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -216,6 +216,11 @@ export function ReuniaoForm({
   );
   const [viosMsg, setViosMsg] = useState<string>();
   const [agendamentosVios, setAgendamentosVios] = useState<AgendamentoViosStatus[]>([]);
+  const [pessoasAgenda, setPessoasAgenda] = useState<{ nome: string; email: string }[]>([]);
+  const avisarPessoasAgenda = useCallback(
+    (pessoas: { nome: string; email: string }[]) => setPessoasAgenda(pessoas),
+    []
+  );
   const [viosRecarregar, setViosRecarregar] = useState(0);
 
   // Situação no VIOS de cada passo enviado (atualiza sozinho enquanto há itens na fila)
@@ -502,7 +507,8 @@ export function ReuniaoForm({
       sala: sala || undefined,
       emails_cliente: emailsCliente,
       origem: origemSama || modoViaB ? "SAMA" : "OUTLOOK",
-      ata_texto: String(fd.get("ata_texto") ?? src?.ata_texto ?? ""),
+      ata_texto:
+        status === "REALIZADA" ? resultadoTexto : (src?.ata_texto ?? ""),
       ...(prefill?.dono_calendario_id
         ? { dono_calendario_id: prefill.dono_calendario_id }
         : {}),
@@ -918,19 +924,23 @@ export function ReuniaoForm({
             />
           </div>
         </div>
-        <ReunioesAnterioresPanel
-          clienteId={clienteIdAtual || null}
-          exceptId={reuniao?.id}
-          onTrazerPauta={setPauta}
-          onRestaurarPauta={() => setPauta(parsePauta(src?.pauta) ?? pautaVazia())}
-          onTrazerPassos={(passos) =>
-            setProximosPassos((atual) => mesclarChecklists(atual, passos))
-          }
-          onRemoverPassos={(passos) =>
-            setProximosPassos((atual) => removerDoChecklist(atual, passos))
-          }
-        />
-        <PautaFields value={pauta} onChange={setPauta} />
+        {!editing && (
+          <>
+            <ReunioesAnterioresPanel
+              clienteId={clienteIdAtual || null}
+              exceptId={reuniao?.id}
+              onTrazerPauta={setPauta}
+              onRestaurarPauta={() => setPauta(parsePauta(src?.pauta) ?? pautaVazia())}
+              onTrazerPassos={(passos) =>
+                setProximosPassos((atual) => mesclarChecklists(atual, passos))
+              }
+              onRemoverPassos={(passos) =>
+                setProximosPassos((atual) => removerDoChecklist(atual, passos))
+              }
+            />
+            <PautaFields value={pauta} onChange={setPauta} />
+          </>
+        )}
         <ProximosPassosChecklist
           value={proximosPassos}
           onChange={setProximosPassos}
@@ -975,6 +985,7 @@ export function ReuniaoForm({
           defaultSelected={participantesIniciais}
           defaultExternos={externosIniciais}
           error={fieldErrors.participantes}
+          onPessoasChange={avisarPessoasAgenda}
         />
 
         {!horarioSomenteLeitura && (
@@ -990,6 +1001,7 @@ export function ReuniaoForm({
             errorDuracao={fieldErrors.duracao_minutos}
             sala={modoViaB ? sala : undefined}
             onSalaChange={modoViaB ? setSala : undefined}
+            pessoas={pessoasAgenda}
           />
         )}
 
@@ -1023,7 +1035,7 @@ export function ReuniaoForm({
               key={reuniao?.id ?? prefillKey}
               id={fieldId("resultado")}
               name="resultado"
-              label="Resumo"
+              label="Ata"
               labelAdornment={
                 fellowAtivo ? (
                   <FellowImportLabelActions
@@ -1039,13 +1051,6 @@ export function ReuniaoForm({
               value={resultadoTexto}
               onChange={setResultadoTexto}
               error={fieldErrors.resultado}
-            />
-            <Textarea
-              id={fieldId("ata_texto")}
-              name="ata_texto"
-              label="Ata (modelo Reestruturação — editável)"
-              defaultValue={src?.ata_texto ?? src?.resultado ?? ""}
-              rows={6}
             />
           </>
         )}
