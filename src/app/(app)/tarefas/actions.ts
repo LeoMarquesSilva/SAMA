@@ -231,12 +231,6 @@ function buildTarefasRowsFromCsv(
   );
 }
 
-async function limparTarefasSemConclusaoSocioArea(
-  supabase: ReturnType<typeof createAdminClient>
-) {
-  await supabase.from("vios_tarefas").delete().is("usuario_concluiu_id", null);
-}
-
 /** Importa relatório CSV de tarefas baixado manualmente do VIOS (não consome cota da API). */
 export async function importarTarefasViosCsv(
   formData: FormData
@@ -277,8 +271,6 @@ export async function importarTarefasViosCsv(
     const err = await upsertTarefasRows(rows);
     if (err) return { ok: false, error: err };
   }
-
-  await limparTarefasSemConclusaoSocioArea(supabase);
 
   const cis = rows.map((r) => r.ci);
   const { classificadas } = await autoClassificarTarefasAutomaticas(supabase, {
