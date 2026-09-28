@@ -153,6 +153,8 @@ export type AgendamentoViosStatus = {
   data: string;
   pasta: string;
   ci_vios: string | null;
+  /** Status atual da tarefa no VIOS (`vios_tarefas.vios_status`). */
+  status_tarefa: string | null;
   ci_pasta: string | null;
   avisos: string[];
   criado_em: string;
@@ -182,7 +184,7 @@ export async function listarAgendamentosVios(
     .eq("reuniao_id", reuniaoId)
     .order("criado_em", { ascending: false });
 
-  return (data ?? []).map((r) => {
+  const linhas = (data ?? []).map((r) => {
     const res = (r.resultado ?? {}) as { ci_vios?: string | number | null; ci_pasta?: string | null; avisos?: string[] };
     return {
       id: r.id,
@@ -201,4 +203,21 @@ export async function listarAgendamentosVios(
       atualizado_em: r.atualizado_em,
     };
   });
+
+  const cis = [...new Set(linhas.map((l) => l.ci_vios).filter((ci): ci is string => Boolean(ci)))];
+  const statusPorCi = new Map<string, string | null>();
+  if (cis.length > 0) {
+    const { data: tarefas } = await admin
+      .from("vios_tarefas")
+      .select("ci, vios_status")
+      .in("ci", cis);
+    for (const t of tarefas ?? []) {
+      if (t.ci) statusPorCi.set(t.ci, t.vios_status ?? null);
+    }
+  }
+
+  return linhas.map((l) => ({
+    ...l,
+    status_tarefa: l.ci_vios ? (statusPorCi.get(l.ci_vios) ?? null) : null,
+  }));
 }

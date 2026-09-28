@@ -20,9 +20,24 @@ function chaveTexto(t: string | null | undefined): string {
   return String(t ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function tomStatusTarefa(status: string): "green" | "amber" | "red" | "gray" {
+  const s = status.trim().toLowerCase();
+  if (s.startsWith("conclu")) return "green";
+  if (s.startsWith("abert")) return "amber";
+  if (s.startsWith("cancel")) return "red";
+  return "gray";
+}
+
 /** Situação no VIOS de um item de "Próximos passos" (último envio). */
 function StatusVios({ a }: { a: AgendamentoViosStatus }) {
   const detalhe = [a.tarefa, a.responsavel, a.data].filter(Boolean).join(" · ");
+  const statusTarefa = a.ci_vios ? (
+    a.status_tarefa ? (
+      <Badge tone={tomStatusTarefa(a.status_tarefa)}>{a.status_tarefa}</Badge>
+    ) : (
+      <span className="text-slate-400">Status não encontrado na base</span>
+    )
+  ) : null;
   if (a.status === "concluido") {
     return (
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -38,6 +53,7 @@ function StatusVios({ a }: { a: AgendamentoViosStatus }) {
         ) : (
           <Badge tone="green">Agendado no VIOS</Badge>
         )}
+        {statusTarefa}
         <span>{detalhe}</span>
         {!a.ci_vios && (
           <span className="text-amber-700">CI não identificado — conferir na pasta {a.pasta}</span>
