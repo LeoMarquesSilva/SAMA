@@ -80,6 +80,7 @@ import { CalendarioToolbar } from "@/components/calendario/CalendarioToolbar";
 import { CalendarioMobileView } from "@/components/calendario/CalendarioMobileView";
 import { CalendarioEventSheet } from "@/components/calendario/CalendarioEventSheet";
 import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
+import { iniciarNavegacao } from "@/components/layout/Navegacao";
 
 type PessoaOpt = {
   id: string;
@@ -212,6 +213,7 @@ export function OutlookClient({
       else params.delete("pessoa");
       markCalendarioPageRefreshed();
       const qs = params.toString();
+      iniciarNavegacao(qs ? `${pathname}?${qs}` : pathname);
       router.push(qs ? `${pathname}?${qs}` : pathname);
     });
   }

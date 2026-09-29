@@ -7,6 +7,7 @@ import { tipoReuniaoOptions } from "@/lib/constants";
 import { todayKeyInTz } from "@/lib/timezone";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { Input } from "@/components/ui/Input";
+import { iniciarNavegacao } from "@/components/layout/Navegacao";
 import { PessoaChips, type PessoaChipOpt } from "@/components/ui/PessoaChips";
 
 const PERIODOS = [
@@ -61,6 +62,7 @@ export function DashboardFiltros({
     }
     if (nextPessoa) params.set("pessoa", nextPessoa);
     if (nextTipo) params.set("tipo", nextTipo);
+    iniciarNavegacao(`${pathname}?${params.toString()}`);
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });

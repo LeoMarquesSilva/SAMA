@@ -7,6 +7,8 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/Confirm";
 
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
+import { Suspense } from "react";
+import { NavegacaoProgresso, ConteudoNavegacao } from "@/components/layout/Navegacao";
 import { AlertasPendentesOverlay } from "@/components/layout/AlertasPendentesOverlay";
 import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
@@ -27,14 +29,9 @@ export default async function AppLayout({
   if (pessoa.senha_provisoria) redirect("/trocar-senha");
 
   const isAdmin = pessoa.is_admin;
-  const modulos = await getModulosAtuais();
-  const navContext = {
-    cargo: (pessoa.cargo ?? "COLABORADOR") as CargoPessoa,
-    isAdmin,
-    modulos,
-  };
 
-  const [pendentes, passosPendentes, showAlertasLogin, { data: fotos }] = await Promise.all([
+  const [modulos, pendentes, passosPendentes, showAlertasLogin, { data: fotos }] = await Promise.all([
+    getModulosAtuais(),
     countEventosPendentes(supabase, agendaPendentesQueryOpts(pessoa)),
     countPassosPendentes(supabase, { pessoaId: pessoa.id }),
     shouldShowAlertasLoginBanner(),
@@ -45,6 +42,12 @@ export default async function AppLayout({
       .eq("ativo", true)
       .limit(1),
   ]);
+
+  const navContext = {
+    cargo: (pessoa.cargo ?? "COLABORADOR") as CargoPessoa,
+    isAdmin,
+    modulos,
+  };
 
   const badges: Record<string, number> = {};
   if (pendentes) badges[CALENDARIO_PATH] = pendentes;
@@ -63,6 +66,9 @@ export default async function AppLayout({
             "usuarios",
           ]}
         />
+        <Suspense fallback={null}>
+          <NavegacaoProgresso />
+        </Suspense>
         <div className="flex h-screen overflow-hidden">
           <AlertasPendentesOverlay
             showInitially={showAlertasLogin}
@@ -78,7 +84,7 @@ export default async function AppLayout({
               avatarUrl={urlDeFotoUtil(fotos?.[0]?.avatar_url ?? pessoa.avatar_url)}
             />
             <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-6">
-              {children}
+              <ConteudoNavegacao>{children}</ConteudoNavegacao>
             </main>
           </div>
           <MobileNav

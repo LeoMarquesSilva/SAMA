@@ -7,7 +7,6 @@ import { ProximosPassosClient } from "@/components/proximos-passos/ProximosPasso
 import { agruparPassosReunioes, contarPassosTotais } from "@/lib/proximos-passos";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { fellowConfigurado } from "@/lib/fellow";
-import { getOnboardingFlags } from "@/lib/onboarding/state";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +16,11 @@ export default async function ProximosPassosPage() {
 
   const supabase = await createClient();
   const pessoa = await getPessoaAtual();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const onboarding = user
-    ? await getOnboardingFlags(supabase, user.id)
-    : {
-        calendarioConcluido: true,
-        dashboardConcluido: true,
-        proximosPassosConcluido: true,
-      };
+  const onboarding = {
+    calendarioConcluido: pessoa?.onboarding_calendario_concluido ?? true,
+    dashboardConcluido: pessoa?.onboarding_dashboard_concluido ?? true,
+    proximosPassosConcluido: pessoa?.onboarding_proximos_passos_concluido ?? true,
+  };
 
   const [{ data: reunioesRaw }, { data: colaboradores }, { data: outlookRaw }] =
     await Promise.all([

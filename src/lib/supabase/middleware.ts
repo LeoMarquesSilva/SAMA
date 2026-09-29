@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { countEventosPendentes, landingPathComOnboarding, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 import type { CargoPessoa } from "@/lib/constants";
+import { AUTH_USER_ID_HEADER } from "@/lib/auth-header";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -12,6 +13,8 @@ const PUBLIC_PATHS = ["/login", "/trocar-senha", "/redefinir-senha", "/auth/sign
  * Atualiza a sessão Supabase a cada requisição e protege rotas autenticadas.
  */
 export async function updateSession(request: NextRequest) {
+  // Nunca aceitar esse header vindo do navegador.
+  request.headers.delete(AUTH_USER_ID_HEADER);
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -100,6 +103,14 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/trocar-senha";
       return NextResponse.redirect(url);
     }
+  }
+
+  if (user) {
+    // Repassa o usuário já validado para as páginas (evita outro auth.getUser()).
+    request.headers.set(AUTH_USER_ID_HEADER, user.id);
+    const response = NextResponse.next({ request });
+    for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie);
+    return response;
   }
 
   return supabaseResponse;

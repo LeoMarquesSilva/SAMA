@@ -1,19 +1,27 @@
 import { cache } from "react";
+import { headers } from "next/headers";
+import { AUTH_USER_ID_HEADER } from "@/lib/auth-header";
 import { createClient } from "@/lib/supabase/server";
 import type { Pessoa } from "@/types/database";
 
 /** Retorna a Pessoa vinculada ao usuário logado (ou null). Memoizado por requisição. */
 export const getPessoaAtual = cache(async (): Promise<Pessoa | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // O middleware já validou a sessão e repassou o id; sem ele, valida aqui.
+  let authUserId = (await headers()).get(AUTH_USER_ID_HEADER);
+  if (!authUserId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    authUserId = user?.id ?? null;
+  }
+  if (!authUserId) return null;
 
+  // RLS continua valendo: a consulta usa o token da sessão (cookies).
   const { data } = await supabase
     .from("usuarios")
     .select("*")
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", authUserId)
     .maybeSingle();
 
   return (data as Pessoa) ?? null;

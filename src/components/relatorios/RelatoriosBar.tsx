@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SelectMenu } from "@/components/ui/SelectMenu";
+import { iniciarNavegacao } from "@/components/layout/Navegacao";
 import { tipoReuniaoOptions } from "@/lib/constants";
 
 const PERIODOS = [
@@ -35,6 +36,7 @@ export function RelatoriosBar({
     const params = new URLSearchParams();
     if (next.p) params.set("p", next.p);
     if (next.tipo) params.set("tipo", next.tipo);
+    iniciarNavegacao(`${pathname}?${params.toString()}`);
     router.push(`${pathname}?${params.toString()}`);
   }
 

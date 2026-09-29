@@ -18,6 +18,7 @@ import {
   obterCiEmpresaUnicaDoGrupo,
 } from "@/app/(app)/clientes/actions";
 import { labelGrupoCliente } from "@/lib/clientes";
+import { iniciarNavegacao } from "@/components/layout/Navegacao";
 import type { GrupoClienteResumo } from "@/types/database";
 
 export function ClientesClient({
@@ -44,6 +45,7 @@ export function ClientesClient({
       if (busca.trim() !== q) {
         const params = new URLSearchParams();
         if (busca.trim()) params.set("q", busca.trim());
+        iniciarNavegacao(`/clientes?${params.toString()}`, { esmaecer: false });
         router.push(`/clientes?${params.toString()}`);
       }
     }, 400);
@@ -54,6 +56,7 @@ export function ClientesClient({
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (p > 1) params.set("pagina", String(p));
+    iniciarNavegacao(`/clientes?${params.toString()}`);
     router.push(`/clientes?${params.toString()}`);
   }
 
@@ -65,6 +68,7 @@ export function ClientesClient({
       try {
         const ci = await obterCiEmpresaUnicaDoGrupo(grupo.grupo_cliente);
         if (ci) {
+          iniciarNavegacao(`/clientes/${encodeURIComponent(ci)}`);
           router.push(`/clientes/${encodeURIComponent(ci)}`);
           return;
         }

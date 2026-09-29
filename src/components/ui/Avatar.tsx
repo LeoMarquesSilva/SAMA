@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
+import { miniaturaDoAvatar } from "@/lib/avatar-url";
 
 function iniciais(nome: string): string {
   return (
@@ -30,9 +31,10 @@ export function Avatar({
   const [falha, setFalha] = useState<{ src: string; tentativas: number } | null>(null);
   const tentativas = falha && falha.src === src ? falha.tentativas : 0;
   if (src && tentativas < 2) {
-    const url = tentativas === 0 ? src : `${src}${src.includes("?") ? "&" : "?"}r=1`;
-    // eslint-disable-next-line @next/next/no-img-element
+    // 1ª tentativa: miniatura; se o Storage não redimensionar, cai na foto original.
+    const url = tentativas === 0 ? miniaturaDoAvatar(src, size) : src;
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         key={url}
         src={url}

@@ -47,7 +47,8 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ p?: string; data?: string; pessoa?: string; tipo?: string }>;
 }) {
-  await requireModulo("dashboard");
+  // A pessoa já foi lida pelo layout nesta requisição (getPessoaAtual é memoizado).
+  const eu = await requireModulo("dashboard");
   const sp = await searchParams;
   const periodo = (["dia", "mes", "3m", "6m", "ano"].includes(sp.p ?? "")
     ? sp.p
@@ -58,24 +59,10 @@ export default async function DashboardPage({
   const fTipo = sp.tipo || "";
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // Uma única leitura de `usuarios` alimenta perfil (eu) e flags de onboarding —
-  // evita repetir `auth.getUser()` (round-trip à Auth) e a query de perfil,
-  // que antes rodavam em dobro via getPessoaAtual()/getOnboardingFlags().
-  const { data: perfilRow } = user
-    ? await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .maybeSingle()
-    : { data: null };
-  const eu = (perfilRow as Pessoa) ?? null;
   const onboarding = {
-    calendarioConcluido: eu?.onboarding_calendario_concluido ?? true,
-    dashboardConcluido: eu?.onboarding_dashboard_concluido ?? true,
-    proximosPassosConcluido: eu?.onboarding_proximos_passos_concluido ?? true,
+    calendarioConcluido: eu.onboarding_calendario_concluido ?? true,
+    dashboardConcluido: eu.onboarding_dashboard_concluido ?? true,
+    proximosPassosConcluido: eu.onboarding_proximos_passos_concluido ?? true,
   };
   const verAgendaTodos = canViewAgendaTodos(eu);
   const pessoaScope = verAgendaTodos ? fPessoa : eu?.id ?? "__none__";

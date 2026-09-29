@@ -11,3 +11,17 @@ export function urlDeFotoUtil(url: string | null | undefined): string | null {
   }
   return url;
 }
+
+/**
+ * Miniatura redimensionada pelo Supabase Storage (render/image). As fotos originais
+ * chegam a vários MB e aparecem com 18–40px; a miniatura fica com poucos KB.
+ * Outras URLs voltam como estão.
+ */
+export function miniaturaDoAvatar(url: string, size: number): string {
+  if (!url.includes("/storage/v1/object/public/")) return url;
+  // Poucas larguras fixas (2x para telas retina) para reaproveitar o cache da CDN.
+  const largura = size <= 32 ? 64 : size <= 48 ? 96 : 160;
+  const base = url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/");
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}width=${largura}&height=${largura}&resize=cover&quality=75`;
+}

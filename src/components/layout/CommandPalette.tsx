@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Avatar } from "@/components/ui/Avatar";
+import { iniciarNavegacao } from "@/components/layout/Navegacao";
 import { globalSearch, type SearchResult } from "@/app/(app)/search/actions";
 
 const tipoLabel: Record<SearchResult["tipo"], string> = {
@@ -85,6 +86,7 @@ export function CommandPalette() {
   const go = useCallback(
     (r: SearchResult) => {
       setOpen(false);
+      iniciarNavegacao(r.href);
       router.push(r.href);
     },
     [router]
