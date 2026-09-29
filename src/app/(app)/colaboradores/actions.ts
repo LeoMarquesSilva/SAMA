@@ -1,10 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import {
-  sincronizarColaboradores,
-  type ColaboradorOpt,
-} from "@/lib/colaboradores";
+import type { ColaboradorOpt } from "@/lib/colaboradores";
 
 export async function listarColaboradores(): Promise<ColaboradorOpt[]> {
   const supabase = await createClient();
@@ -15,8 +12,4 @@ export async function listarColaboradores(): Promise<ColaboradorOpt[]> {
     .order("nome", { ascending: true });
 
   return (data as ColaboradorOpt[]) ?? [];
-}
-
-export async function syncColaboradoresResponsum() {
-  return sincronizarColaboradores();
 }

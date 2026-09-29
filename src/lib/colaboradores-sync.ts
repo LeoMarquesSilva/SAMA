@@ -8,7 +8,6 @@ import {
   variantesEmailEscritorio,
 } from "@/lib/email-escritorio";
 import { urlDeFotoUtil } from "@/lib/avatar-url";
-import { mapaFotosOrquestrai } from "@/lib/orquestrai-fotos";
 import {
   listarFuncionariosOrquestrai,
   type FuncionarioOrquestrai,
@@ -124,8 +123,6 @@ export async function sincronizarColaboradoresOrquestrai(): Promise<ResultadoSyn
   const usuarioPorEmail = porEmail(usuarios ?? [], (u) => u.email);
   const responsumPorEmail = porEmail(responsum ?? [], (r) => r.email);
 
-  const fotos = await mapaFotosOrquestrai(funcionarios.map((f) => f.email!));
-
   const agora = new Date().toISOString();
   const divergencias: Divergencia[] = [];
   const inserir: Record<string, unknown>[] = [];
@@ -157,7 +154,10 @@ export async function sincronizarColaboradoresOrquestrai(): Promise<ResultadoSyn
       ativo: f.ativo,
       responsum_id: resp?.id ?? local?.responsum_id ?? null,
       avatar_url:
-        buscar(fotos, email) ?? urlDeFotoUtil(resp?.avatar_url) ?? urlDeFotoUtil(local?.avatar_url) ?? null,
+        urlDeFotoUtil(f.foto_url) ??
+        urlDeFotoUtil(resp?.avatar_url) ??
+        urlDeFotoUtil(local?.avatar_url) ??
+        null,
       usuario_id: buscar(usuarioPorEmail, email)?.id ?? local?.usuario_id ?? null,
       sincronizado_em: agora,
     };

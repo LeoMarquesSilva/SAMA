@@ -13,6 +13,7 @@ export type FuncionarioOrquestrai = {
   desligamento: string | null;
   ativo: boolean;
   vios_ci: string | null;
+  foto_url: string | null;
 };
 
 /**

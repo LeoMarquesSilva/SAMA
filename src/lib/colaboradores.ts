@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createResponsumClient } from "@/lib/responsum";
 import { isEmailEscritorio, variantesEmailEscritorio } from "@/lib/email-escritorio";
@@ -9,6 +10,7 @@ import {
 } from "@/lib/colaboradores-sync";
 
 const STALE_MS = 6 * 60 * 60 * 1000; // 6h
+let syncEmSegundoPlano = false;
 
 export { urlDeFotoUtil };
 
@@ -138,8 +140,17 @@ export async function ensureColaboradoresSync() {
     !latest?.sincronizado_em ||
     Date.now() - new Date(latest.sincronizado_em).getTime() > STALE_MS;
 
-  if ((count ?? 0) === 0 || stale) {
+  if ((count ?? 0) === 0) {
     await sincronizarColaboradores();
+  } else if (stale && !syncEmSegundoPlano) {
+    syncEmSegundoPlano = true;
+    after(async () => {
+      try {
+        await sincronizarColaboradores();
+      } finally {
+        syncEmSegundoPlano = false;
+      }
+    });
   }
 }
 
@@ -156,7 +167,11 @@ type ClienteColaboradores = {
   };
 };
 
-/** Fotos do espelho de colaboradores, indexadas pelo e-mail do escritório. */
+/**
+ * Fotos do espelho de colaboradores, indexadas pelo e-mail do escritório.
+ * Só lê o banco: a foto oficial do ORQESTRAI é gravada no sync. Não consultar a API
+ * aqui — roda em toda página e faz 1 requisição por e-mail.
+ */
 export async function mapaAvatarColaboradorPorEmail(
   supabase: unknown
 ): Promise<Map<string, string>> {
@@ -171,14 +186,6 @@ export async function mapaAvatarColaboradorPorEmail(
     for (const v of variantesEmailEscritorio(c.email)) {
       mapa.set(v.toLowerCase(), foto);
     }
-  }
-  const { data: usuarios } = await createAdminClient().from("usuarios").select("email");
-  const oficiais = await mapaFotosOrquestrai([
-    ...(data ?? []).map((c) => c.email),
-    ...(usuarios ?? []).map((u) => u.email).filter((e): e is string => Boolean(e)),
-  ]);
-  for (const [email, foto] of oficiais) {
-    mapa.set(email, foto);
   }
   return mapa;
 }
