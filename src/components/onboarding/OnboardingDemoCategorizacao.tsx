@@ -20,6 +20,10 @@ export function OnboardingDemoCategorizacao({
 }: {
   kind: OnboardingDemoKind;
 }) {
+  if (kind.startsWith("agenda-")) {
+    return <DemoAgenda highlight={kind.replace("agenda-", "")} />;
+  }
+
   if (kind.startsWith("reuniao-")) {
     return <DemoReuniaoForm highlight={kind.replace("reuniao-", "")} />;
   }
@@ -148,6 +152,69 @@ function DemoPassos({ highlight }: { highlight: string }) {
         </div>
       )}
     </section>
+  );
+}
+
+function DemoAgenda({ highlight }: { highlight: string }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Exemplo · demonstração
+        </p>
+        <h3 className="mt-1 text-base font-semibold text-slate-800">
+          Agendar reunião — Cliente Exemplo
+        </h3>
+      </div>
+      <div className="space-y-3 p-4">
+        {highlight === "pauta" && (
+          <div className="space-y-2 rounded-xl border border-brand-400 bg-brand-50/80 p-3 ring-2 ring-brand-300 ring-offset-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Pauta
+            </p>
+            <p className="text-sm text-slate-700">1. Objetivo da reunião</p>
+            <p className="text-sm text-slate-700">2. Assuntos a serem tratados</p>
+            <p className="text-sm text-slate-700">3. Pendências / pontos para decisão</p>
+          </div>
+        )}
+        {highlight === "horario" && (
+          <div className="space-y-2 rounded-xl border border-brand-400 bg-brand-50/80 p-3 ring-2 ring-brand-300 ring-offset-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Quando
+            </p>
+            <p className="text-sm text-slate-700">Gabriela Bossi Leme · livre 17:00–17:30</p>
+            <div className="flex h-3 overflow-hidden rounded bg-white ring-1 ring-slate-200">
+              <span className="w-1/3 bg-rose-300" />
+              <span className="w-1/6 bg-brand-400" />
+              <span className="flex-1 bg-emerald-100" />
+            </div>
+            <p className="text-[11px] text-slate-500">Rosa = ocupado. Clique no trecho livre.</p>
+          </div>
+        )}
+        {highlight === "ata" && (
+          <div className="rounded-xl border border-brand-400 bg-brand-50/80 p-3 ring-2 ring-brand-300 ring-offset-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Ata
+              </p>
+              <span className="text-[11px] font-medium text-brand-700">Buscar novamente</span>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">
+              A reunião foi uma atualização estratégica sobre o cenário financeiro…
+            </p>
+          </div>
+        )}
+        {highlight === "vios" && (
+          <div className="space-y-2 rounded-xl border border-brand-400 bg-brand-50/80 p-3 ring-2 ring-brand-300 ring-offset-1">
+            <p className="text-sm text-slate-800">Enviar a minuta revisada ao cliente</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="green">Agendado no VIOS · CI 913476</Badge>
+              <Badge tone="amber">Aberta</Badge>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

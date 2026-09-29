@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition, useEffect } from "react";
+import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarClock,
@@ -80,6 +80,7 @@ import { CalendarioToolbar } from "@/components/calendario/CalendarioToolbar";
 import { CalendarioMobileView } from "@/components/calendario/CalendarioMobileView";
 import { CalendarioEventSheet } from "@/components/calendario/CalendarioEventSheet";
 import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
+import type { OnboardingStep } from "@/lib/onboarding/types";
 import { iniciarNavegacao } from "@/components/layout/Navegacao";
 
 type PessoaOpt = {
@@ -135,6 +136,7 @@ export function OutlookClient({
   fellowAtivo = false,
   filtroInicial,
   onboardingEnabled = false,
+  agendamentoTourEnabled = false,
 }: {
   items: CalendarioItem[];
   outlookVinculos?: {
@@ -150,6 +152,8 @@ export function OutlookClient({
   fellowAtivo?: boolean;
   filtroInicial?: CalendarioFiltroInicial;
   onboardingEnabled?: boolean;
+  /** Destaca o agendamento real na primeira entrada. */
+  agendamentoTourEnabled?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -188,6 +192,19 @@ export function OutlookClient({
   const [grupoReuniaoItem, setGrupoReuniaoItem] =
     useState<CalendarioItem | null>(null);
   const [agendarOpen, setAgendarOpen] = useState(false);
+  const [tourDestaque, setTourDestaque] = useState<string | null>(null);
+  const tourAbriuForm = useRef(false);
+  const aoMudarPassoTour = useCallback((step: OnboardingStep) => {
+    const alvo = step.target ?? null;
+    setTourDestaque(alvo);
+    const abreForm = Boolean(alvo && alvo !== "agendar-botao");
+    if (abreForm) {
+      tourAbriuForm.current = true;
+      setAgendarOpen(true);
+      return;
+    }
+    if (tourAbriuForm.current && alvo === "agendar-botao") setAgendarOpen(false);
+  }, []);
 
   function refreshCalendario() {
     markCalendarioPageRefreshed();
@@ -693,6 +710,7 @@ export function OutlookClient({
           colaboradores={colaboradores}
           usuarios={pessoas}
           fellowAtivo={fellowAtivo}
+          tourDestaque={tourDestaque}
         />
       )}
 
@@ -854,6 +872,16 @@ export function OutlookClient({
       </CalendarioEventSheet>
 
       <OnboardingHost tourId="calendario" enabled={onboardingEnabled} />
+      <OnboardingHost
+        tourId="agendamento"
+        enabled={agendamentoTourEnabled}
+        onStepChange={aoMudarPassoTour}
+        onFinished={() => {
+          if (tourAbriuForm.current) setAgendarOpen(false);
+          tourAbriuForm.current = false;
+          setTourDestaque(null);
+        }}
+      />
     </div>
   );
 }

@@ -184,6 +184,10 @@ export default async function CalendarioPage({
           fellowAtivo={fellowConfigurado()}
           filtroInicial={filtroInicial}
           onboardingEnabled={!onboarding.calendarioConcluido}
+          agendamentoTourEnabled={
+            onboarding.calendarioConcluido &&
+            pessoa?.onboarding_agendamento_concluido !== true
+          }
         />
       </Suspense>
     </div>

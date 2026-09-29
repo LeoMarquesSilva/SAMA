@@ -4,12 +4,14 @@ export type OnboardingFlags = {
   calendarioConcluido: boolean;
   dashboardConcluido: boolean;
   proximosPassosConcluido: boolean;
+  agendamentoConcluido: boolean;
 };
 
 const DEFAULT_ONBOARDING: OnboardingFlags = {
   calendarioConcluido: true,
   dashboardConcluido: true,
   proximosPassosConcluido: true,
+  agendamentoConcluido: true,
 };
 
 /** Lê flags de onboarding; se a migration ainda não foi aplicada, assume concluído. */
@@ -20,7 +22,7 @@ export async function getOnboardingFlags(
   const { data, error } = await supabase
     .from("usuarios")
     .select(
-      "onboarding_calendario_concluido, onboarding_dashboard_concluido, onboarding_proximos_passos_concluido"
+      "onboarding_calendario_concluido, onboarding_dashboard_concluido, onboarding_proximos_passos_concluido, onboarding_agendamento_concluido"
     )
     .eq("auth_user_id", authUserId)
     .maybeSingle();
@@ -31,5 +33,6 @@ export async function getOnboardingFlags(
     calendarioConcluido: data.onboarding_calendario_concluido ?? true,
     dashboardConcluido: data.onboarding_dashboard_concluido ?? true,
     proximosPassosConcluido: data.onboarding_proximos_passos_concluido ?? true,
+    agendamentoConcluido: data.onboarding_agendamento_concluido ?? false,
   };
 }

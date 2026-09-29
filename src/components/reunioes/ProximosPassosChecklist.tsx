@@ -14,12 +14,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
-import { Checkbox } from "@/components/ui/Checkbox";
-import {
-  colaboradorPorNome,
-  ResponsavelLinha,
-  separarPessoaDoPasso,
-} from "@/components/reunioes/PassoResponsavel";
+import { colaboradorPorNome } from "@/components/reunioes/PassoResponsavel";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import {
   parseChecklist,
@@ -223,7 +218,10 @@ export function ProximosPassosChecklist({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <div
+      className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+      data-onboarding="agenda-passos"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
           <ListChecks size={16} className="text-brand-600" />
@@ -243,37 +241,23 @@ export function ProximosPassosChecklist({
                 (a) => chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(item.text)
               )
             : undefined;
-          const citado = separarPessoaDoPasso(item.text, colaboradores);
           return (
           <li
             key={index}
             className={
               simples
                 ? "flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3"
-                : "grid items-start gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[auto_1fr] md:grid-cols-[auto_1fr_minmax(10rem,12rem)_8.5rem_auto]"
+                : "grid items-start gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[1fr] md:grid-cols-[1fr_minmax(10rem,12rem)_8.5rem_auto]"
             }
           >
-            <Checkbox
-              checked={item.done}
-              onChange={(done) => patchItem(index, { done })}
-              className="mt-2"
-              aria-label={`Marcar ação ${index + 1}`}
-            />
             <div className={simples ? "min-w-0 flex-1 space-y-2" : "min-w-0"}>
               <input
                 type="text"
-                value={citado.pessoa ? citado.resto : item.text}
-                onChange={(e) =>
-                  patchItem(index, {
-                    text: citado.pessoa
-                      ? `${citado.prefixo}${e.target.value}`
-                      : e.target.value,
-                  })
-                }
+                value={item.text}
+                onChange={(e) => patchItem(index, { text: e.target.value })}
                 placeholder="Descreva a ação..."
                 className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
-              {citado.pessoa && <ResponsavelLinha pessoa={citado.pessoa} className="pl-1" />}
               {agendamento ? (
                 <StatusVios a={agendamento} colaboradores={colaboradores} />
               ) : (

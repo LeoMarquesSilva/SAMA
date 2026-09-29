@@ -100,13 +100,18 @@ function Secao({
   icon: Icon,
   titulo,
   children,
+  destaque,
 }: {
   icon: LucideIcon;
   titulo: string;
   children: React.ReactNode;
+  destaque?: string;
 }) {
   return (
-    <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <section
+      className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+      data-onboarding={destaque}
+    >
       <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
         <Icon size={16} className="text-brand-600" />
         {titulo}
@@ -156,6 +161,7 @@ export function ReuniaoForm({
   fellowAtivo = false,
   donoCalendarioId,
   modoViaB = false,
+  tourDestaque = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -170,6 +176,8 @@ export function ReuniaoForm({
   donoCalendarioId?: string | null;
   /** Via B: agendar no SAMA e criar no Outlook. */
   modoViaB?: boolean;
+  /** Passo do tour que precisa deixar o bloco visível para o destaque. */
+  tourDestaque?: string | null;
 }) {
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
@@ -1005,7 +1013,7 @@ export function ReuniaoForm({
         </div>
         </Secao>
 
-        <Secao icon={Users} titulo="Participantes">
+        <Secao icon={Users} titulo="Participantes" destaque="agenda-participantes">
           <ParticipantesPicker
             key={prefillKey || reuniao?.id || "novo"}
             colaboradores={colaboradores}
@@ -1061,12 +1069,12 @@ export function ReuniaoForm({
                   reserveRefreshSpace
                 />
               ) : null}
-              {podeAgendarVios && (
+              {(podeAgendarVios || tourDestaque === "agenda-passos") && (
                 <Button
                   type="button"
                   size="sm"
-                  disabled={pending}
-                  onClick={() => setViosAberto(true)}
+                  disabled={pending || !podeAgendarVios}
+                  onClick={() => podeAgendarVios && setViosAberto(true)}
                 >
                   <Send size={14} />
                   Enviar para Agendamento
@@ -1075,8 +1083,8 @@ export function ReuniaoForm({
             </>
           }
         />
-        {status === "REALIZADA" && (
-          <Secao icon={FileText} titulo="Ata">
+        {(status === "REALIZADA" || tourDestaque === "agenda-ata") && (
+          <Secao icon={FileText} titulo="Ata" destaque="agenda-ata">
             {fellowAtivo && fellowMsg && (
               <p
                 className={clsx(

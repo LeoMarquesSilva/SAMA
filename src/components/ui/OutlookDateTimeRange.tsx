@@ -408,7 +408,10 @@ export function OutlookDateTimeRange({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div
+      className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+      data-onboarding="agenda-quando"
+    >
       <input type="hidden" name="data_hora_inicio" id={`${formId}-inicio`} value={inicio} />
       <input type="hidden" name="data_hora_fim" id={`${formId}-fim`} value={fim} />
       <input type="hidden" name="duracao_minutos" value={duracao} />

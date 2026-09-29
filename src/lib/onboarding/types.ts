@@ -1,4 +1,8 @@
-export type OnboardingTourId = "calendario" | "dashboard" | "proximos_passos";
+export type OnboardingTourId =
+  | "calendario"
+  | "dashboard"
+  | "proximos_passos"
+  | "agendamento";
 
 export type OnboardingDemoKind =
   | "evento"
@@ -11,7 +15,11 @@ export type OnboardingDemoKind =
   | "reuniao-salvar"
   | "passos-grupo"
   | "passos-checklist"
-  | "passos-ver-reuniao";
+  | "passos-ver-reuniao"
+  | "agenda-pauta"
+  | "agenda-horario"
+  | "agenda-ata"
+  | "agenda-vios";
 
 export type OnboardingStep = {
   id: string;
@@ -32,4 +40,5 @@ export type OnboardingState = {
   calendarioConcluido: boolean;
   dashboardConcluido: boolean;
   proximosPassosConcluido: boolean;
+  agendamentoConcluido: boolean;
 };

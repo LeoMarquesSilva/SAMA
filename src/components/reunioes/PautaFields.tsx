@@ -26,7 +26,10 @@ export function PautaFields({
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+    <div
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4"
+      data-onboarding="agenda-pauta"
+    >
       <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
         <ClipboardList size={16} className="text-brand-600" />
         Pauta

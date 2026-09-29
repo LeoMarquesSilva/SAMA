@@ -183,6 +183,7 @@ export async function ativarPessoa(id: string): Promise<ActionResult> {
       onboarding_calendario_concluido: false,
       onboarding_dashboard_concluido: false,
       onboarding_proximos_passos_concluido: false,
+      onboarding_agendamento_concluido: false,
     })
     .eq("id", id);
 

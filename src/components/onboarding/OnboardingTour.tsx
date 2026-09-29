@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { X, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
@@ -23,13 +24,37 @@ function queryTarget(target?: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-onboarding="${target}"]`);
 }
 
+/** Recorte visível: o bloco pode estar cortado pelo scroll do modal. */
 function measure(el: HTMLElement): Rect {
   const r = el.getBoundingClientRect();
+  let top = r.top;
+  let left = r.left;
+  let right = r.right;
+  let bottom = r.bottom;
+  let parent = el.parentElement;
+  while (parent) {
+    const style = getComputedStyle(parent);
+    const clips =
+      /(auto|scroll|hidden|clip)/.test(style.overflowY) ||
+      /(auto|scroll|hidden|clip)/.test(style.overflowX);
+    if (clips) {
+      const box = parent.getBoundingClientRect();
+      top = Math.max(top, box.top);
+      left = Math.max(left, box.left);
+      right = Math.min(right, box.right);
+      bottom = Math.min(bottom, box.bottom);
+    }
+    parent = parent.parentElement;
+  }
+  top = Math.max(0, top);
+  left = Math.max(0, left);
+  right = Math.min(window.innerWidth, right);
+  bottom = Math.min(window.innerHeight, bottom);
   return {
-    top: r.top,
-    left: r.left,
-    width: r.width,
-    height: r.height,
+    top,
+    left,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
   };
 }
 
@@ -38,11 +63,13 @@ export function OnboardingTour({
   steps,
   active,
   onClose,
+  onStepChange,
 }: {
   tourId: OnboardingTourId;
-  steps: OnboardingStep[];
+  steps: readonly OnboardingStep[];
   active: boolean;
   onClose: () => void;
+  onStepChange?: (step: OnboardingStep) => void;
 }) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
@@ -50,6 +77,7 @@ export function OnboardingTour({
   const [cardStyle, setCardStyle] = useState<CSSProperties>({});
   const [finishing, setFinishing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const scrollOnStep = useRef(true);
 
   const step = steps[stepIndex];
   const isFirst = stepIndex === 0;
@@ -83,9 +111,12 @@ export function OnboardingTour({
       return;
     }
 
-    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (scrollOnStep.current) {
+      scrollOnStep.current = false;
+      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    }
     const rect = measure(el);
-    const pad = 8;
+    const pad = 4;
     setTargetRect({
       top: rect.top - pad,
       left: rect.left - pad,
@@ -94,14 +125,16 @@ export function OnboardingTour({
     });
 
     const cardW = Math.min(448, window.innerWidth - 32);
+    const cardH = cardRef.current?.offsetHeight ?? 220;
     const gap = 12;
     const placement = step.placement ?? "bottom";
     let top = rect.top + rect.height + gap;
     let left = rect.left;
 
-    if (placement === "top") {
-      top = rect.top - gap - 220;
-    } else if (placement === "left") {
+    if (placement === "top" || top + cardH > window.innerHeight - 16) {
+      top = rect.top - gap - cardH;
+    }
+    if (placement === "left") {
       top = rect.top;
       left = rect.left - cardW - gap;
     } else if (placement === "right") {
@@ -121,8 +154,22 @@ export function OnboardingTour({
   }, [active, step, isCenter, hasDemo]);
 
   useLayoutEffect(() => {
+    scrollOnStep.current = Boolean(step?.target);
     updateLayout();
-  }, [updateLayout, stepIndex]);
+    const frame = window.requestAnimationFrame(() => updateLayout());
+    const t = window.setTimeout(updateLayout, 80);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(t);
+    };
+  }, [updateLayout, stepIndex, step?.target]);
+
+  useEffect(() => {
+    if (!active || !step) return;
+    onStepChange?.(step);
+    // Só quando muda o passo: `step` é recriado a cada render do host.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, step?.id]);
 
   useEffect(() => {
     if (!active) return;
@@ -171,16 +218,18 @@ export function OnboardingTour({
 
   if (!active || !step) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[200] print:hidden" role="dialog" aria-modal>
-      <div
-        className="absolute inset-0 bg-slate-900/55 backdrop-blur-[1px]"
-        aria-hidden
-      />
+      {!targetRect && (
+        <div
+          className="absolute inset-0 bg-slate-900/55 backdrop-blur-[1px]"
+          aria-hidden
+        />
+      )}
 
       {targetRect && (
         <div
-          className="pointer-events-none absolute rounded-xl ring-2 ring-brand-400 transition-all duration-300"
+          className="pointer-events-none fixed rounded-xl ring-2 ring-brand-400"
           style={{
             top: targetRect.top,
             left: targetRect.left,
@@ -194,7 +243,7 @@ export function OnboardingTour({
       <div
         ref={cardRef}
         className={clsx(
-          "absolute z-10 flex max-h-[min(85vh,640px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl",
+          "fixed z-10 flex max-h-[min(85vh,640px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl",
           hasDemo ? "w-[min(28rem,calc(100vw-2rem))]" : "w-full"
         )}
         style={cardStyle}
@@ -281,6 +330,7 @@ export function OnboardingTour({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

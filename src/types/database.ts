@@ -15,6 +15,7 @@ export type Pessoa = {
   onboarding_calendario_concluido?: boolean;
   onboarding_dashboard_concluido?: boolean;
   onboarding_proximos_passos_concluido?: boolean;
+  onboarding_agendamento_concluido?: boolean;
   criado_em: string;
   atualizado_em: string;
   /** Preenchido na listagem de /pessoas (Supabase Auth). */

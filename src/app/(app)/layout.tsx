@@ -9,6 +9,7 @@ import { ConfirmProvider } from "@/components/ui/Confirm";
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { Suspense } from "react";
 import { NavegacaoProgresso, ConteudoNavegacao } from "@/components/layout/Navegacao";
+import { AgendamentoTourEntrada } from "@/components/onboarding/AgendamentoTourEntrada";
 import { AlertasPendentesOverlay } from "@/components/layout/AlertasPendentesOverlay";
 import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
@@ -69,6 +70,12 @@ export default async function AppLayout({
         <Suspense fallback={null}>
           <NavegacaoProgresso />
         </Suspense>
+        <AgendamentoTourEntrada
+          enabled={
+            pessoa.onboarding_calendario_concluido !== false &&
+            pessoa.onboarding_agendamento_concluido !== true
+          }
+        />
         <div className="flex h-screen overflow-hidden">
           <AlertasPendentesOverlay
             showInitially={showAlertasLogin}

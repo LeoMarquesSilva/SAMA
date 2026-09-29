@@ -141,7 +141,7 @@ export function CalendarioToolbar({
         <CalendarioViewToggle value={viewMode} onChange={onViewModeChange} />
         <div className="flex flex-wrap gap-2">
           {onAgendar && (
-            <Button size="sm" onClick={onAgendar}>
+            <Button size="sm" onClick={onAgendar} data-onboarding="agendar-botao">
               <CalendarPlus size={16} />
               Agendar
             </Button>
