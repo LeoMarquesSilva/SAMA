@@ -1,7 +1,9 @@
 import { Fragment, type ReactNode } from "react";
+import { normalizarMarkdown } from "@/lib/markdown-editor";
 
 /** Converte **negrito** e *itálico* em nós React (texto puro, sem HTML bruto). */
-export function parseFormattedInline(text: string, keyPrefix = ""): ReactNode[] {
+export function parseFormattedInline(raw: string, keyPrefix = ""): ReactNode[] {
+  const text = normalizarMarkdown(raw);
   const nodes: ReactNode[] = [];
   const re = /\*\*(.+?)\*\*|\*(.+?)\*/g;
   let last = 0;

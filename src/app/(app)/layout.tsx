@@ -12,6 +12,7 @@ import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
 import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
 import type { CargoPessoa } from "@/lib/constants";
+import { getModulosAtuais } from "@/lib/currentPessoa";
 import {
   avatarDaPessoa,
   mapaAvatarColaboradorPorEmail,
@@ -46,9 +47,11 @@ export default async function AppLayout({
   if (pessoa?.senha_provisoria) redirect("/trocar-senha");
 
   const isAdmin = pessoaRow?.is_admin ?? false;
+  const modulos = await getModulosAtuais();
   const navContext = {
     cargo: (pessoaRow?.cargo ?? "COLABORADOR") as CargoPessoa,
     isAdmin,
+    modulos,
   };
 
   const [pendentes, passosPendentes, showAlertasLogin, avatares] = await Promise.all([

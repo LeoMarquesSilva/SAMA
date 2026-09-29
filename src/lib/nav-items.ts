@@ -12,7 +12,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  canAccessAjuda,
+  canAccessCalendario,
   canAccessClientes,
+  canAccessDashboard,
+  canAccessProximosPassos,
   canAccessRelatorios,
   canAccessTarefas,
   canAccessTimesheet,
@@ -34,25 +38,25 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    visible: () => true,
+    visible: canAccessDashboard,
   },
   {
     href: "/calendario",
     label: "Calendário",
     icon: CalendarDays,
-    visible: () => true,
+    visible: canAccessCalendario,
   },
   {
     href: "/proximos-passos",
     label: "Próximos passos",
     icon: ListChecks,
-    visible: () => true,
+    visible: canAccessProximosPassos,
   },
   {
     href: "/ajuda",
     label: "Ajuda",
     icon: CircleHelp,
-    visible: () => true,
+    visible: canAccessAjuda,
   },
   {
     href: "/timesheet",

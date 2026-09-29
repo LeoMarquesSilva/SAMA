@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { AvatarGroup } from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/server";
+import { requireModulo } from "@/lib/auth";
 import {
   avatarDaPessoa,
   mapaAvatarColaboradorPorEmail,
@@ -46,6 +47,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ p?: string; data?: string; pessoa?: string; tipo?: string }>;
 }) {
+  await requireModulo("dashboard");
   const sp = await searchParams;
   const periodo = (["dia", "mes", "3m", "6m", "ano"].includes(sp.p ?? "")
     ? sp.p

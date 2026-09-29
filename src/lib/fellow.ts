@@ -149,7 +149,7 @@ function formatTopicsDiscussed(content: FellowRecapSection["content"]): string {
         .map((text) => `- ${text}`);
 
       if (!heading && !bullets.length) continue;
-      if (heading) blocks.push(`** *${heading}* **`);
+      if (heading) blocks.push(`**${heading}**`);
       blocks.push(...bullets);
       if (bullets.length) blocks.push("");
       continue;
@@ -168,7 +168,7 @@ function combinarResumo(summary: string, topicos: string): string {
   const parts: string[] = [];
   if (summary.trim()) parts.push(summary.trim());
   if (topicos.trim()) {
-    parts.push(`** *Tópicos discutidos* **\n\n${topicos.trim()}`);
+    parts.push(`**Tópicos discutidos**\n\n${topicos.trim()}`);
   }
   return parts.join("\n\n");
 }

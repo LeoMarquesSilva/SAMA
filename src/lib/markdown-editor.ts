@@ -5,6 +5,32 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
+const ABRE = String.raw`(^|[\s(\[])`;
+const FECHA = String.raw`(?=$|[\s.,;:!?)\]])`;
+
+const VARIANTES_NEGRITO = [
+  new RegExp(String.raw`${ABRE}\*\*\s*\*([^*\n]+?)\*\s*\*\*${FECHA}`, "gm"),
+  new RegExp(String.raw`${ABRE}\*\*\s*_([^_\n]+?)_\s*\*\*${FECHA}`, "gm"),
+  new RegExp(String.raw`${ABRE}\*\*\*([^*\n]+?)\*\*\*${FECHA}`, "gm"),
+  new RegExp(String.raw`${ABRE}\*\*[ \t]+([^*\n]+?)[ \t]*\*\*${FECHA}`, "gm"),
+  new RegExp(String.raw`${ABRE}\*\*([^*\n]+?)[ \t]+\*\*${FECHA}`, "gm"),
+];
+
+/**
+ * Converte variantes de negrito para `**X**`: `** *X* **` (formato antigo da
+ * importação do Fellow), `***X***`, `**_X_**` e `** X **`.
+ */
+export function normalizarMarkdown(markdown: string): string {
+  let out = markdown;
+  for (const re of VARIANTES_NEGRITO) {
+    out = out.replace(re, (_m, antes: string, miolo: string) => {
+      const texto = miolo.trim();
+      return texto ? `${antes}**${texto}**` : _m;
+    });
+  }
+  return out;
+}
+
 function inlineMarkdownToHtml(text: string): string {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -14,7 +40,7 @@ function inlineMarkdownToHtml(text: string): string {
 /** Markdown simples → HTML seguro para contenteditable. */
 export function markdownToHtml(markdown: string): string {
   if (!markdown) return "";
-  return markdown
+  return normalizarMarkdown(markdown)
     .split("\n")
     .map((line) => (line ? inlineMarkdownToHtml(line) : "<br>"))
     .join("<br>");

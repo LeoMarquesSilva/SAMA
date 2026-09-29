@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { pautaVazia, type PautaReuniao } from "@/lib/pauta";
@@ -26,10 +26,11 @@ export function PautaFields({
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <ClipboardList size={16} className="text-brand-600" />
         Pauta
-      </p>
+      </h3>
       <Textarea
         label="1. Objetivo da reunião"
         value={pauta.objetivo}
@@ -58,7 +59,7 @@ export function PautaFields({
         {pauta.assuntos.map((a, i) => (
           <div
             key={i}
-            className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]"
+            className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]"
           >
             <Input
               label={`${i + 1}. Assunto`}

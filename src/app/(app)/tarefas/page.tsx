@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireModulo } from "@/lib/auth";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { createClient } from "@/lib/supabase/server";
 import { TarefasClient } from "@/components/tarefas/TarefasClient";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const EMPTY_TAREFAS_ID = "00000000-0000-0000-0000-000000000000";
 
 export default async function TarefasPage() {
-  await requireAdmin();
+  await requireModulo("tarefas");
   const supabase = await createClient();
   const pessoa = await getPessoaAtual();
   const isAdmin = pessoa?.is_admin ?? false;

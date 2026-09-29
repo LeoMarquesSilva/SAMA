@@ -27,17 +27,22 @@ export function Avatar({
   size?: number;
   className?: string;
 }) {
-  const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
-  if (src && brokenSrc !== src) {
+  const [falha, setFalha] = useState<{ src: string; tentativas: number } | null>(null);
+  const tentativas = falha && falha.src === src ? falha.tentativas : 0;
+  if (src && tentativas < 2) {
+    const url = tentativas === 0 ? src : `${src}${src.includes("?") ? "&" : "?"}r=1`;
     // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
-        src={src}
+        key={url}
+        src={url}
         alt={nome}
         title={nome}
+        loading="lazy"
+        decoding="async"
         style={{ width: size, height: size }}
         className={clsx("shrink-0 rounded-full object-cover", className)}
-        onError={() => setBrokenSrc(src)}
+        onError={() => setFalha({ src, tentativas: tentativas + 1 })}
       />
     );
   }

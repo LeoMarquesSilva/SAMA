@@ -1,8 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { createResponsumClient } from "@/lib/responsum";
-import { variantesEmailEscritorio } from "@/lib/email-escritorio";
+import { isEmailEscritorio, variantesEmailEscritorio } from "@/lib/email-escritorio";
 import { urlDeFotoUtil } from "@/lib/avatar-url";
 import { mapaFotosOrquestrai } from "@/lib/orquestrai-fotos";
+import {
+  sincronizarColaboradoresOrquestrai,
+  type ResultadoSyncColaboradores,
+} from "@/lib/colaboradores-sync";
 
 const STALE_MS = 6 * 60 * 60 * 1000; // 6h
 
@@ -17,8 +21,23 @@ export type ColaboradorOpt = {
   usuario_id?: string | null;
 };
 
-/** Sincroniza colaboradores ativos do Responsum para o espelho local. */
-export async function sincronizarColaboradores(): Promise<{
+/**
+ * Atualiza o espelho local de colaboradores: ORQESTRAI como fonte oficial
+ * (com cruzamento no Responsum); sem ORQESTRAI configurado, só o Responsum.
+ */
+export async function sincronizarColaboradores(): Promise<
+  ResultadoSyncColaboradores & { count?: number }
+> {
+  try {
+    const viaOrquestrai = await sincronizarColaboradoresOrquestrai();
+    if (viaOrquestrai) return { ...viaOrquestrai, count: viaOrquestrai.total };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Falha ao ler o ORQESTRAI." };
+  }
+  return sincronizarViaResponsum();
+}
+
+async function sincronizarViaResponsum(): Promise<{
   ok: boolean;
   count?: number;
   error?: string;
@@ -32,14 +51,15 @@ export async function sincronizarColaboradores(): Promise<{
     };
   }
 
-  const { data: rows, error } = await responsum
+  const { data, error } = await responsum
     .from("app_c009c0e4f1_users")
     .select("id, name, email, department, avatar_url, is_active")
     .eq("is_active", true);
 
-  if (error || !rows) {
+  if (error || !data) {
     return { ok: false, error: "Falha ao ler colaboradores do Responsum." };
   }
+  const rows = data.filter((r) => r.email && isEmailEscritorio(r.email));
 
   const admin = createAdminClient();
   const { data: usuarios } = await admin.from("usuarios").select("id, email");
@@ -50,13 +70,17 @@ export async function sincronizarColaboradores(): Promise<{
     }
   }
 
+  const oficiais = await mapaFotosOrquestrai(rows.map((r) => r.email).filter(Boolean));
+
   const now = new Date().toISOString();
   const upsertRows = rows.map((r) => ({
     responsum_id: r.id,
     nome: r.name,
     email: r.email,
     departamento: r.department ?? null,
-    avatar_url: urlDeFotoUtil(r.avatar_url ?? null),
+    avatar_url:
+      oficiais.get(String(r.email ?? "").toLowerCase()) ??
+      urlDeFotoUtil(r.avatar_url ?? null),
     ativo: true,
     usuario_id:
       variantesEmailEscritorio(r.email)
@@ -148,7 +172,11 @@ export async function mapaAvatarColaboradorPorEmail(
       mapa.set(v.toLowerCase(), foto);
     }
   }
-  const oficiais = await mapaFotosOrquestrai();
+  const { data: usuarios } = await createAdminClient().from("usuarios").select("email");
+  const oficiais = await mapaFotosOrquestrai([
+    ...(data ?? []).map((c) => c.email),
+    ...(usuarios ?? []).map((u) => u.email).filter((e): e is string => Boolean(e)),
+  ]);
   for (const [email, foto] of oficiais) {
     mapa.set(email, foto);
   }

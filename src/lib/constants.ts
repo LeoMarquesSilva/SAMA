@@ -30,6 +30,17 @@ export const DEPARTAMENTO_USUARIO = [
 
 export type DepartamentoUsuario = (typeof DEPARTAMENTO_USUARIO)[number];
 
+function chaveDepartamento(s: string) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+/** Nome oficial da área, ignorando acento/maiúsculas (ex.: "Operacoes Legais" → "Operações Legais"). */
+export function departamentoCanonico(d: string | null | undefined): string | null {
+  if (!d?.trim()) return null;
+  const k = chaveDepartamento(d);
+  return DEPARTAMENTO_USUARIO.find((o) => chaveDepartamento(o) === k) ?? d.trim();
+}
+
 export function departamentoUsuarioOptions(): { value: string; label: string }[] {
   return DEPARTAMENTO_USUARIO.map((label) => ({ value: label, label }));
 }

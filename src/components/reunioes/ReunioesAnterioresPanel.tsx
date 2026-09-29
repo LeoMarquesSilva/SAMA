@@ -1,7 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarDays,
+  CheckCircle2,
+  Circle,
+  Eye,
+  FileText,
+  History,
+  ListChecks,
+  ListOrdered,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
+import { MarkdownView } from "@/components/ui/MarkdownView";
+import {
+  PessoaChip,
+  separarPessoaDoPasso,
+} from "@/components/reunioes/PassoResponsavel";
+import type { ColaboradorOpt } from "@/lib/colaboradores";
 import { listarReunioesAnterioresCliente } from "@/lib/reunioes/actions";
 import {
   parsePauta,
@@ -13,53 +31,64 @@ import { checklistTemItens, parseChecklist } from "@/lib/proximos-passos-checkli
 import { formatDateTime } from "@/lib/format";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type Anterior = Awaited<ReturnType<typeof listarReunioesAnterioresCliente>>[number];
+
+function BlocoPreview({
+  icon: Icon,
+  titulo,
+  children,
+}: {
+  icon: LucideIcon;
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <h3 className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-600">
+        <Icon size={14} className="text-brand-600" />
+        {titulo}
+      </h3>
+      <div className="px-4 py-3">{children}</div>
+    </section>
+  );
+}
 
 function PautaPreview({ pauta }: { pauta: PautaReuniao }) {
   const assuntos = pauta.assuntos.filter(
     (a) => a.titulo.trim() || a.descricao.trim()
   );
   return (
-    <div className="space-y-3 text-sm text-slate-700">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Objetivo
-        </p>
-        <p className="mt-1 whitespace-pre-wrap">
-          {pauta.objetivo.trim() || "—"}
-        </p>
-      </div>
+    <>
+      <BlocoPreview icon={Target} titulo="Objetivo">
+        <MarkdownView texto={pauta.objetivo} />
+      </BlocoPreview>
       {assuntos.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Assuntos
-          </p>
-          <ul className="space-y-2">
+        <BlocoPreview icon={ListOrdered} titulo="Assuntos tratados">
+          <ol className="space-y-3">
             {assuntos.map((a, i) => (
-              <li key={i} className="rounded-lg bg-slate-50 px-3 py-2">
-                <p className="font-medium text-slate-800">
-                  {a.titulo.trim() || `Assunto ${i + 1}`}
-                </p>
-                {a.descricao.trim() && (
-                  <p className="mt-1 whitespace-pre-wrap text-slate-600">
-                    {a.descricao}
+              <li key={i} className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
+                  {i + 1}
+                </span>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {a.titulo.trim() || `Assunto ${i + 1}`}
                   </p>
-                )}
+                  {a.descricao.trim() && <MarkdownView texto={a.descricao} />}
+                </div>
               </li>
             ))}
-          </ul>
-        </div>
+          </ol>
+        </BlocoPreview>
       )}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Pendências
-        </p>
-        <p className="mt-1 whitespace-pre-wrap">
-          {pauta.pendencias.trim() || "—"}
-        </p>
-      </div>
-    </div>
+      {pauta.pendencias.trim() && (
+        <BlocoPreview icon={AlertCircle} titulo="Pendências / pontos para decisão">
+          <MarkdownView texto={pauta.pendencias} />
+        </BlocoPreview>
+      )}
+    </>
   );
 }
 
@@ -70,7 +99,9 @@ export function ReunioesAnterioresPanel({
   onRestaurarPauta,
   onTrazerPassos,
   onRemoverPassos,
+  colaboradores = [],
 }: {
+  colaboradores?: ColaboradorOpt[];
   clienteId: string | null;
   exceptId?: string | null;
   onTrazerPauta: (pauta: PautaReuniao) => void;
@@ -146,16 +177,17 @@ export function ReunioesAnterioresPanel({
     setFeedback("Próximos passos trazidos removidos.");
   }
 
-  const pautaPreview = preview ? pautaDaLinha(preview) : null;
+  const pautaPreview = preview ? parsePauta(preview.pauta) : null;
   const passosPreview = preview
     ? parseChecklist(preview.proximos_passos).filter((i) => i.text.trim())
     : [];
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <History size={16} className="text-brand-600" />
         Reuniões anteriores deste cliente
-      </p>
+      </h3>
       <ul className="space-y-2">
         {rows.map((r) => (
           <li
@@ -192,21 +224,19 @@ export function ReunioesAnterioresPanel({
                 <Eye size={15} />
                 Ver
               </Button>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
+              <label className="flex cursor-pointer items-center gap-2">
+                <Checkbox
                   checked={Boolean(selPauta[r.id])}
                   disabled={!temPauta(r)}
-                  onChange={(e) => aplicarPauta(r, e.target.checked)}
+                  onChange={(v) => aplicarPauta(r, v)}
                 />
                 Trazer pauta
               </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
+              <label className="flex cursor-pointer items-center gap-2">
+                <Checkbox
                   checked={Boolean(selPassos[r.id])}
                   disabled={!temPassos(r)}
-                  onChange={(e) => aplicarPassos(r, e.target.checked)}
+                  onChange={(v) => aplicarPassos(r, v)}
                 />
                 Trazer próximos passos
               </label>
@@ -223,42 +253,60 @@ export function ReunioesAnterioresPanel({
         size="lg"
         stacked
       >
-        {preview && pautaPreview && (
-          <div className="space-y-5">
-            <p className="text-sm text-slate-500">
+        {preview && (
+          <div className="space-y-4">
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium tabular-nums text-slate-600">
+              <CalendarDays size={13} className="text-brand-600" />
               {formatDateTime(preview.data_hora_inicio)}
             </p>
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Pauta
-              </h3>
-              {temPauta(preview) ? (
-                <PautaPreview pauta={pautaPreview} />
-              ) : (
-                <p className="text-sm text-slate-500">Sem pauta nesta reunião.</p>
-              )}
-            </section>
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Próximos passos
-              </h3>
+
+            {pautaTemConteudo(pautaPreview) ? (
+              <PautaPreview pauta={pautaPreview!} />
+            ) : preview.resultado?.trim() ? (
+              <BlocoPreview icon={FileText} titulo="Resumo da reunião">
+                <MarkdownView texto={preview.resultado} />
+              </BlocoPreview>
+            ) : (
+              <p className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                Sem pauta nem resumo nesta reunião.
+              </p>
+            )}
+
+            <BlocoPreview icon={ListChecks} titulo="Próximos passos">
               {passosPreview.length > 0 ? (
-                <ul className="space-y-1.5">
-                  {passosPreview.map((item, i) => (
-                    <li
-                      key={i}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-                    >
-                      {item.text}
-                    </li>
-                  ))}
+                <ul className="divide-y divide-slate-100">
+                  {passosPreview.map((item, i) => {
+                    const { pessoa, resto } = separarPessoaDoPasso(
+                      item.text,
+                      colaboradores
+                    );
+                    return (
+                      <li key={i} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        {item.done ? (
+                          <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Circle size={16} className="mt-0.5 shrink-0 text-slate-300" />
+                        )}
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <p
+                            className={
+                              item.done
+                                ? "text-sm text-slate-500 line-through decoration-slate-300"
+                                : "text-sm text-slate-700"
+                            }
+                          >
+                            {resto}
+                          </p>
+                          {pessoa && <PessoaChip pessoa={pessoa} />}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
-                <p className="text-sm text-slate-500">
-                  Sem próximos passos nesta reunião.
-                </p>
+                <p className="text-sm text-slate-500">Sem próximos passos nesta reunião.</p>
               )}
-            </section>
+            </BlocoPreview>
           </div>
         )}
       </Modal>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ensureColaboradoresSync } from "@/lib/colaboradores";
+import { requireModulo } from "@/lib/auth";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoMinhaClassificada } from "@/lib/calendario-items";
 import { ProximosPassosClient } from "@/components/proximos-passos/ProximosPassosClient";
@@ -11,6 +12,7 @@ import { getOnboardingFlags } from "@/lib/onboarding/state";
 export const dynamic = "force-dynamic";
 
 export default async function ProximosPassosPage() {
+  await requireModulo("proximos-passos");
   await ensureColaboradoresSync();
 
   const supabase = await createClient();

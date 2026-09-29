@@ -1,36 +1,23 @@
 "use client";
 
 import type { RefObject } from "react";
-import { CalendarClock, Clock, Timer, Video, MapPin, Building2 } from "lucide-react";
+import { CalendarClock, Clock, Timer, Video, MapPin, Building2, Lock } from "lucide-react";
 import { clsx } from "clsx";
 import { MODALIDADE_REUNIAO } from "@/lib/constants";
 import type { ModalidadeReuniao } from "@/types/database";
-import { formatDateTime, formatDuration, toDatetimeLocal } from "@/lib/format";
+import { formatDate, formatDateTime, formatDuration, toDatetimeLocal } from "@/lib/format";
+import {
+  dayKeyInTz,
+  formatMonthShortInTz,
+  formatTimeInTz,
+  formatWeekdayShortInTz,
+} from "@/lib/timezone";
 
 function ModalidadeIcon({ modalidade }: { modalidade: ModalidadeReuniao }) {
-  if (modalidade === "ONLINE") return <Video size={12} />;
-  if (modalidade === "PRESENCIAL_EXTERNO") return <MapPin size={12} />;
-  return <Building2 size={12} />;
-}
-
-function CampoResumo({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Clock;
-}) {
-  return (
-    <div className="flex flex-col gap-1 px-4 py-3">
-      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-        <Icon size={12} className="text-brand-500" />
-        {label}
-      </span>
-      <span className="text-sm font-medium tabular-nums text-slate-800">{value}</span>
-    </div>
-  );
+  const cls = "text-brand-500";
+  if (modalidade === "ONLINE") return <Video size={12} className={cls} />;
+  if (modalidade === "PRESENCIAL_EXTERNO") return <MapPin size={12} className={cls} />;
+  return <Building2 size={12} className={cls} />;
 }
 
 export function ReuniaoOutlookCabecalho({
@@ -66,28 +53,61 @@ export function ReuniaoOutlookCabecalho({
     fieldErrors.duracao_minutos,
   ].filter(Boolean);
 
+  const inicio = dataHoraInicio ? new Date(dataHoraInicio) : null;
+  const inicioValido = inicio && !Number.isNaN(inicio.getTime()) ? inicio : null;
+  const mesmoDia =
+    Boolean(dataHoraInicio && dataHoraFim) &&
+    dayKeyInTz(dataHoraInicio!) === dayKeyInTz(dataHoraFim!);
+  const horario = !dataHoraInicio
+    ? "—"
+    : mesmoDia || !dataHoraFim
+      ? [formatTimeInTz(dataHoraInicio), dataHoraFim && formatTimeInTz(dataHoraFim)]
+          .filter(Boolean)
+          .join(" – ")
+      : `${formatDateTime(dataHoraInicio)} – ${formatDateTime(dataHoraFim)}`;
+
   return (
     <div
       className={clsx(
-        "overflow-hidden rounded-2xl border shadow-sm ring-1",
-        erros.length
-          ? "border-red-200 ring-red-100"
-          : "border-slate-200/80 ring-slate-100"
+        "overflow-hidden rounded-2xl border bg-gradient-to-br from-white via-white to-brand-50/60 shadow-sm",
+        erros.length ? "border-red-200 ring-1 ring-red-100" : "border-slate-200"
       )}
     >
-      <div className="bg-gradient-to-br from-white via-slate-50 to-brand-50/50 px-4 py-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/20">
-            <CalendarClock size={22} strokeWidth={2} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-600">
-              Convite Outlook
-            </p>
-            <h2 className="mt-0.5 text-lg font-bold leading-snug text-slate-900">
-              {titulo || "—"}
-            </h2>
-            <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/80 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+      <div className="flex items-stretch gap-4 p-4">
+        <div className="flex w-16 shrink-0 flex-col overflow-hidden rounded-xl border border-brand-100 bg-white text-center shadow-sm">
+          <span className="bg-brand-600 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+            {inicioValido ? formatMonthShortInTz(inicioValido) : "—"}
+          </span>
+          <span className="flex flex-1 flex-col items-center justify-center py-1">
+            <span className="text-2xl font-bold leading-none tabular-nums text-slate-900">
+              {dataHoraInicio ? dayKeyInTz(dataHoraInicio).slice(8, 10) : "—"}
+            </span>
+            <span className="mt-0.5 text-[10px] font-medium uppercase text-slate-500">
+              {inicioValido ? formatWeekdayShortInTz(inicioValido) : ""}
+            </span>
+          </span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand-600">
+            <CalendarClock size={12} />
+            Convite Outlook
+          </p>
+          <h2 className="mt-0.5 text-lg font-bold leading-snug text-slate-900">
+            {titulo || "—"}
+          </h2>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium tabular-nums text-slate-700">
+              <Clock size={12} className="text-brand-500" />
+              {mesmoDia || !dataHoraFim
+                ? `${formatDate(dataHoraInicio)} · ${horario}`
+                : horario}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-700">
+              <Timer size={12} className="text-brand-500" />
+              {formatDuration(duracaoMinutos)}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-700">
               <ModalidadeIcon modalidade={modalidade} />
               {MODALIDADE_REUNIAO[modalidade]}
             </span>
@@ -95,26 +115,9 @@ export function ReuniaoOutlookCabecalho({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 divide-y divide-slate-100 border-t border-slate-100 bg-white/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <CampoResumo
-          label="Início"
-          value={formatDateTime(dataHoraInicio)}
-          icon={Clock}
-        />
-        <CampoResumo
-          label="Fim"
-          value={formatDateTime(dataHoraFim)}
-          icon={Clock}
-        />
-        <CampoResumo
-          label="Duração"
-          value={formatDuration(duracaoMinutos)}
-          icon={Timer}
-        />
-      </div>
-
-      <p className="border-t border-slate-100 bg-slate-50/80 px-4 py-2.5 text-xs leading-relaxed text-slate-500">
-        Título e horários vêm do Outlook. Para alterar, edite o convite no calendário
+      <p className="flex items-center gap-1.5 border-t border-slate-100 bg-slate-50/70 px-4 py-2 text-[11px] leading-relaxed text-slate-500">
+        <Lock size={11} className="shrink-0 text-slate-400" />
+        Título e horários vêm do Outlook — para alterar, edite o convite no calendário
         e sincronize novamente.
       </p>
 

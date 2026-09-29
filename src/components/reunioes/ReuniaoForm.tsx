@@ -39,7 +39,16 @@ import { resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTitulo
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
-import { Loader2, Send, Undo2 } from "lucide-react";
+import {
+  CalendarClock,
+  FileText,
+  Loader2,
+  Send,
+  Tags,
+  Undo2,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useFellowFetchProgress } from "@/components/reunioes/useFellowFetchProgress";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
@@ -86,6 +95,26 @@ type ClientePrefill = {
   grupo: string | null;
   kind: "grupo" | "empresa";
 };
+
+function Secao({
+  icon: Icon,
+  titulo,
+  children,
+}: {
+  icon: LucideIcon;
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <Icon size={16} className="text-brand-600" />
+        {titulo}
+      </h3>
+      {children}
+    </section>
+  );
+}
 
 function parseExternos(
   raw: FormDataEntryValue | null
@@ -836,72 +865,37 @@ export function ReuniaoForm({
             fieldErrors={fieldErrors}
           />
         ) : (
-          <Input
-            id={fieldId("titulo")}
-            name="titulo"
-            label="Título"
-            ref={tituloRef}
-            defaultValue={src?.titulo}
-            onChange={handleTituloChange}
-            error={fieldErrors.titulo}
-            required
-          />
+          <Secao icon={CalendarClock} titulo="Reunião">
+            <Input
+              id={fieldId("titulo")}
+              name="titulo"
+              label="Título"
+              ref={tituloRef}
+              defaultValue={src?.titulo}
+              onChange={handleTituloChange}
+              error={fieldErrors.titulo}
+              required
+            />
+            <OutlookDateTimeRange
+              inicio={slotInicio}
+              fim={slotFim}
+              onChange={({ inicio, fim }) => {
+                setSlotInicio(inicio);
+                setSlotFim(fim);
+              }}
+              errorInicio={fieldErrors.data_hora_inicio}
+              errorFim={fieldErrors.data_hora_fim}
+              errorDuracao={fieldErrors.duracao_minutos}
+              sala={modoViaB ? sala : undefined}
+              onSalaChange={modoViaB ? setSala : undefined}
+              pessoas={pessoasAgenda}
+            />
+          </Secao>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
-          <div className="flex flex-col gap-1 xl:col-span-3">
-            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
-              Tipo
-              <InfoTooltip text={TIPO_REUNIAO_DESCRICAO[tipo as TipoReuniaoKey]} />
-            </span>
-            <SelectMenu
-              name="tipo"
-              value={tipo}
-              onChange={handleTipoChange}
-              options={tipoReuniaoOptions()}
-            />
-          </div>
-          {modoViaB && !editing ? (
-            <input type="hidden" name="status" value="AGENDADA" />
-          ) : (
-            <div className="xl:col-span-2">
-              <SelectMenu
-                name="status"
-                label="Status"
-                value={status}
-                onChange={(v) => setStatus(v as typeof status)}
-                options={Object.entries(STATUS_REUNIAO).map(([v, l]) => ({
-                  value: v,
-                  label: l,
-                }))}
-              />
-            </div>
-          )}
-          <div className="xl:col-span-3">
-            <SelectMenu
-              name="modalidade"
-              label="Modalidade"
-              value={modalidade}
-              onChange={(v) => {
-                const next = v as typeof modalidade;
-                setModalidade(next);
-                if (!modoViaB) return;
-                if (next === "ONLINE") setSala(SALA_SOMENTE_ONLINE);
-                if (next === "PRESENCIAL_ESCRITORIO" && sala === SALA_SOMENTE_ONLINE) {
-                  setSala("SALA_1");
-                }
-              }}
-              options={Object.entries(MODALIDADE_REUNIAO).map(([v, l]) => ({
-                value: v,
-                label: l,
-              }))}
-            />
-          </div>
-          <div
-            className={
-              modoViaB && !editing ? "sm:col-span-2 xl:col-span-6" : "xl:col-span-4"
-            }
-          >
+        <Secao icon={Tags} titulo="Classificação">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="sm:col-span-2">
             <ClienteSelect
               name="cliente_id"
               required
@@ -922,11 +916,120 @@ export function ReuniaoForm({
               onClienteChange={(ci) => setClienteIdAtual(ci ?? "")}
               error={fieldErrors.cliente_id}
             />
+            {clienteSugerido && (
+              <p className="mt-1 text-xs text-brand-700">
+                Cliente sugerido pelo título da reunião — confira antes de salvar.
+              </p>
+            )}
           </div>
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              Tipo
+              <InfoTooltip text={TIPO_REUNIAO_DESCRICAO[tipo as TipoReuniaoKey]} />
+            </span>
+            <SelectMenu
+              name="tipo"
+              value={tipo}
+              onChange={handleTipoChange}
+              options={tipoReuniaoOptions()}
+            />
+          </div>
+          {modoViaB && !editing ? (
+            <input type="hidden" name="status" value="AGENDADA" />
+          ) : (
+            <SelectMenu
+              name="status"
+              label="Status"
+              value={status}
+              onChange={(v) => setStatus(v as typeof status)}
+              options={Object.entries(STATUS_REUNIAO).map(([v, l]) => ({
+                value: v,
+                label: l,
+              }))}
+            />
+          )}
+          <SelectMenu
+            name="modalidade"
+            label="Modalidade"
+            value={modalidade}
+            onChange={(v) => {
+              const next = v as typeof modalidade;
+              setModalidade(next);
+              if (!modoViaB) return;
+              if (next === "ONLINE") setSala(SALA_SOMENTE_ONLINE);
+              if (next === "PRESENCIAL_ESCRITORIO" && sala === SALA_SOMENTE_ONLINE) {
+                setSala("SALA_1");
+              }
+            }}
+            options={Object.entries(MODALIDADE_REUNIAO).map(([v, l]) => ({
+              value: v,
+              label: l,
+            }))}
+          />
+          {modalidade === "ONLINE" && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Input
+                id={fieldId("link_online")}
+                name="link_online"
+                label="Link da reunião (opcional)"
+                placeholder="https://teams.microsoft.com/..."
+                defaultValue={src?.link_online ?? ""}
+                error={fieldErrors.link_online}
+              />
+            </div>
+          )}
+          {modalidade === "PRESENCIAL_EXTERNO" && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Input
+                id={fieldId("local")}
+                name="local"
+                label="Local (endereço ou nome)"
+                defaultValue={src?.local ?? ""}
+                error={fieldErrors.local}
+                required
+              />
+            </div>
+          )}
+          {status === "CANCELADA" && (
+            <div className="sm:col-span-2 lg:col-span-4">
+              <Textarea
+                id={fieldId("motivo_cancelamento")}
+                name="motivo_cancelamento"
+                label="Motivo do cancelamento"
+                defaultValue={src?.motivo_cancelamento ?? ""}
+                error={fieldErrors.motivo_cancelamento}
+                required
+              />
+            </div>
+          )}
         </div>
+        </Secao>
+
+        <Secao icon={Users} titulo="Participantes">
+          <ParticipantesPicker
+            key={prefillKey || reuniao?.id || "novo"}
+            colaboradores={colaboradores}
+            usuarios={usuarios}
+            defaultSelected={participantesIniciais}
+            defaultExternos={externosIniciais}
+            error={fieldErrors.participantes}
+            onPessoasChange={avisarPessoasAgenda}
+          />
+          {modoViaB && (
+            <EmailChips
+              label="E-mails do cliente"
+              value={emailsCliente}
+              onChange={setEmailsCliente}
+              placeholder="Digite o e-mail e pressione Enter"
+              error={fieldErrors.emails_cliente}
+            />
+          )}
+        </Secao>
+
         {!editing && (
           <>
             <ReunioesAnterioresPanel
+              colaboradores={colaboradores}
               clienteId={clienteIdAtual || null}
               exceptId={reuniao?.id}
               onTrazerPauta={setPauta}
@@ -972,51 +1075,8 @@ export function ReuniaoForm({
             </>
           }
         />
-        {clienteSugerido && (
-          <p className="-mt-2 text-xs text-brand-700">
-            Cliente sugerido pelo título da reunião — confira antes de salvar.
-          </p>
-        )}
-
-        <ParticipantesPicker
-          key={prefillKey || reuniao?.id || "novo"}
-          colaboradores={colaboradores}
-          usuarios={usuarios}
-          defaultSelected={participantesIniciais}
-          defaultExternos={externosIniciais}
-          error={fieldErrors.participantes}
-          onPessoasChange={avisarPessoasAgenda}
-        />
-
-        {!horarioSomenteLeitura && (
-          <OutlookDateTimeRange
-            inicio={slotInicio}
-            fim={slotFim}
-            onChange={({ inicio, fim }) => {
-              setSlotInicio(inicio);
-              setSlotFim(fim);
-            }}
-            errorInicio={fieldErrors.data_hora_inicio}
-            errorFim={fieldErrors.data_hora_fim}
-            errorDuracao={fieldErrors.duracao_minutos}
-            sala={modoViaB ? sala : undefined}
-            onSalaChange={modoViaB ? setSala : undefined}
-            pessoas={pessoasAgenda}
-          />
-        )}
-
-        {modoViaB && (
-          <EmailChips
-            label="E-mails do cliente"
-            value={emailsCliente}
-            onChange={setEmailsCliente}
-            placeholder="Digite o e-mail e pressione Enter"
-            error={fieldErrors.emails_cliente}
-          />
-        )}
-
         {status === "REALIZADA" && (
-          <>
+          <Secao icon={FileText} titulo="Ata">
             {fellowAtivo && fellowMsg && (
               <p
                 className={clsx(
@@ -1052,44 +1112,7 @@ export function ReuniaoForm({
               onChange={setResultadoTexto}
               error={fieldErrors.resultado}
             />
-          </>
-        )}
-
-        {/* Condicional: PRESENCIAL EXTERNO */}
-        {modalidade === "PRESENCIAL_EXTERNO" && (
-          <Input
-            id={fieldId("local")}
-            name="local"
-            label="Local (endereço ou nome)"
-            defaultValue={src?.local ?? ""}
-            error={fieldErrors.local}
-            required
-          />
-        )}
-
-        {/* Condicional: CANCELADA */}
-        {status === "CANCELADA" && (
-          <Textarea
-            id={fieldId("motivo_cancelamento")}
-            name="motivo_cancelamento"
-            label="Motivo do cancelamento"
-            defaultValue={src?.motivo_cancelamento ?? ""}
-            error={fieldErrors.motivo_cancelamento}
-            required
-          />
-        )}
-
-        {modalidade === "ONLINE" && (
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
-            <Input
-              id={fieldId("link_online")}
-              name="link_online"
-              label="Link da reunião (opcional)"
-              placeholder="https://teams.microsoft.com/..."
-              defaultValue={src?.link_online ?? ""}
-              error={fieldErrors.link_online}
-            />
-          </div>
+          </Secao>
         )}
 
         {error && (
@@ -1103,7 +1126,7 @@ export function ReuniaoForm({
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="sticky bottom-0 z-[1] -mx-5 -mb-4 flex items-center justify-between gap-2 border-t border-slate-100 bg-white/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-5 sm:px-6">
           {podeReverterOutlook ? (
             <Button
               type="button"

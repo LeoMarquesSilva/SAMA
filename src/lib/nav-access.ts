@@ -1,36 +1,51 @@
 import type { CargoPessoa } from "@/lib/constants";
+import { temModulo } from "@/lib/modulos";
 
 export type NavContext = {
   cargo: CargoPessoa;
   isAdmin: boolean;
+  /** Módulos liberados em usuario_modulos (admins veem tudo). */
+  modulos: string[];
 };
 
-/** Usuários — apenas administradores (is_admin). */
+export function canAccessDashboard(ctx: NavContext): boolean {
+  return temModulo(ctx, "dashboard");
+}
+
+export function canAccessCalendario(ctx: NavContext): boolean {
+  return temModulo(ctx, "calendario");
+}
+
+export function canAccessProximosPassos(ctx: NavContext): boolean {
+  return temModulo(ctx, "proximos-passos");
+}
+
+export function canAccessAjuda(ctx: NavContext): boolean {
+  return temModulo(ctx, "ajuda");
+}
+
 export function canAccessUsuarios(ctx: NavContext): boolean {
-  return ctx.isAdmin;
+  return temModulo(ctx, "usuarios");
 }
 
-/** Clientes — apenas administradores (is_admin). */
 export function canAccessClientes(ctx: NavContext): boolean {
-  return ctx.isAdmin;
+  return temModulo(ctx, "clientes");
 }
 
-/** Horas (timesheet) — em desenvolvimento; apenas administradores. */
+/** Horas (timesheet) — em desenvolvimento. */
 export function canAccessTimesheet(ctx: NavContext): boolean {
-  return ctx.isAdmin;
+  return temModulo(ctx, "timesheet");
 }
 
-/** Relatórios — em desenvolvimento; apenas administradores. */
 export function canAccessRelatorios(ctx: NavContext): boolean {
-  return ctx.isAdmin;
+  return temModulo(ctx, "relatorios");
 }
 
-/** Tarefas VIOS — apenas administradores (sync/mapa interno). */
 export function canAccessTarefas(ctx: NavContext): boolean {
-  return ctx.isAdmin;
+  return temModulo(ctx, "tarefas");
 }
 
 /** Exportação CSV/PDF completa — apenas administradores. */
-export function canExportRelatorios(ctx: NavContext): boolean {
+export function canExportRelatorios(ctx: { isAdmin: boolean; cargo?: CargoPessoa }): boolean {
   return ctx.isAdmin;
 }

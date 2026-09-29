@@ -29,40 +29,50 @@ async function ciRepresentanteDoGrupo(
   const safe = query.replace(/[,()]/g, " ").trim();
   const like = `%${safe}%`;
 
-  function base() {
-    let q = supabase
-      .from("escritorio_empresas_por_grupo")
-      .select("ci, nome")
-      .order("nome");
-    return isGrupoSemNome(grupoCliente)
-      ? q.is("grupo_cliente", null)
-      : q.eq("grupo_cliente", grupoCliente);
+  // `pessoas` tem índice em grupo_cliente; a view recalcula processos e timesheets
+  // a cada consulta, então só é usada para grupos herdados dos processos.
+  async function representante(tabela: "pessoas" | "escritorio_empresas_por_grupo") {
+    const base = () => {
+      const q = supabase.from(tabela).select("ci, nome").order("nome");
+      return isGrupoSemNome(grupoCliente)
+        ? q.is("grupo_cliente", null)
+        : q.eq("grupo_cliente", grupoCliente);
+    };
+    const [{ data: match }, { data: first }] = await Promise.all([
+      base().or(`nome.ilike.${like}`).limit(1),
+      base().limit(1),
+    ]);
+    return match?.[0]?.ci ?? first?.[0]?.ci ?? null;
   }
 
-  const { data: match } = await base().or(`nome.ilike.${like}`).limit(1);
-  if (match?.[0]?.ci) return match[0].ci;
-
-  const { data: first } = await base().limit(1);
-  return first?.[0]?.ci ?? null;
+  return (
+    (await representante("pessoas")) ??
+    (await representante("escritorio_empresas_por_grupo"))
+  );
 }
 
 /** Monta entrada de busca/seleção sempre como grupo (nunca empresa avulsa). */
 async function montarEntradaGrupo(
   supabase: Awaited<ReturnType<typeof createClient>>,
   grupoCliente: string,
-  query: string
+  query: string,
+  totalEmpresas?: number | null
 ): Promise<ClienteBusca | null> {
   const chave = grupoCliente ?? "";
   if (isGrupoSemNome(chave)) return null;
 
-  const ci = await ciRepresentanteDoGrupo(supabase, chave, query);
+  const [ci, total] = await Promise.all([
+    ciRepresentanteDoGrupo(supabase, chave, query),
+    totalEmpresas != null
+      ? Promise.resolve(totalEmpresas)
+      : supabase
+          .from("escritorio_grupos_resumo")
+          .select("total_empresas")
+          .eq("grupo_cliente", chave)
+          .maybeSingle()
+          .then(({ data }) => data?.total_empresas ?? null),
+  ]);
   if (!ci) return null;
-
-  const { data: resumo } = await supabase
-    .from("escritorio_grupos_resumo")
-    .select("total_empresas")
-    .eq("grupo_cliente", chave)
-    .maybeSingle();
 
   return {
     ci,
@@ -70,8 +80,21 @@ async function montarEntradaGrupo(
     cpf_cnpj: null,
     grupo_cliente: chave,
     kind: "grupo",
-    total_empresas: resumo?.total_empresas ?? undefined,
+    total_empresas: total ?? undefined,
   };
+}
+
+async function montarEntradasGrupos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  grupos: { grupo_cliente: string | null; total_empresas: number | null }[],
+  query: string
+): Promise<ClienteBusca[]> {
+  const entradas = await Promise.all(
+    grupos.map((g) =>
+      montarEntradaGrupo(supabase, g.grupo_cliente ?? "", query, g.total_empresas)
+    )
+  );
+  return entradas.filter((e): e is ClienteBusca => e !== null);
 }
 
 async function buscarGruposParaSugestao(
@@ -88,16 +111,7 @@ async function buscarGruposParaSugestao(
     .order("grupo_cliente")
     .limit(10);
 
-  const out: ClienteBusca[] = [];
-  for (const g of gruposRaw ?? []) {
-    const entrada = await montarEntradaGrupo(
-      supabase,
-      g.grupo_cliente ?? "",
-      query
-    );
-    if (entrada) out.push(entrada);
-  }
-  return out;
+  return montarEntradasGrupos(supabase, gruposRaw ?? [], query);
 }
 
 /** Se o match cair em empresa, sobe para o grupo_cliente dela. */
@@ -208,11 +222,7 @@ export async function buscarClientes(q: string): Promise<ClienteBusca[]> {
       .limit(20),
   ]);
 
-  const grupos: ClienteBusca[] = [];
-  for (const g of gruposRaw ?? []) {
-    const entrada = await montarEntradaGrupo(supabase, g.grupo_cliente ?? "", query);
-    if (entrada) grupos.push(entrada);
-  }
+  const grupos = await montarEntradasGrupos(supabase, gruposRaw ?? [], query);
 
   const pessoas: ClienteBusca[] = (pessoasRaw ?? []).map((p) => ({
     ...(p as ClienteBusca),
@@ -309,8 +319,12 @@ export async function sugerirClientePorTituloReuniao(
 
   let melhor: { cliente: ClienteBusca; score: number } | null = null;
 
-  for (const cand of candidatos) {
-    const grupos = await buscarGruposParaSugestao(supabase, cand);
+  const gruposPorCandidato = await Promise.all(
+    candidatos.map((cand) => buscarGruposParaSugestao(supabase, cand))
+  );
+
+  for (const [i, cand] of candidatos.entries()) {
+    const grupos = gruposPorCandidato[i];
     for (const g of grupos) {
       const score = pontuarClienteNoTitulo(cand, g);
       if (!melhor || score > melhor.score) melhor = { cliente: g, score };

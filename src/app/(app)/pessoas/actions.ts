@@ -5,6 +5,10 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { pessoaSchema } from "@/lib/validations";
 import { emailsEscritorioIguais } from "@/lib/email-escritorio";
+import { isModuloKey } from "@/lib/modulos";
+import { departamentoCanonico } from "@/lib/constants";
+import { sincronizarColaboradores } from "@/lib/colaboradores";
+import type { ResultadoSyncColaboradores } from "@/lib/colaboradores-sync";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -223,6 +227,92 @@ export async function desativarPessoa(id: string): Promise<ActionResult> {
 
   revalidatePath("/pessoas");
   return { ok: true };
+}
+
+/** Define exatamente quais módulos a pessoa pode acessar. */
+export async function salvarModulosUsuario(
+  usuarioId: string,
+  modulos: string[]
+): Promise<ActionResult> {
+  const eu = await requireAdmin();
+  const desejados = new Set(modulos.filter(isModuloKey));
+  const supabase = await createClient();
+
+  const { data: atuais, error: lerErr } = await supabase
+    .from("usuario_modulos")
+    .select("modulo")
+    .eq("usuario_id", usuarioId);
+  if (lerErr) return { ok: false, error: "Erro ao ler os módulos atuais." };
+
+  const atuaisSet = new Set((atuais ?? []).map((m) => m.modulo as string));
+  const remover = [...atuaisSet].filter((m) => !desejados.has(m as never));
+  const adicionar = [...desejados].filter((m) => !atuaisSet.has(m));
+
+  if (remover.length > 0) {
+    const { error } = await supabase
+      .from("usuario_modulos")
+      .delete()
+      .eq("usuario_id", usuarioId)
+      .in("modulo", remover);
+    if (error) return { ok: false, error: "Erro ao remover módulos." };
+  }
+  if (adicionar.length > 0) {
+    const { error } = await supabase.from("usuario_modulos").insert(
+      adicionar.map((modulo) => ({ usuario_id: usuarioId, modulo, liberado_por: eu.id }))
+    );
+    if (error) return { ok: false, error: "Erro ao liberar módulos." };
+  }
+
+  revalidatePath("/pessoas");
+  return { ok: true };
+}
+
+/**
+ * Cria o cadastro no SAMA a partir do colaborador sincronizado e já ativa o
+ * login (senha padrão). Os módulos padrão vêm do gatilho de usuarios.
+ */
+export async function darAcessoColaborador(colaboradorId: string): Promise<ActionResult> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const { data: colab } = await admin
+    .from("colaboradores")
+    .select("id, nome, email, departamento, ativo")
+    .eq("id", colaboradorId)
+    .single();
+  if (!colab) return { ok: false, error: "Colaborador não encontrado." };
+  if (!colab.ativo) return { ok: false, error: "Colaborador desligado no ORQESTRAI." };
+
+  const { data: usuarios } = await admin.from("usuarios").select("id, email");
+  const existente = (usuarios ?? []).find((u) => emailsEscritorioIguais(u.email, colab.email));
+
+  let usuarioId = existente?.id as string | undefined;
+  if (!usuarioId) {
+    const { data: novo, error } = await admin
+      .from("usuarios")
+      .insert({
+        nome: colab.nome,
+        email: colab.email,
+        cargo: "COLABORADOR",
+        departamento: departamentoCanonico(colab.departamento) ?? "Geral",
+        is_admin: false,
+        ativo: false,
+      })
+      .select("id")
+      .single();
+    if (error || !novo) return { ok: false, error: "Erro ao criar o cadastro da pessoa." };
+    usuarioId = novo.id as string;
+  }
+
+  await admin.from("colaboradores").update({ usuario_id: usuarioId }).eq("id", colab.id);
+  return ativarPessoa(usuarioId);
+}
+
+/** Atualiza colaboradores a partir do ORQESTRAI (e Responsum, se configurado). */
+export async function atualizarColaboradores(): Promise<ResultadoSyncColaboradores> {
+  await requireAdmin();
+  const r = await sincronizarColaboradores();
+  revalidatePath("/pessoas");
+  return r;
 }
 
 export async function ativarPendentes(): Promise<

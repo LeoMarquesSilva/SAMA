@@ -19,6 +19,24 @@ import {
   type OpcaoVios,
 } from "@/lib/vios-opcoes";
 import { resolverOpcoesVios } from "@/lib/vios-status-actions";
+import {
+  PessoaChip,
+  ResponsavelLinha,
+  separarPessoaDoPasso,
+} from "@/components/reunioes/PassoResponsavel";
+import {
+  AlertCircle,
+  Bot,
+  Check,
+  CheckCircle2,
+  PencilLine,
+  RotateCcw,
+  FolderOpen,
+  ListChecks,
+  Loader2,
+  Scale,
+  Send,
+} from "lucide-react";
 
 type PastaTipo = "Processo" | "Atendimento";
 
@@ -45,6 +63,39 @@ const ETIQUETA_PADRAO = "PROVIDÊNCIA";
 
 function numeroDaLinha(l: Linha): string {
   return ((l.pastaTipo === "Atendimento" ? l.pasta : l.processo) ?? "").trim();
+}
+
+/** NNNNNNN-DD.AAAA.J.TR.OOOO (CNJ, 20 dígitos). */
+function mascaraCnj(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 20);
+  const partes: [number, string][] = [
+    [7, ""],
+    [9, "-"],
+    [13, "."],
+    [14, "."],
+    [16, "."],
+    [20, "."],
+  ];
+  let out = "";
+  let ini = 0;
+  for (const [fim, sep] of partes) {
+    if (d.length <= ini) break;
+    out += (ini > 0 ? sep : "") + d.slice(ini, fim);
+    ini = fim;
+  }
+  return out;
+}
+
+function mascaraAtendimento(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 10);
+}
+
+/** Número completo o bastante para consultar as opções do VIOS. */
+function numeroCompleto(l: Linha): boolean {
+  const n = numeroDaLinha(l);
+  return l.pastaTipo === "Atendimento"
+    ? n.length >= 3
+    : n.replace(/\D/g, "").length === 20;
 }
 
 function chave(tipo: string | undefined, numero: string): string {
@@ -79,11 +130,14 @@ export function AgendarViosModal({
   const iniciais = useMemo<Linha[]>(() => {
     return parseChecklist(proximosPassos)
       .filter((i) => i.text.trim())
-      .map((i) => ({
+      .map((i) => {
+        const citado = separarPessoaDoPasso(i.text.trim(), colaboradores);
+        return {
         selecionado: false,
-        text: i.text.trim(),
+        text: citado.resto.trim(),
         texto_checklist: i.text.trim(),
-        colaborador_id: i.colaborador_id ?? "",
+        colaborador_id:
+          i.colaborador_id || citado.pessoa?.colaborador_id || "",
         prazo: i.prazo ?? "",
         tipo: "",
         tarefa: "",
@@ -96,8 +150,9 @@ export function AgendarViosModal({
         processo: "",
         enviadoVios: Boolean(i.enviadoVios),
         enviadoViosEm: i.enviadoViosEm ?? null,
-      }));
-  }, [proximosPassos]);
+        };
+      });
+  }, [proximosPassos, colaboradores]);
 
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [opcoes, setOpcoes] = useState<Record<string, EstadoOpcoes>>({});
@@ -170,7 +225,7 @@ export function AgendarViosModal({
 
   // Carrega sozinho quando a pasta é informada (sem botão): espera a digitação parar.
   const pendentes = linhas
-    .filter((l) => l.selecionado && numeroDaLinha(l).length >= 3)
+    .filter((l) => l.selecionado && numeroCompleto(l))
     .map((l) => chave(l.pastaTipo, numeroDaLinha(l)))
     .filter((k, i, a) => a.indexOf(k) === i && !opcoes[k])
     .join(";");
@@ -202,6 +257,9 @@ export function AgendarViosModal({
             ? `Informe a pasta do passo ${n}.`
             : `Informe o processo do passo ${n}.`
         );
+      }
+      if (!numeroCompleto(l)) {
+        return setErro(`Complete o número do processo (CNJ) do passo ${n}.`);
       }
       const op = opcoes[chave(l.pastaTipo, numeroDaLinha(l))];
       if (op?.status !== "ok") {
@@ -241,7 +299,17 @@ export function AgendarViosModal({
   }
 
   const campo =
-    "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+
+  const disponiveis = linhas.filter((l) => !l.enviadoVios);
+  const todosMarcados =
+    disponiveis.length > 0 && disponiveis.every((l) => l.selecionado);
+
+  function marcarTodos(on: boolean) {
+    setLinhas((atual) =>
+      atual.map((l) => (l.enviadoVios ? l : { ...l, selecionado: on }))
+    );
+  }
 
   return (
     <Modal
@@ -252,193 +320,360 @@ export function AgendarViosModal({
       stacked
       closeDisabled={pending}
     >
-      <div className="space-y-4">
-        <p className="text-sm text-slate-500">
-          Marque os passos que vão para o VIOS e informe a pasta ou o processo:
-          as tarefas, etiquetas e responsáveis mostrados são exatamente os que o
-          VIOS aceita nessa pasta. O robô agenda em até ~2 minutos.
-        </p>
+      <div className="space-y-5">
+        <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {[
+            { icon: ListChecks, texto: "Marque os passos que vão para o VIOS" },
+            { icon: FolderOpen, texto: "Informe o processo ou a pasta de cada um" },
+            { icon: Bot, texto: "O robô agenda em até ~2 minutos" },
+          ].map(({ icon: Icon, texto }, i) => (
+            <li
+              key={texto}
+              className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-xs text-slate-600"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
+                {i + 1}
+              </span>
+              <Icon size={15} className="shrink-0 text-brand-600" />
+              <span className="leading-snug">{texto}</span>
+            </li>
+          ))}
+        </ol>
 
         {linhas.length === 0 ? (
-          <p className="text-sm text-amber-700">
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
             Não há próximos passos para agendar. Inclua as ações na reunião e
             salve antes.
-          </p>
+          </div>
         ) : (
-          <ul className="space-y-3">
-            {linhas.map((linha, index) => {
-              const rotuloEnvio = rotuloEnviadoAgendamento(linha);
-              const numero = numeroDaLinha(linha);
-              const op = numero ? opcoes[chave(linha.pastaTipo, numero)] : undefined;
-              const dados = op?.status === "ok" ? op.dados : undefined;
-              const semOpcoes = !dados;
-              return (
-                <li
-                  key={index}
-                  className={clsx(
-                    "space-y-3 rounded-xl border p-3",
-                    linha.selecionado
-                      ? "border-brand-200 bg-brand-50/40"
-                      : "border-slate-200 bg-slate-50/70"
-                  )}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Próximos passos ({linhas.length})
+              </span>
+              {disponiveis.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => marcarTodos(!todosMarcados)}
+                  className="text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline"
                 >
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={linha.selecionado}
-                      onChange={(e) => patch(index, { selecionado: e.target.checked })}
-                      className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                    />
-                    <span className="min-w-0 flex-1 space-y-1 text-sm text-slate-800">
-                      <span className="block">{linha.text}</span>
-                      {rotuloEnvio && <Badge tone="green">{rotuloEnvio}</Badge>}
-                    </span>
-                  </label>
-
-                  {linha.selecionado && (
-                    <>
-                      <label className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-slate-700">
-                          Descrição da tarefa no VIOS
+                  {todosMarcados ? "Desmarcar todos" : "Marcar todos"}
+                </button>
+              )}
+            </div>
+            <ul className="space-y-3">
+              {linhas.map((linha, index) => {
+                const rotuloEnvio = rotuloEnviadoAgendamento(linha);
+                const numero = numeroDaLinha(linha);
+                const op = numero ? opcoes[chave(linha.pastaTipo, numero)] : undefined;
+                const dados = op?.status === "ok" ? op.dados : undefined;
+                const semOpcoes = !dados;
+                const tipoPasta = linha.pastaTipo ?? "Processo";
+                const { pessoa, resto } = separarPessoaDoPasso(
+                  linha.texto_checklist || linha.text,
+                  colaboradores
+                );
+                return (
+                  <li
+                    key={index}
+                    className={clsx(
+                      "overflow-hidden rounded-xl border transition-colors",
+                      linha.selecionado
+                        ? "border-brand-300 bg-white shadow-sm ring-1 ring-brand-100"
+                        : "border-slate-200 bg-slate-50/70 hover:border-slate-300"
+                    )}
+                  >
+                    <label
+                      className={clsx(
+                        "group flex cursor-pointer items-start gap-3.5 px-4 py-3.5 transition-colors",
+                        linha.selecionado
+                          ? "border-b border-brand-100 bg-brand-50/60"
+                          : "hover:bg-white"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={linha.selecionado}
+                        onChange={(e) => patch(index, { selecionado: e.target.checked })}
+                        className="peer sr-only"
+                      />
+                      <span
+                        aria-hidden
+                        className={clsx(
+                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all",
+                          "peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400 peer-focus-visible:ring-offset-1",
+                          linha.selecionado
+                            ? "border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-600/30"
+                            : "border-slate-300 bg-white text-transparent group-hover:border-brand-400"
+                        )}
+                      >
+                        <Check size={13} strokeWidth={3} />
+                      </span>
+                      <span className="min-w-0 flex-1 space-y-2">
+                        <span
+                          className={clsx(
+                            "block text-sm leading-relaxed",
+                            linha.selecionado ? "font-medium text-slate-900" : "text-slate-700"
+                          )}
+                        >
+                          {resto}
                         </span>
-                        <textarea
-                          value={linha.text}
-                          onChange={(e) => patch(index, { text: e.target.value })}
-                          rows={3}
-                          className={campo}
-                        />
-                      </label>
-
-                      {/* 1) Pasta / processo */}
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[12rem_1fr] sm:items-end">
-                        <SelectMenu
-                          label="Pasta do Agendamento"
-                          value={linha.pastaTipo ?? "Processo"}
-                          onChange={(v) =>
-                            patch(index, {
-                              pastaTipo: v,
-                              pasta: v === "Atendimento" ? linha.pasta : "",
-                              processo: v === "Processo" ? linha.processo : "",
-                              tarefa_id: "",
-                              tarefa: "",
-                            })
-                          }
-                          options={VIOS_PASTA_TIPOS.map((t) => ({ value: t, label: t }))}
-                        />
-                        <label className="flex flex-col gap-1">
-                          <span className="text-sm font-medium text-slate-700">
-                            {(linha.pastaTipo ?? "Processo") === "Processo"
-                              ? "Nº do processo (CNJ)"
-                              : "Nº da pasta de atendimento"}
+                        {(pessoa || rotuloEnvio) && (
+                          <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                            {pessoa && <ResponsavelLinha pessoa={pessoa} />}
+                            {rotuloEnvio && (
+                              <Badge tone="green">
+                                <CheckCircle2 size={12} className="mr-1" />
+                                {rotuloEnvio}
+                              </Badge>
+                            )}
                           </span>
-                          <input
-                            value={
-                              ((linha.pastaTipo ?? "Processo") === "Processo"
-                                ? linha.processo
-                                : linha.pasta) ?? ""
-                            }
-                            onChange={(e) =>
-                              patch(
-                                index,
-                                (linha.pastaTipo ?? "Processo") === "Processo"
-                                  ? { processo: e.target.value, tarefa_id: "", tarefa: "" }
-                                  : { pasta: e.target.value, tarefa_id: "", tarefa: "" }
-                              )
-                            }
-                            placeholder={
-                              (linha.pastaTipo ?? "Processo") === "Processo"
-                                ? "0000000-00.0000.0.00.0000"
-                                : "Ex.: 51762"
-                            }
-                            className={campo}
-                          />
-                        </label>
+                        )}
+                      </span>
+                    </label>
 
+                    {linha.selecionado && (
+                      <div className="space-y-4 px-4 py-4">
+                        <section className="space-y-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            1 · Onde agendar
+                          </p>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr] sm:items-start">
+                            <div
+                              role="radiogroup"
+                              aria-label="Pasta do agendamento"
+                              className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5"
+                            >
+                              {VIOS_PASTA_TIPOS.map((t) => {
+                                const Icon = t === "Processo" ? Scale : FolderOpen;
+                                const ativo = tipoPasta === t;
+                                return (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={ativo}
+                                    onClick={() =>
+                                      !ativo &&
+                                      patch(index, {
+                                        pastaTipo: t,
+                                        pasta: t === "Atendimento" ? linha.pasta : "",
+                                        processo: t === "Processo" ? linha.processo : "",
+                                        tarefa_id: "",
+                                        tarefa: "",
+                                      })
+                                    }
+                                    className={clsx(
+                                      "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                                      ativo
+                                        ? "bg-white text-brand-700 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                    )}
+                                  >
+                                    <Icon size={14} />
+                                    {t}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="relative">
+                                <input
+                                  aria-label={
+                                    tipoPasta === "Processo"
+                                      ? "Nº do processo (CNJ)"
+                                      : "Nº da pasta de atendimento"
+                                  }
+                                  value={
+                                    (tipoPasta === "Processo" ? linha.processo : linha.pasta) ?? ""
+                                  }
+                                  onChange={(e) =>
+                                    patch(
+                                      index,
+                                      tipoPasta === "Processo"
+                                        ? { processo: mascaraCnj(e.target.value), tarefa_id: "", tarefa: "" }
+                                        : { pasta: mascaraAtendimento(e.target.value), tarefa_id: "", tarefa: "" }
+                                    )
+                                  }
+                                  inputMode="numeric"
+                                  autoComplete="off"
+                                  placeholder={
+                                    tipoPasta === "Processo"
+                                      ? "0000000-00.0000.0.00.0000"
+                                      : "Nº da pasta — ex.: 51762"
+                                  }
+                                  className={clsx(
+                                    campo,
+                                    "pr-9 tabular-nums",
+                                    op?.status === "erro" &&
+                                      "border-red-300 focus:border-red-500 focus:ring-red-500",
+                                    dados && "border-emerald-300"
+                                  )}
+                                />
+                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                  {op?.status === "carregando" && (
+                                    <Loader2 size={16} className="animate-spin text-brand-500" />
+                                  )}
+                                  {dados && <CheckCircle2 size={16} className="text-emerald-500" />}
+                                  {op?.status === "erro" && (
+                                    <AlertCircle size={16} className="text-red-500" />
+                                  )}
+                                </span>
+                              </div>
+                              {op?.status === "carregando" && (
+                                <p className="text-xs text-slate-500">
+                                  {op.noVios
+                                    ? "Pasta nova para o SAMA: o robô está consultando o VIOS (até ~30 s, só na primeira vez)…"
+                                    : "Carregando opções do VIOS…"}
+                                </p>
+                              )}
+                              {op?.status === "erro" && (
+                                <p className="text-xs text-red-600">{op.erro}</p>
+                              )}
+                              {dados && (
+                                <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                                  <span className="font-medium text-emerald-700">
+                                    {dados.titulo || "Pasta do VIOS"}
+                                  </span>
+                                  <span aria-hidden>·</span>
+                                  {dados.etapas.length} tipos de tarefa disponíveis
+                                </p>
+                              )}
+                              {!op && (
+                                <p className="text-xs text-slate-400">
+                                  {tipoPasta === "Processo" && numero
+                                    ? `${numero.replace(/\D/g, "").length}/20 dígitos — as opções do VIOS carregam ao completar o CNJ.`
+                                    : "As opções do VIOS carregam sozinhas ao digitar o número."}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </section>
+
+                        <section
+                          className={clsx(
+                            "space-y-2 transition-opacity",
+                            semOpcoes && "opacity-60"
+                          )}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            2 · Tarefa no VIOS
+                          </p>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <SelectMenu
+                              label="Tipo de tarefa"
+                              value={linha.tarefa_id ?? ""}
+                              onChange={(v) =>
+                                patch(index, {
+                                  tarefa_id: v,
+                                  tarefa: dados?.etapas.find((e) => e.id === v)?.nome ?? "",
+                                })
+                              }
+                              emptyOption="Selecione"
+                              placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
+                              disabled={semOpcoes}
+                              searchable
+                              options={dados ? opcoesSelect(dados.etapas) : []}
+                            />
+                            <SelectMenu
+                              label="Etiqueta"
+                              value={linha.etiqueta_id ?? ""}
+                              onChange={(v) =>
+                                patch(index, {
+                                  etiqueta_id: v,
+                                  etiqueta: dados?.etiquetas.find((e) => e.id === v)?.nome ?? "",
+                                })
+                              }
+                              emptyOption="Sem etiqueta"
+                              placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
+                              disabled={semOpcoes}
+                              options={dados ? opcoesSelect(dados.etiquetas) : []}
+                            />
+                            <SelectMenu
+                              label="Responsável"
+                              value={linha.responsavel_vios ?? ""}
+                              onChange={(v) => patch(index, { responsavel_vios: v })}
+                              emptyOption="Selecione"
+                              placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
+                              disabled={semOpcoes}
+                              searchable
+                              options={(dados?.usuarios ?? []).map((u) => ({
+                                value: u.nome,
+                                label: u.nome,
+                              }))}
+                            />
+                            <DateBrInput
+                              label="Data para conclusão"
+                              value={linha.prazo}
+                              onChange={(prazo) => patch(index, { prazo })}
+                            />
+                          </div>
+                        </section>
+
+                        <section className="space-y-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            3 · Descrição da tarefa
+                          </p>
+                          <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm transition focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+                              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <PencilLine size={13} className="text-brand-600" />
+                                Texto que aparecerá na tarefa do VIOS
+                              </span>
+                              {pessoa && <PessoaChip pessoa={pessoa} size={18} />}
+                            </div>
+                            <textarea
+                              value={linha.text}
+                              onChange={(e) => patch(index, { text: e.target.value })}
+                              rows={4}
+                              placeholder="Descreva o que deve ser feito…"
+                              className="block w-full resize-y border-0 bg-transparent px-3 py-2.5 text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                            />
+                            <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-400">
+                              <span>
+                                {pessoa
+                                  ? "A pessoa citada não entra no texto — defina quem executa em Responsável."
+                                  : "Seja objetivo: o texto vai como está para o VIOS."}
+                              </span>
+                              <span className="flex shrink-0 items-center gap-3">
+                                {linha.text.trim() !== resto.trim() && (
+                                  <button
+                                    type="button"
+                                    onClick={() => patch(index, { text: resto.trim() })}
+                                    className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+                                  >
+                                    <RotateCcw size={11} />
+                                    Restaurar original
+                                  </button>
+                                )}
+                                <span className="tabular-nums">{linha.text.length} caracteres</span>
+                              </span>
+                            </div>
+                          </div>
+                        </section>
                       </div>
-
-                      {op?.status === "carregando" && (
-                        <p className="text-xs text-slate-500">
-                          {op.noVios
-                            ? "Pasta nova para o SAMA: o robô está consultando o VIOS (até ~30 s, só na primeira vez)…"
-                            : "Carregando opções do VIOS…"}
-                        </p>
-                      )}
-                      {op?.status === "erro" && (
-                        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
-                          {op.erro}
-                        </p>
-                      )}
-                      {dados && (
-                        <p className="text-xs text-slate-500">
-                          <Badge tone="blue">{dados.titulo || "Pasta do VIOS"}</Badge>{" "}
-                          {dados.etapas.length} tipos de tarefa disponíveis nesta pasta.
-                        </p>
-                      )}
-
-                      {/* 2) Opções reais do VIOS */}
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <SelectMenu
-                          label="Tipo de tarefa (VIOS)"
-                          value={linha.tarefa_id ?? ""}
-                          onChange={(v) =>
-                            patch(index, {
-                              tarefa_id: v,
-                              tarefa: dados?.etapas.find((e) => e.id === v)?.nome ?? "",
-                            })
-                          }
-                          emptyOption="Selecione"
-                          placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
-                          disabled={semOpcoes}
-                          searchable
-                          options={dados ? opcoesSelect(dados.etapas) : []}
-                        />
-                        <SelectMenu
-                          label="Etiqueta (VIOS)"
-                          value={linha.etiqueta_id ?? ""}
-                          onChange={(v) =>
-                            patch(index, {
-                              etiqueta_id: v,
-                              etiqueta: dados?.etiquetas.find((e) => e.id === v)?.nome ?? "",
-                            })
-                          }
-                          emptyOption="Sem etiqueta"
-                          placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
-                          disabled={semOpcoes}
-                          options={dados ? opcoesSelect(dados.etiquetas) : []}
-                        />
-                        <SelectMenu
-                          label="Responsável (VIOS)"
-                          value={linha.responsavel_vios ?? ""}
-                          onChange={(v) => patch(index, { responsavel_vios: v })}
-                          emptyOption="Selecione"
-                          placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
-                          disabled={semOpcoes}
-                          searchable
-                          options={(dados?.usuarios ?? []).map((u) => ({
-                            value: u.nome,
-                            label: u.nome,
-                          }))}
-                        />
-                        <DateBrInput
-                          label="Data para conclusão"
-                          value={linha.prazo}
-                          onChange={(prazo) => patch(index, { prazo })}
-                        />
-                      </div>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
 
         {erro && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            {erro}
+          </div>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-slate-400">{selecionadas.length} selecionado(s)</p>
+        <div className="sticky bottom-0 -mx-5 -mb-4 flex items-center justify-between gap-2 border-t border-slate-100 bg-white/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-5 sm:px-6">
+          <p className="text-xs text-slate-500">
+            {selecionadas.length === 0
+              ? "Nenhum passo selecionado"
+              : `${selecionadas.length} passo(s) selecionado(s)`}
+          </p>
           <div className="flex gap-2">
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancelar
@@ -448,7 +683,12 @@ export function AgendarViosModal({
               onClick={enviar}
               disabled={pending || selecionadas.length === 0}
             >
-              {pending ? "Enviando…" : `Enviar ${selecionadas.length || ""} ao VIOS`.trim()}
+              {pending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} />
+              )}
+              {pending ? "Enviando…" : `Enviar ${selecionadas.length || ""} ao VIOS`.replace(/\s+/g, " ")}
             </Button>
           </div>
         </div>

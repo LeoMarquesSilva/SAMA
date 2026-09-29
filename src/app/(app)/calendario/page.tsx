@@ -1,10 +1,10 @@
 import { Suspense } from "react";
+import { requireModulo } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   avatarDaPessoa,
   ensureColaboradoresSync,
   mapaAvatarColaboradorPorEmail,
-  urlDeFotoUtil,
 } from "@/lib/colaboradores";
 import { OutlookClient } from "@/components/outlook/OutlookClient";
 import { CalendarioAutoSync } from "@/components/calendario/CalendarioAutoSync";
@@ -42,6 +42,7 @@ export default async function CalendarioPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requireModulo("calendario");
   const sp = await searchParams;
   const filtroInicial = parseCalendarioFiltroInicial(sp);
 
@@ -190,7 +191,7 @@ export default async function CalendarioPage({
           pessoas={pessoas ?? []}
           colaboradores={(colaboradores ?? []).map((c) => ({
             ...c,
-            avatar_url: urlDeFotoUtil(c.avatar_url),
+            avatar_url: avatarDaPessoa(c.email, c.avatar_url, avatares),
           }))}
           verAgendaTodos={verAgendaTodos}
           verFiltroPessoas={pessoas.length > 1}

@@ -1,9 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  ExternalLink,
+  ListChecks,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/ui/Avatar";
+import { Checkbox } from "@/components/ui/Checkbox";
+import {
+  colaboradorPorNome,
+  ResponsavelLinha,
+  separarPessoaDoPasso,
+} from "@/components/reunioes/PassoResponsavel";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import {
   parseChecklist,
@@ -28,9 +44,50 @@ function tomStatusTarefa(status: string): "green" | "amber" | "red" | "gray" {
   return "gray";
 }
 
+function DetalheVios({
+  a,
+  colaboradores,
+}: {
+  a: AgendamentoViosStatus;
+  colaboradores: ColaboradorOpt[];
+}) {
+  const colab = colaboradorPorNome(a.responsavel, colaboradores);
+  return (
+    <>
+      {a.tarefa && (
+        <span className="inline-flex items-center gap-1 text-slate-600">
+          <ListChecks size={13} className="text-slate-400" />
+          {a.tarefa}
+        </span>
+      )}
+      {a.responsavel && (
+        <span className="inline-flex items-center gap-1.5 text-slate-600">
+          <Avatar
+            nome={colab?.nome ?? a.responsavel}
+            src={colab?.avatar_url}
+            size={18}
+          />
+          {colab?.nome ?? a.responsavel}
+        </span>
+      )}
+      {a.data && (
+        <span className="inline-flex items-center gap-1 tabular-nums text-slate-600">
+          <CalendarDays size={13} className="text-slate-400" />
+          {a.data}
+        </span>
+      )}
+    </>
+  );
+}
+
 /** Situação no VIOS de um item de "Próximos passos" (último envio). */
-function StatusVios({ a }: { a: AgendamentoViosStatus }) {
-  const detalhe = [a.tarefa, a.responsavel, a.data].filter(Boolean).join(" · ");
+function StatusVios({
+  a,
+  colaboradores,
+}: {
+  a: AgendamentoViosStatus;
+  colaboradores: ColaboradorOpt[];
+}) {
   const statusTarefa = a.ci_vios ? (
     a.status_tarefa ? (
       <Badge tone={tomStatusTarefa(a.status_tarefa)}>{a.status_tarefa}</Badge>
@@ -40,43 +97,59 @@ function StatusVios({ a }: { a: AgendamentoViosStatus }) {
   ) : null;
   if (a.status === "concluido") {
     return (
-      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
         {a.ci_vios ? (
           <a
             href={`${VIOS_TAREFA_URL}${a.ci_vios}`}
             target="_blank"
             rel="noopener noreferrer"
-            title="Abrir a tarefa no VIOS"
+            title="Abrir a tarefa no VIOS (nova aba)"
+            className="group inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-2 pr-2.5 font-medium text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
           >
-            <Badge tone="green">Agendado no VIOS · CI {a.ci_vios}</Badge>
+            <CheckCircle2 size={14} className="text-emerald-600" />
+            Agendado no VIOS
+            <span className="h-3 w-px bg-emerald-200" aria-hidden />
+            <span className="font-mono tabular-nums">CI {a.ci_vios}</span>
+            <ExternalLink
+              size={12}
+              className="text-emerald-500 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-700"
+            />
           </a>
         ) : (
-          <Badge tone="green">Agendado no VIOS</Badge>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-2 pr-2.5 font-medium text-emerald-700">
+            <CheckCircle2 size={14} className="text-emerald-600" />
+            Agendado no VIOS
+          </span>
         )}
         {statusTarefa}
-        <span>{detalhe}</span>
+        <DetalheVios a={a} colaboradores={colaboradores} />
         {!a.ci_vios && (
-          <span className="text-amber-700">CI não identificado — conferir na pasta {a.pasta}</span>
+          <span className="inline-flex items-center gap-1 text-amber-700">
+            <AlertTriangle size={13} />
+            CI não identificado — conferir na pasta {a.pasta}
+          </span>
         )}
       </div>
     );
   }
   if (a.status === "erro") {
     return (
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <Badge tone="red">Erro no VIOS</Badge>
-        <span className="text-red-700" title={a.erro ?? undefined}>
+      <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">
+        <AlertTriangle size={14} className="mt-px shrink-0" />
+        <span title={a.erro ?? undefined}>
+          <span className="font-semibold">Erro no VIOS: </span>
           {(a.erro ?? "Falha no agendamento.").slice(0, 180)}
         </span>
       </div>
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-      <Badge tone="amber">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 py-1 pl-2 pr-2.5 font-medium text-amber-700">
+        <Loader2 size={13} className="animate-spin" />
         {a.status === "processando" ? "Agendando no VIOS…" : "Na fila do VIOS…"}
-      </Badge>
-      <span>{detalhe}</span>
+      </span>
+      <DetalheVios a={a} colaboradores={colaboradores} />
     </div>
   );
 }
@@ -152,7 +225,8 @@ export function ProximosPassosChecklist({
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-slate-800">
+        <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <ListChecks size={16} className="text-brand-600" />
           {label}
           {required && <span className="text-red-500"> *</span>}
         </span>
@@ -169,6 +243,7 @@ export function ProximosPassosChecklist({
                 (a) => chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(item.text)
               )
             : undefined;
+          const citado = separarPessoaDoPasso(item.text, colaboradores);
           return (
           <li
             key={index}
@@ -178,23 +253,29 @@ export function ProximosPassosChecklist({
                 : "grid items-start gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[auto_1fr] md:grid-cols-[auto_1fr_minmax(10rem,12rem)_8.5rem_auto]"
             }
           >
-            <input
-              type="checkbox"
+            <Checkbox
               checked={item.done}
-              onChange={(e) => patchItem(index, { done: e.target.checked })}
-              className="mt-2.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              onChange={(done) => patchItem(index, { done })}
+              className="mt-2"
               aria-label={`Marcar ação ${index + 1}`}
             />
             <div className={simples ? "min-w-0 flex-1 space-y-2" : "min-w-0"}>
               <input
                 type="text"
-                value={item.text}
-                onChange={(e) => patchItem(index, { text: e.target.value })}
+                value={citado.pessoa ? citado.resto : item.text}
+                onChange={(e) =>
+                  patchItem(index, {
+                    text: citado.pessoa
+                      ? `${citado.prefixo}${e.target.value}`
+                      : e.target.value,
+                  })
+                }
                 placeholder="Descreva a ação..."
                 className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
+              {citado.pessoa && <ResponsavelLinha pessoa={citado.pessoa} className="pl-1" />}
               {agendamento ? (
-                <StatusVios a={agendamento} />
+                <StatusVios a={agendamento} colaboradores={colaboradores} />
               ) : (
                 rotuloEnvio && <Badge tone="green">{rotuloEnvio}</Badge>
               )}
