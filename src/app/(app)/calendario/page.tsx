@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requireModulo } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { after } from "next/server";
 import {
   avatarDaPessoa,
   ensureColaboradoresSync,
@@ -29,7 +30,6 @@ import { fellowConfigurado } from "@/lib/fellow";
 import type {
   AtividadeComPessoa,
   OutlookEventoComPessoa,
-  Pessoa,
   ReuniaoComRelacoes,
 } from "@/types/database";
 
@@ -42,27 +42,12 @@ export default async function CalendarioPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  await requireModulo("calendario");
+  const pessoa = await requireModulo("calendario");
+  after(() => ensureColaboradoresSync());
   const sp = await searchParams;
   const filtroInicial = parseCalendarioFiltroInicial(sp);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // Uma única leitura de `usuarios` alimenta perfil e flags de onboarding —
-  // evita repetir `auth.getUser()` (round-trip à Auth) e a query de perfil.
-  const [{ data: perfilRow }] = await Promise.all([
-    user
-      ? supabase
-          .from("usuarios")
-          .select("*")
-          .eq("auth_user_id", user.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-    ensureColaboradoresSync(),
-  ]);
-  const pessoa = (perfilRow as Pessoa) ?? null;
   const onboarding = {
     calendarioConcluido: pessoa?.onboarding_calendario_concluido ?? true,
     dashboardConcluido: pessoa?.onboarding_dashboard_concluido ?? true,

@@ -112,18 +112,32 @@ export async function countPassosPendentes(
   const pessoaId = opts.pessoaId;
   if (!pessoaId) return 0;
 
-  const [{ data: reunioesRaw }, { data: outlookRaw }] = await Promise.all([
-    supabase
-      .from("reunioes")
-      .select("id, criado_por_id, proximos_passos")
-      .not("proximos_passos", "is", null)
-      .neq("proximos_passos", ""),
-    supabase
-      .from("outlook_eventos")
-      .select("reuniao_id, pessoa_id, status")
-      .eq("pessoa_id", pessoaId)
-      .not("reuniao_id", "is", null),
-  ]);
+  const { data: outlookRaw } = await supabase
+    .from("outlook_eventos")
+    .select("reuniao_id, pessoa_id, status")
+    .eq("pessoa_id", pessoaId)
+    .in("status", ["CATEGORIZADO_REUNIAO", "CATEGORIZADO_ATIVIDADE"])
+    .not("reuniao_id", "is", null);
+
+  const idsVinculados = [
+    ...new Set(
+      (outlookRaw ?? [])
+        .map((e) => e.reuniao_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  let reunioesQuery = supabase
+    .from("reunioes")
+    .select("id, criado_por_id, proximos_passos")
+    .not("proximos_passos", "is", null)
+    .neq("proximos_passos", "");
+  reunioesQuery =
+    idsVinculados.length > 0
+      ? reunioesQuery.or(
+          `criado_por_id.eq.${pessoaId},id.in.(${idsVinculados.join(",")})`
+        )
+      : reunioesQuery.eq("criado_por_id", pessoaId);
+  const { data: reunioesRaw } = await reunioesQuery;
 
   const outlook = outlookRaw ?? [];
   let total = 0;

@@ -12,11 +12,9 @@ import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
 import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
 import type { CargoPessoa } from "@/lib/constants";
-import { getModulosAtuais } from "@/lib/currentPessoa";
-import {
-  avatarDaPessoa,
-  mapaAvatarColaboradorPorEmail,
-} from "@/lib/colaboradores";
+import { getModulosAtuais, getPessoaAtual } from "@/lib/currentPessoa";
+import { urlDeFotoUtil } from "@/lib/avatar-url";
+import { variantesEmailEscritorio } from "@/lib/email-escritorio";
 
 export default async function AppLayout({
   children,
@@ -24,53 +22,28 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const pessoa = await getPessoaAtual();
+  if (!pessoa) redirect("/login");
+  if (pessoa.senha_provisoria) redirect("/trocar-senha");
 
-  // Salvaguarda além do middleware.
-  if (!user) redirect("/login");
-
-  const [{ data: pessoa }, { data: pessoaRow }] = await Promise.all([
-    supabase
-      .from("usuarios")
-      .select("nome, email, avatar_url, senha_provisoria")
-      .eq("auth_user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("usuarios")
-      .select("id, is_admin, cargo, departamento")
-      .eq("auth_user_id", user.id)
-      .maybeSingle(),
-  ]);
-
-  if (pessoa?.senha_provisoria) redirect("/trocar-senha");
-
-  const isAdmin = pessoaRow?.is_admin ?? false;
+  const isAdmin = pessoa.is_admin;
   const modulos = await getModulosAtuais();
   const navContext = {
-    cargo: (pessoaRow?.cargo ?? "COLABORADOR") as CargoPessoa,
+    cargo: (pessoa.cargo ?? "COLABORADOR") as CargoPessoa,
     isAdmin,
     modulos,
   };
 
-  const [pendentes, passosPendentes, showAlertasLogin, avatares] = await Promise.all([
-    countEventosPendentes(
-      supabase,
-      agendaPendentesQueryOpts(
-        pessoaRow
-          ? {
-              id: pessoaRow.id,
-              is_admin: pessoaRow.is_admin,
-              cargo: (pessoaRow.cargo ?? "COLABORADOR") as CargoPessoa,
-              departamento: pessoaRow.departamento,
-            }
-          : null
-      )
-    ),
-    countPassosPendentes(supabase, { pessoaId: pessoaRow?.id }),
+  const [pendentes, passosPendentes, showAlertasLogin, { data: fotos }] = await Promise.all([
+    countEventosPendentes(supabase, agendaPendentesQueryOpts(pessoa)),
+    countPassosPendentes(supabase, { pessoaId: pessoa.id }),
     shouldShowAlertasLoginBanner(),
-    mapaAvatarColaboradorPorEmail(supabase),
+    supabase
+      .from("colaboradores")
+      .select("avatar_url")
+      .in("email", variantesEmailEscritorio(pessoa.email))
+      .eq("ativo", true)
+      .limit(1),
   ]);
 
   const badges: Record<string, number> = {};
@@ -101,12 +74,8 @@ export default async function AppLayout({
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header
               nome={pessoa?.nome ?? null}
-              email={user.email ?? "—"}
-              avatarUrl={avatarDaPessoa(
-                pessoa?.email,
-                pessoa?.avatar_url,
-                avatares
-              )}
+              email={pessoa.email}
+              avatarUrl={urlDeFotoUtil(fotos?.[0]?.avatar_url ?? pessoa.avatar_url)}
             />
             <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-6">
               {children}
