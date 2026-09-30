@@ -273,6 +273,16 @@ export function AgendarViosModal({
         );
       }
       if (!l.tarefa?.trim()) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
+      const permitidas = tarefasDaEtiqueta(
+        l.grupoEtiqueta,
+        l.pastaTipo === "Atendimento" ? "Atendimento" : "Processo",
+        op.dados.etapas.map((e) => e.nome)
+      );
+      if (!permitidas.includes(l.tarefa)) {
+        return setErro(
+          `O tipo de tarefa "${l.tarefa}" não existe no VIOS para a pasta do passo ${n}. Escolha outro.`
+        );
+      }
       if (!l.responsavel_vios) return setErro(`Selecione o responsável do passo ${n}.`);
     }
     start(async () => {
@@ -470,6 +480,10 @@ export function AgendarViosModal({
                                         pastaTipo: t,
                                         pasta: t === "Atendimento" ? linha.pasta : "",
                                         processo: t === "Processo" ? linha.processo : "",
+                                        ...(linha.tarefa &&
+                                        tarefasDaEtiqueta(linha.grupoEtiqueta, t).includes(linha.tarefa)
+                                          ? {}
+                                          : { tarefa: "", tarefa_id: "" }),
                                       })
                                     }
                                     className={clsx(
@@ -566,7 +580,11 @@ export function AgendarViosModal({
                               label="Etiqueta"
                               value={linha.grupoEtiqueta}
                               onChange={(v) => {
-                                const tarefas = tarefasDaEtiqueta(v);
+                                const tarefas = tarefasDaEtiqueta(
+                                  v,
+                                  tipoPasta,
+                                  dados?.etapas.map((e) => e.nome)
+                                );
                                 patch(index, {
                                   grupoEtiqueta: v,
                                   ...(linha.tarefa && tarefas.includes(linha.tarefa)
@@ -586,7 +604,11 @@ export function AgendarViosModal({
                               emptyOption="Selecione"
                               placeholder="Selecione"
                               searchable
-                              options={tarefasDaEtiqueta(linha.grupoEtiqueta).map((nome) => ({
+                              options={tarefasDaEtiqueta(
+                                linha.grupoEtiqueta,
+                                tipoPasta,
+                                dados?.etapas.map((e) => e.nome)
+                              ).map((nome) => ({
                                 value: nome,
                                 label: nome,
                               }))}
