@@ -35,7 +35,7 @@ import {
   updateReuniao,
 } from "@/lib/reunioes/actions";
 import { buscarReuniaoPorOutlookEventId, reverterCategorizacaoReuniao } from "@/app/(app)/calendario/actions";
-import { resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
+import { listarEmailsExternosDoGrupo, resolverClienteVios, resolverGrupoGestaoEquipe, sugerirClientePorTituloReuniao } from "@/app/(app)/clientes/actions";
 import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
@@ -183,6 +183,7 @@ export function ReuniaoForm({
   const src = reuniao ?? prefill ?? null;
   const origemSama = src?.origem === "SAMA" || modoViaB;
   /** Via A: horários vêm do Outlook. Via B: editáveis no SAMA. */
+  const agendarNovo = modoViaB && !editing;
   const horarioSomenteLeitura = Boolean(
     !modoViaB &&
       !origemSama &&
@@ -251,6 +252,9 @@ export function ReuniaoForm({
   const [emailsCliente, setEmailsCliente] = useState<string[]>(
     src?.emails_cliente ?? []
   );
+  const [emailsGrupoBusy, setEmailsGrupoBusy] = useState(false);
+  const emailsAutoRef = useRef<string[]>([]);
+  const emailsGrupoPedidoRef = useRef("");
   const [viosMsg, setViosMsg] = useState<string>();
   const [agendamentosVios, setAgendamentosVios] = useState<AgendamentoViosStatus[]>([]);
   const [pessoasAgenda, setPessoasAgenda] = useState<{ nome: string; email: string }[]>([]);
@@ -346,6 +350,8 @@ export function ReuniaoForm({
       setPauta(parsePauta(src?.pauta));
       setSala(src?.sala ?? (modoViaB ? SALA_SOMENTE_ONLINE : ""));
       setEmailsCliente(src?.emails_cliente ?? []);
+      emailsAutoRef.current = [];
+      emailsGrupoPedidoRef.current = "";
       setClienteIdAtual(src?.cliente_id ?? src?.cliente?.ci ?? "");
       const padrao = proximoSlotLocal();
       setSlotInicio(
@@ -396,12 +402,41 @@ export function ReuniaoForm({
     setClienteSugerido(false);
   }, [open, prefillKey, reuniao?.id]);
 
+  function aplicarEmailsDoGrupo(grupo: string | null | undefined, lista: string[]) {
+    const autoAntes = new Set(emailsAutoRef.current.map((e) => e.toLowerCase()));
+    emailsAutoRef.current = lista;
+    setEmailsCliente((atual) => {
+      const manuais = atual.filter((e) => !autoAntes.has(e.toLowerCase()));
+      const vistos = new Set(lista.map((e) => e.toLowerCase()));
+      const extras = manuais.filter((e) => !vistos.has(e.toLowerCase()));
+      return [...lista, ...extras];
+    });
+  }
+
+  function preencherEmailsDoGrupo(grupo: string | null | undefined) {
+    if (!agendarNovo) return;
+    const chave = grupo?.trim() ?? "";
+    emailsGrupoPedidoRef.current = chave;
+    if (!chave) {
+      aplicarEmailsDoGrupo(null, []);
+      setEmailsGrupoBusy(false);
+      return;
+    }
+    setEmailsGrupoBusy(true);
+    void listarEmailsExternosDoGrupo(chave).then((lista) => {
+      if (emailsGrupoPedidoRef.current !== chave) return;
+      aplicarEmailsDoGrupo(chave, lista);
+      setEmailsGrupoBusy(false);
+    });
+  }
+
   function aplicarClienteSugerido(
     c: Awaited<ReturnType<typeof sugerirClientePorTituloReuniao>>
   ) {
     if (!c || clienteManualRef.current) return;
     setClientePrefill(clienteParaPrefill({ ...c, kind: "grupo" }));
     setClienteSugerido(true);
+    preencherEmailsDoGrupo(c.grupo_cliente);
   }
 
   function sugerirClienteDoTitulo(titulo: string) {
@@ -438,6 +473,7 @@ export function ReuniaoForm({
       if (!c || clienteManualRef.current) return;
       setClientePrefill(clienteParaPrefill(c));
       setClienteSugerido(false);
+      preencherEmailsDoGrupo(c.grupo_cliente);
     });
   }
 
@@ -814,6 +850,47 @@ export function ReuniaoForm({
     });
   }
 
+  const mostrarAta = status === "REALIZADA" || tourDestaque === "agenda-ata";
+  const secaoAta = mostrarAta ? (
+    <Secao icon={FileText} titulo="Ata" destaque="agenda-ata">
+      {fellowAtivo && fellowMsg && (
+        <p
+          className={clsx(
+            "rounded-lg px-3 py-2 text-xs leading-relaxed",
+            fellowResumoStatus === "error"
+              ? "bg-red-50 text-red-800"
+              : fellowResumoStatus === "not_found"
+                ? "bg-orange-50 text-orange-900"
+                : "bg-brand-50 text-brand-800"
+          )}
+        >
+          {fellowMsg}
+        </p>
+      )}
+      <MarkdownTextarea
+        key={reuniao?.id ?? prefillKey}
+        id={fieldId("resultado")}
+        name="resultado"
+        label="Ata"
+        labelAdornment={
+          fellowAtivo ? (
+            <FellowImportLabelActions
+              status={fellowResumoStatus}
+              detail={fellowResumoDetail}
+              motivo={fellowImportMotivo}
+              onRefresh={handleImportarFellow}
+              busy={fellowBusy}
+              showRefresh
+            />
+          ) : undefined
+        }
+        value={resultadoTexto}
+        onChange={setResultadoTexto}
+        error={fieldErrors.resultado}
+      />
+    </Secao>
+  ) : null;
+
   return (
     <>
     <Modal
@@ -861,7 +938,20 @@ export function ReuniaoForm({
         )}
         aria-hidden={fellowBusy}
       >
-        {horarioSomenteLeitura ? (
+        {agendarNovo ? (
+          <Secao icon={CalendarClock} titulo="Reunião">
+            <Input
+              id={fieldId("titulo")}
+              name="titulo"
+              label="Título"
+              ref={tituloRef}
+              defaultValue={src?.titulo}
+              onChange={handleTituloChange}
+              error={fieldErrors.titulo}
+              required
+            />
+          </Secao>
+        ) : horarioSomenteLeitura ? (
           <ReuniaoOutlookCabecalho
             titulo={src?.titulo ?? ""}
             dataHoraInicio={src?.data_hora_inicio}
@@ -921,7 +1011,10 @@ export function ReuniaoForm({
                 clienteManualRef.current = true;
                 setClienteSugerido(false);
               }}
-              onClienteChange={(ci) => setClienteIdAtual(ci ?? "")}
+              onClienteChange={(ci, info) => {
+                setClienteIdAtual(ci ?? "");
+                preencherEmailsDoGrupo(info?.grupo_cliente);
+              }}
               error={fieldErrors.cliente_id}
             />
             {clienteSugerido && (
@@ -1013,6 +1106,49 @@ export function ReuniaoForm({
         </div>
         </Secao>
 
+        {agendarNovo && (
+          <>
+            <Secao icon={Users} titulo="Pessoas" destaque="agenda-participantes">
+              <ParticipantesPicker
+                key={prefillKey || reuniao?.id || "novo"}
+                colaboradores={colaboradores}
+                usuarios={usuarios}
+                defaultSelected={participantesIniciais}
+                defaultExternos={externosIniciais}
+                error={fieldErrors.participantes}
+                onPessoasChange={avisarPessoasAgenda}
+              />
+              <EmailChips
+                label="E-mails do cliente"
+                value={emailsCliente}
+                onChange={setEmailsCliente}
+                placeholder="Digite o e-mail e pressione Enter"
+                error={fieldErrors.emails_cliente}
+              />
+              {emailsGrupoBusy && (
+                <p className="text-xs text-slate-500">
+                  Buscando e-mails de quem já participou de reunião deste grupo…
+                </p>
+              )}
+            </Secao>
+            <OutlookDateTimeRange
+              inicio={slotInicio}
+              fim={slotFim}
+              onChange={({ inicio, fim }) => {
+                setSlotInicio(inicio);
+                setSlotFim(fim);
+              }}
+              errorInicio={fieldErrors.data_hora_inicio}
+              errorFim={fieldErrors.data_hora_fim}
+              errorDuracao={fieldErrors.duracao_minutos}
+              sala={sala}
+              onSalaChange={setSala}
+              pessoas={pessoasAgenda}
+            />
+          </>
+        )}
+
+        {!agendarNovo && (
         <Secao icon={Users} titulo="Participantes" destaque="agenda-participantes">
           <ParticipantesPicker
             key={prefillKey || reuniao?.id || "novo"}
@@ -1033,6 +1169,7 @@ export function ReuniaoForm({
             />
           )}
         </Secao>
+        )}
 
         {!editing && (
           <>
@@ -1052,6 +1189,7 @@ export function ReuniaoForm({
             <PautaFields value={pauta} onChange={setPauta} />
           </>
         )}
+        {editing && secaoAta}
         <ProximosPassosChecklist
           value={proximosPassos}
           onChange={setProximosPassos}
@@ -1083,45 +1221,7 @@ export function ReuniaoForm({
             </>
           }
         />
-        {(status === "REALIZADA" || tourDestaque === "agenda-ata") && (
-          <Secao icon={FileText} titulo="Ata" destaque="agenda-ata">
-            {fellowAtivo && fellowMsg && (
-              <p
-                className={clsx(
-                  "rounded-lg px-3 py-2 text-xs leading-relaxed",
-                  fellowResumoStatus === "error"
-                    ? "bg-red-50 text-red-800"
-                    : fellowResumoStatus === "not_found"
-                      ? "bg-orange-50 text-orange-900"
-                      : "bg-brand-50 text-brand-800"
-                )}
-              >
-                {fellowMsg}
-              </p>
-            )}
-            <MarkdownTextarea
-              key={reuniao?.id ?? prefillKey}
-              id={fieldId("resultado")}
-              name="resultado"
-              label="Ata"
-              labelAdornment={
-                fellowAtivo ? (
-                  <FellowImportLabelActions
-                    status={fellowResumoStatus}
-                    detail={fellowResumoDetail}
-                    motivo={fellowImportMotivo}
-                    onRefresh={handleImportarFellow}
-                    busy={fellowBusy}
-                    showRefresh
-                  />
-                ) : undefined
-              }
-              value={resultadoTexto}
-              onChange={setResultadoTexto}
-              error={fieldErrors.resultado}
-            />
-          </Secao>
-        )}
+        {!editing && secaoAta}
 
         {error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">

@@ -15,6 +15,16 @@ import { formatDateTime } from "@/lib/format";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
 import { OnboardingHost } from "@/components/onboarding/OnboardingHost";
+import {
+  ResponsaveisSugeridos,
+  separarPessoaDoPasso,
+} from "@/components/reunioes/PassoResponsavel";
+import { StatusVios } from "@/components/reunioes/ProximosPassosChecklist";
+import type { AgendamentoViosStatus } from "@/lib/vios-status-actions";
+
+function chaveTexto(t: string | null | undefined): string {
+  return String(t ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
 
 type FiltroPasso = "PENDENTE" | "REALIZADA" | "TODOS";
 
@@ -24,12 +34,14 @@ export function ProximosPassosClient({
   colaboradores,
   fellowAtivo,
   onboardingEnabled = false,
+  agendamentosPorReuniao = {},
 }: {
   grupos: PassoReuniaoGrupo[];
   totais: { pendentes: number; realizados: number };
   colaboradores: ColaboradorOpt[];
   fellowAtivo: boolean;
   onboardingEnabled?: boolean;
+  agendamentosPorReuniao?: Record<string, AgendamentoViosStatus[]>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -61,9 +73,16 @@ export function ProximosPassosClient({
             .join(" ")
             .toLowerCase();
 
-          itens = itens.filter(
-            (i) => i.text.toLowerCase().includes(q) || hayGrupo.includes(q)
-          );
+          itens = itens.filter((i) => {
+            const citado = separarPessoaDoPasso(i.text, colaboradores);
+            const nomes = citado.pessoas.map((p) => p.nome).join(" ");
+            return (
+              i.text.toLowerCase().includes(q) ||
+              citado.resto.toLowerCase().includes(q) ||
+              nomes.toLowerCase().includes(q) ||
+              hayGrupo.includes(q)
+            );
+          });
         }
 
         if (itens.length === 0) return null;
@@ -76,7 +95,7 @@ export function ProximosPassosClient({
         };
       })
       .filter((g): g is PassoReuniaoGrupo => g !== null);
-  }, [grupos, busca, fStatus]);
+  }, [grupos, busca, fStatus, colaboradores]);
 
   const counts = useMemo(
     () => ({
@@ -223,68 +242,84 @@ export function ProximosPassosClient({
                 {grupo.itens.map((item) => {
                   const key = `${item.reuniaoId}:${item.itemIndex}`;
                   const busy = pending && togglingKey === key;
+                  const citado = separarPessoaDoPasso(item.text, colaboradores);
+                  const texto = citado.pessoas.length ? citado.resto : item.text;
+                  const agendamento = (agendamentosPorReuniao[item.reuniaoId] ?? []).find(
+                    (a) => {
+                      const chave = chaveTexto(a.passo_texto ?? a.observacao);
+                      return (
+                        chave === chaveTexto(item.text) || chave === chaveTexto(texto)
+                      );
+                    }
+                  );
 
                   return (
-                    <li key={key}>
-                      <label
-                        className={clsx(
-                          "flex cursor-pointer items-start gap-3 px-4 py-3 transition hover:bg-slate-50",
-                          busy && "opacity-60"
+                    <li
+                      key={key}
+                      className={clsx(
+                        "flex items-start gap-3 px-4 py-3 transition hover:bg-slate-50",
+                        busy && "opacity-60"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.done}
+                        disabled={busy}
+                        aria-label={texto}
+                        onChange={(e) =>
+                          togglePasso(
+                            item.reuniaoId,
+                            item.itemIndex,
+                            e.target.checked
+                          )
+                        }
+                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <p
+                          className={clsx(
+                            "text-sm leading-snug text-slate-800",
+                            item.done && "text-slate-400 line-through"
+                          )}
+                        >
+                          {texto}
+                        </p>
+                        {citado.pessoas.length > 0 && (
+                          <ResponsaveisSugeridos pessoas={citado.pessoas} />
                         )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={item.done}
-                          disabled={busy}
-                          onChange={(e) =>
-                            togglePasso(
-                              item.reuniaoId,
-                              item.itemIndex,
-                              e.target.checked
-                            )
-                          }
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span
-                            className={clsx(
-                              "text-sm leading-snug text-slate-800",
-                              item.done && "text-slate-400 line-through"
+                        {agendamento && (
+                          <StatusVios a={agendamento} colaboradores={colaboradores} />
+                        )}
+                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                          <span className="inline-flex items-center gap-1">
+                            {item.done ? (
+                              <>
+                                <CheckCircle2 size={12} className="text-emerald-500" />
+                                Realizada
+                              </>
+                            ) : (
+                              <>
+                                <Circle size={12} className="text-amber-500" />
+                                Pendente
+                              </>
                             )}
-                          >
-                            {item.text}
                           </span>
-                          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                            <span className="inline-flex items-center gap-1">
-                              {item.done ? (
-                                <>
-                                  <CheckCircle2 size={12} className="text-emerald-500" />
-                                  Realizada
-                                </>
-                              ) : (
-                                <>
-                                  <Circle size={12} className="text-amber-500" />
-                                  Pendente
-                                </>
-                              )}
+                          {!citado.pessoas.length && item.colaborador_id && (
+                            <span>
+                              {colaboradores.find((c) => c.id === item.colaborador_id)
+                                ?.nome ?? "Responsável BP"}
                             </span>
-                            {item.colaborador_id && (
-                              <span>
-                                {colaboradores.find((c) => c.id === item.colaborador_id)
-                                  ?.nome ?? "Responsável BP"}
-                              </span>
-                            )}
-                            {item.prazo && (
-                              <span>
-                                Prazo{" "}
-                                {item.prazo.includes("-")
-                                  ? item.prazo.split("-").reverse().join("/")
-                                  : item.prazo}
-                              </span>
-                            )}
-                          </span>
+                          )}
+                          {item.prazo && (
+                            <span>
+                              Prazo{" "}
+                              {item.prazo.includes("-")
+                                ? item.prazo.split("-").reverse().join("/")
+                                : item.prazo}
+                            </span>
+                          )}
                         </span>
-                      </label>
+                      </div>
                     </li>
                   );
                 })}

@@ -14,14 +14,17 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { VIOS_PASTA_TIPOS, type ViosPassoEnvio } from "@/lib/vios-agendamento";
 import {
+  ETIQUETAS_VISUAIS,
+  tarefasDaEtiqueta,
+} from "@/lib/vios-depara-etiqueta";
+import {
   buscarOpcoesVios,
   usuarioViosDoColaborador,
   type OpcaoVios,
 } from "@/lib/vios-opcoes";
 import { resolverOpcoesVios } from "@/lib/vios-status-actions";
 import {
-  PessoaChip,
-  ResponsavelLinha,
+  ResponsaveisSugeridos,
   separarPessoaDoPasso,
 } from "@/components/reunioes/PassoResponsavel";
 import {
@@ -44,6 +47,10 @@ type Linha = ViosPassoEnvio & {
   selecionado: boolean;
   enviadoVios?: boolean;
   enviadoViosEm?: string | null;
+  /** Nome que o Fellow indicou, para pré-selecionar o responsável do VIOS. */
+  responsavelSugerido?: string;
+  /** Filtro visual da lista de tarefas. Não vai para o RPA. */
+  grupoEtiqueta: string;
 };
 
 type DadosOpcoes = {
@@ -60,6 +67,16 @@ type EstadoOpcoes =
   | { status: "erro"; erro: string };
 
 const ETIQUETA_PADRAO = "PROVIDÊNCIA";
+
+function normalizarNome(s: string): string {
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().trim();
+}
+
+function idPorNome(opcoes: OpcaoVios[] | undefined, nome: string): string {
+  if (!opcoes || !nome.trim()) return "";
+  const alvo = normalizarNome(nome);
+  return opcoes.find((o) => normalizarNome(o.nome) === alvo)?.id ?? "";
+}
 
 function numeroDaLinha(l: Linha): string {
   return ((l.pastaTipo === "Atendimento" ? l.pasta : l.processo) ?? "").trim();
@@ -102,16 +119,6 @@ function chave(tipo: string | undefined, numero: string): string {
   return `${tipo ?? "Processo"}|${numero}`;
 }
 
-/** Opções de select com o id quando o VIOS tem nomes repetidos. */
-function opcoesSelect(lista: OpcaoVios[]) {
-  const conta = new Map<string, number>();
-  for (const o of lista) conta.set(o.nome, (conta.get(o.nome) ?? 0) + 1);
-  return lista.map((o) => ({
-    value: o.id,
-    label: (conta.get(o.nome) ?? 0) > 1 ? `${o.nome} (id ${o.id})` : o.nome,
-  }));
-}
-
 export function AgendarViosModal({
   open,
   onClose,
@@ -132,6 +139,7 @@ export function AgendarViosModal({
       .filter((i) => i.text.trim())
       .map((i) => {
         const citado = separarPessoaDoPasso(i.text.trim(), colaboradores);
+        const sugerido = citado.pessoa?.nome ?? "";
         return {
         selecionado: false,
         text: citado.resto.trim(),
@@ -144,7 +152,9 @@ export function AgendarViosModal({
         tarefa_id: "",
         etiqueta_id: "",
         etiqueta: "",
-        responsavel_vios: "",
+        grupoEtiqueta: "PROVIDENCIA",
+        responsavelSugerido: sugerido,
+        responsavel_vios: sugerido,
         pastaTipo: "Processo",
         pasta: "",
         processo: "",
@@ -173,24 +183,17 @@ export function AgendarViosModal({
     );
   }
 
-  /** Preenche padrões (etiqueta PROVIDÊNCIA e responsável do SAMA) quando as opções chegam. */
+  /** Preenche o responsável do SAMA quando os usuários da pasta chegam. */
   function aplicarPadroes(dados: DadosOpcoes, k: string) {
     setLinhas((atual) =>
       atual.map((l) => {
         if (chave(l.pastaTipo, numeroDaLinha(l)) !== k) return l;
         const next: Linha = { ...l };
-        if (!next.etiqueta_id || !dados.etiquetas.some((e) => e.id === next.etiqueta_id)) {
-          const et = dados.etiquetas.find((e) => e.nome.toUpperCase() === ETIQUETA_PADRAO);
-          next.etiqueta_id = et?.id ?? "";
-          next.etiqueta = et?.nome ?? "";
-        }
-        if (next.tarefa_id && !dados.etapas.some((e) => e.id === next.tarefa_id)) {
-          next.tarefa_id = "";
-          next.tarefa = "";
-        }
         if (!next.responsavel_vios || !dados.usuarios.some((u) => u.nome === next.responsavel_vios)) {
           const colab = colaboradores.find((c) => c.id === next.colaborador_id);
-          next.responsavel_vios = usuarioViosDoColaborador(colab?.nome, dados.usuarios)?.nome ?? "";
+          const nome = colab?.nome || next.responsavelSugerido;
+          next.responsavel_vios =
+            usuarioViosDoColaborador(nome, dados.usuarios)?.nome ?? "";
         }
         return next;
       })
@@ -266,29 +269,33 @@ export function AgendarViosModal({
         return setErro(
           op?.status === "erro"
             ? `Pasta do passo ${n}: ${op.erro}`
-            : `Aguarde carregar as opções do VIOS para a pasta do passo ${n}.`
+            : `Aguarde carregar o responsável da pasta do passo ${n}.`
         );
       }
-      if (!l.tarefa_id) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
+      if (!l.tarefa?.trim()) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
       if (!l.responsavel_vios) return setErro(`Selecione o responsável do passo ${n}.`);
     }
     start(async () => {
       const r = await onEnviar(
-        selecionadas.map((l) => ({
+        selecionadas.map((l) => {
+          const dados = opcoes[chave(l.pastaTipo, numeroDaLinha(l))];
+          const catalogo = dados?.status === "ok" ? dados.dados : undefined;
+          return {
           text: l.text,
           texto_checklist: l.texto_checklist,
           colaborador_id: l.colaborador_id,
           prazo: l.prazo,
-          tipo: l.etiqueta || "Providências",
+          tipo: ETIQUETA_PADRAO,
           tarefa: l.tarefa,
-          tarefa_id: l.tarefa_id,
-          etiqueta_id: l.etiqueta_id,
-          etiqueta: l.etiqueta,
+          tarefa_id: idPorNome(catalogo?.etapas, l.tarefa ?? ""),
+          etiqueta_id: idPorNome(catalogo?.etiquetas, ETIQUETA_PADRAO),
+          etiqueta: ETIQUETA_PADRAO,
           responsavel_vios: l.responsavel_vios,
           pastaTipo: l.pastaTipo,
           pasta: l.pasta,
           processo: l.processo,
-        }))
+          };
+        })
       );
       if (!r.ok) {
         setErro(r.error ?? "Falha ao agendar no VIOS.");
@@ -370,10 +377,11 @@ export function AgendarViosModal({
                 const dados = op?.status === "ok" ? op.dados : undefined;
                 const semOpcoes = !dados;
                 const tipoPasta = linha.pastaTipo ?? "Processo";
-                const { pessoa, resto } = separarPessoaDoPasso(
+                const { pessoas, resto } = separarPessoaDoPasso(
                   linha.texto_checklist || linha.text,
                   colaboradores
                 );
+                const pessoa = pessoas[0] ?? null;
                 return (
                   <li
                     key={index}
@@ -419,9 +427,11 @@ export function AgendarViosModal({
                         >
                           {resto}
                         </span>
-                        {(pessoa || rotuloEnvio) && (
+                        {(pessoas.length > 0 || rotuloEnvio) && (
                           <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                            {pessoa && <ResponsavelLinha pessoa={pessoa} />}
+                            {pessoas.length > 0 && (
+                              <ResponsaveisSugeridos pessoas={pessoas} />
+                            )}
                             {rotuloEnvio && (
                               <Badge tone="green">
                                 <CheckCircle2 size={12} className="mr-1" />
@@ -460,8 +470,6 @@ export function AgendarViosModal({
                                         pastaTipo: t,
                                         pasta: t === "Atendimento" ? linha.pasta : "",
                                         processo: t === "Processo" ? linha.processo : "",
-                                        tarefa_id: "",
-                                        tarefa: "",
                                       })
                                     }
                                     className={clsx(
@@ -492,8 +500,8 @@ export function AgendarViosModal({
                                     patch(
                                       index,
                                       tipoPasta === "Processo"
-                                        ? { processo: mascaraCnj(e.target.value), tarefa_id: "", tarefa: "" }
-                                        : { pasta: mascaraAtendimento(e.target.value), tarefa_id: "", tarefa: "" }
+                                        ? { processo: mascaraCnj(e.target.value) }
+                                        : { pasta: mascaraAtendimento(e.target.value) }
                                     )
                                   }
                                   inputMode="numeric"
@@ -525,7 +533,7 @@ export function AgendarViosModal({
                                 <p className="text-xs text-slate-500">
                                   {op.noVios
                                     ? "Pasta nova para o SAMA: o robô está consultando o VIOS (até ~30 s, só na primeira vez)…"
-                                    : "Carregando opções do VIOS…"}
+                                    : "Carregando a pasta e o responsável no VIOS…"}
                                 </p>
                               )}
                               {op?.status === "erro" && (
@@ -536,59 +544,52 @@ export function AgendarViosModal({
                                   <span className="font-medium text-emerald-700">
                                     {dados.titulo || "Pasta do VIOS"}
                                   </span>
-                                  <span aria-hidden>·</span>
-                                  {dados.etapas.length} tipos de tarefa disponíveis
                                 </p>
                               )}
                               {!op && (
                                 <p className="text-xs text-slate-400">
                                   {tipoPasta === "Processo" && numero
-                                    ? `${numero.replace(/\D/g, "").length}/20 dígitos — as opções do VIOS carregam ao completar o CNJ.`
-                                    : "As opções do VIOS carregam sozinhas ao digitar o número."}
+                                    ? `${numero.replace(/\D/g, "").length}/20 dígitos — a pasta e o responsável carregam ao completar o CNJ.`
+                                    : "A pasta e o responsável carregam ao digitar o número."}
                                 </p>
                               )}
                             </div>
                           </div>
                         </section>
 
-                        <section
-                          className={clsx(
-                            "space-y-2 transition-opacity",
-                            semOpcoes && "opacity-60"
-                          )}
-                        >
+                        <section className="space-y-2">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             2 · Tarefa no VIOS
                           </p>
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <SelectMenu
-                              label="Tipo de tarefa"
-                              value={linha.tarefa_id ?? ""}
-                              onChange={(v) =>
+                              label="Etiqueta"
+                              value={linha.grupoEtiqueta}
+                              onChange={(v) => {
+                                const tarefas = tarefasDaEtiqueta(v);
                                 patch(index, {
-                                  tarefa_id: v,
-                                  tarefa: dados?.etapas.find((e) => e.id === v)?.nome ?? "",
-                                })
-                              }
-                              emptyOption="Selecione"
-                              placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
-                              disabled={semOpcoes}
-                              searchable
-                              options={dados ? opcoesSelect(dados.etapas) : []}
+                                  grupoEtiqueta: v,
+                                  ...(linha.tarefa && tarefas.includes(linha.tarefa)
+                                    ? {}
+                                    : { tarefa: "", tarefa_id: "" }),
+                                });
+                              }}
+                              options={ETIQUETAS_VISUAIS.map((e) => ({
+                                value: e.value,
+                                label: e.label,
+                              }))}
                             />
                             <SelectMenu
-                              label="Etiqueta"
-                              value={linha.etiqueta_id ?? ""}
-                              onChange={(v) =>
-                                patch(index, {
-                                  etiqueta_id: v,
-                                  etiqueta: dados?.etiquetas.find((e) => e.id === v)?.nome ?? "",
-                                })
-                              }
-                              emptyOption="Sem etiqueta"
-                              placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
-                              disabled={semOpcoes}
-                              options={dados ? opcoesSelect(dados.etiquetas) : []}
+                              label="Tipo de tarefa"
+                              value={linha.tarefa ?? ""}
+                              onChange={(v) => patch(index, { tarefa: v, tarefa_id: "" })}
+                              emptyOption="Selecione"
+                              placeholder="Selecione"
+                              searchable
+                              options={tarefasDaEtiqueta(linha.grupoEtiqueta).map((nome) => ({
+                                value: nome,
+                                label: nome,
+                              }))}
                             />
                             <SelectMenu
                               label="Responsável"
@@ -598,10 +599,21 @@ export function AgendarViosModal({
                               placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
                               disabled={semOpcoes}
                               searchable
-                              options={(dados?.usuarios ?? []).map((u) => ({
-                                value: u.nome,
-                                label: u.nome,
-                              }))}
+                              options={
+                                dados
+                                  ? dados.usuarios.map((u) => ({
+                                      value: u.nome,
+                                      label: u.nome,
+                                    }))
+                                  : linha.responsavel_vios
+                                    ? [
+                                        {
+                                          value: linha.responsavel_vios,
+                                          label: linha.responsavel_vios,
+                                        },
+                                      ]
+                                    : []
+                              }
                             />
                             <DateBrInput
                               label="Data para conclusão"
@@ -621,7 +633,6 @@ export function AgendarViosModal({
                                 <PencilLine size={13} className="text-brand-600" />
                                 Texto que aparecerá na tarefa do VIOS
                               </span>
-                              {pessoa && <PessoaChip pessoa={pessoa} size={18} />}
                             </div>
                             <textarea
                               value={linha.text}

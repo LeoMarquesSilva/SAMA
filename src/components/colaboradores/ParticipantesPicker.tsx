@@ -206,7 +206,7 @@ export function ParticipantesPicker({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-slate-700">
-        Participantes <span className="text-red-500">*</span>
+        Participantes Internos <span className="text-red-500">*</span>
       </span>
 
       {/* Chips selecionados (internos + externos) */}

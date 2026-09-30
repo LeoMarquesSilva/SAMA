@@ -7,6 +7,7 @@ import { ProximosPassosClient } from "@/components/proximos-passos/ProximosPasso
 import { agruparPassosReunioes, contarPassosTotais } from "@/lib/proximos-passos";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { fellowConfigurado } from "@/lib/fellow";
+import { listarAgendamentosViosPorReunioes } from "@/lib/vios-status-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export default async function ProximosPassosPage() {
   );
   const grupos = agruparPassosReunioes(reunioes);
   const totais = contarPassosTotais(reunioes);
+  const agendamentosPorReuniao = await listarAgendamentosViosPorReunioes(
+    reunioes.map((r) => r.id)
+  );
 
   return (
     <ProximosPassosClient
@@ -60,6 +64,7 @@ export default async function ProximosPassosPage() {
       colaboradores={colaboradores ?? []}
       fellowAtivo={fellowConfigurado()}
       onboardingEnabled={!onboarding.proximosPassosConcluido}
+      agendamentosPorReuniao={agendamentosPorReuniao}
     />
   );
 }

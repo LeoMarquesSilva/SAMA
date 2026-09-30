@@ -161,49 +161,26 @@ export type AgendamentoViosStatus = {
   atualizado_em: string;
 };
 
-/** Situação na fila do VIOS de cada próximo passo enviado desta reunião. */
-export async function listarAgendamentosVios(
-  reuniaoId: string
+type AgendamentoViosRow = {
+  id: string;
+  reuniao_id: string | null;
+  observacao: string;
+  passo_texto: string | null;
+  status: AgendamentoViosStatus["status"];
+  erro: string | null;
+  tarefa: string;
+  responsavel: string | null;
+  data: string;
+  pasta: string;
+  resultado: { ci_vios?: string | number | null; ci_pasta?: string | null; avisos?: string[] } | null;
+  criado_em: string;
+  atualizado_em: string;
+};
+
+async function comStatusTarefa(
+  linhas: Omit<AgendamentoViosStatus, "status_tarefa">[]
 ): Promise<AgendamentoViosStatus[]> {
-  const pessoa = await getPessoaAtual();
-  if (!pessoa || !reuniaoId) return [];
-
-  // só mostra se o usuário pode ver a reunião (RLS da reunião)
-  const supabase = await createClient();
-  const { data: reuniao } = await supabase
-    .from("reunioes")
-    .select("id")
-    .eq("id", reuniaoId)
-    .maybeSingle();
-  if (!reuniao) return [];
-
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("vios_agendamentos")
-    .select("id, observacao, passo_texto, status, erro, tarefa, responsavel, data, pasta, resultado, criado_em, atualizado_em")
-    .eq("reuniao_id", reuniaoId)
-    .order("criado_em", { ascending: false });
-
-  const linhas = (data ?? []).map((r) => {
-    const res = (r.resultado ?? {}) as { ci_vios?: string | number | null; ci_pasta?: string | null; avisos?: string[] };
-    return {
-      id: r.id,
-      observacao: r.observacao,
-      passo_texto: r.passo_texto ?? null,
-      status: r.status,
-      erro: r.erro,
-      tarefa: r.tarefa,
-      responsavel: r.responsavel,
-      data: r.data,
-      pasta: r.pasta,
-      ci_vios: res.ci_vios != null ? String(res.ci_vios) : null,
-      ci_pasta: res.ci_pasta ?? null,
-      avisos: Array.isArray(res.avisos) ? res.avisos : [],
-      criado_em: r.criado_em,
-      atualizado_em: r.atualizado_em,
-    };
-  });
-
   const cis = [...new Set(linhas.map((l) => l.ci_vios).filter((ci): ci is string => Boolean(ci)))];
   const statusPorCi = new Map<string, string | null>();
   if (cis.length > 0) {
@@ -215,9 +192,79 @@ export async function listarAgendamentosVios(
       if (t.ci) statusPorCi.set(t.ci, t.vios_status ?? null);
     }
   }
-
   return linhas.map((l) => ({
     ...l,
     status_tarefa: l.ci_vios ? (statusPorCi.get(l.ci_vios) ?? null) : null,
   }));
+}
+
+function linhaAgendamento(r: AgendamentoViosRow): Omit<AgendamentoViosStatus, "status_tarefa"> {
+  const res = r.resultado ?? {};
+  return {
+    id: r.id,
+    observacao: r.observacao,
+    passo_texto: r.passo_texto ?? null,
+    status: r.status,
+    erro: r.erro,
+    tarefa: r.tarefa,
+    responsavel: r.responsavel,
+    data: r.data,
+    pasta: r.pasta,
+    ci_vios: res.ci_vios != null ? String(res.ci_vios) : null,
+    ci_pasta: res.ci_pasta ?? null,
+    avisos: Array.isArray(res.avisos) ? res.avisos : [],
+    criado_em: r.criado_em,
+    atualizado_em: r.atualizado_em,
+  };
+}
+
+/** Situação na fila do VIOS de cada próximo passo enviado desta reunião. */
+export async function listarAgendamentosVios(
+  reuniaoId: string
+): Promise<AgendamentoViosStatus[]> {
+  const mapa = await listarAgendamentosViosPorReunioes([reuniaoId]);
+  return mapa[reuniaoId] ?? [];
+}
+
+/** Agendamentos VIOS das reuniões que o usuário já pode ver. Mais recente primeiro. */
+export async function listarAgendamentosViosPorReunioes(
+  reuniaoIds: string[]
+): Promise<Record<string, AgendamentoViosStatus[]>> {
+  const pessoa = await getPessoaAtual();
+  const ids = [...new Set(reuniaoIds.filter(Boolean))];
+  if (!pessoa || ids.length === 0) return {};
+
+  const supabase = await createClient();
+  const visiveis: string[] = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data } = await supabase
+      .from("reunioes")
+      .select("id")
+      .in("id", ids.slice(i, i + 150));
+    for (const row of data ?? []) visiveis.push(row.id);
+  }
+  if (visiveis.length === 0) return {};
+
+  const admin = createAdminClient();
+  const bruto: AgendamentoViosRow[] = [];
+  for (let i = 0; i < visiveis.length; i += 150) {
+    const fatia = visiveis.slice(i, i + 150);
+    const { data } = await admin
+      .from("vios_agendamentos")
+      .select(
+        "id, reuniao_id, observacao, passo_texto, status, erro, tarefa, responsavel, data, pasta, resultado, criado_em, atualizado_em"
+      )
+      .in("reuniao_id", fatia)
+      .order("criado_em", { ascending: false });
+    bruto.push(...((data ?? []) as AgendamentoViosRow[]));
+  }
+
+  const completos = await comStatusTarefa(bruto.map(linhaAgendamento));
+  const mapa: Record<string, AgendamentoViosStatus[]> = {};
+  bruto.forEach((row, index) => {
+    const reuniaoId = row.reuniao_id;
+    if (!reuniaoId) return;
+    (mapa[reuniaoId] ??= []).push(completos[index]);
+  });
+  return mapa;
 }

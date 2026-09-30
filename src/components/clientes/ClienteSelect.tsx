@@ -67,7 +67,10 @@ export function ClienteSelect({
   error?: string;
   /** Disparado quando o usuário escolhe, cria ou remove o cliente manualmente. */
   onUserChange?: () => void;
-  onClienteChange?: (ci: string | null) => void;
+  onClienteChange?: (
+    ci: string | null,
+    info?: { grupo_cliente?: string | null }
+  ) => void;
 }) {
   const [selected, setSelected] = useState<Selected | null>(
     defaultValue
@@ -175,7 +178,7 @@ export function ClienteSelect({
     setOpen(false);
     setCreateError(undefined);
     onUserChange?.();
-    onClienteChange?.(c.ci);
+    onClienteChange?.(c.ci, { grupo_cliente: c.grupo_cliente });
   }
 
   async function criarLead() {
@@ -195,7 +198,7 @@ export function ClienteSelect({
     setSelected(null);
     setOpen(false);
     onUserChange?.();
-    onClienteChange?.(null);
+    onClienteChange?.(null, { grupo_cliente: null });
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

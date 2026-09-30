@@ -8,6 +8,7 @@ import {
   PONTUACAO_MINIMA_SUGESTAO,
 } from "@/lib/clientes-titulo";
 import { getPessoaAtual } from "@/lib/currentPessoa";
+import { isEmailEscritorio } from "@/lib/email-escritorio";
 import { createClient } from "@/lib/supabase/server";
 import type { EmpresaDoGrupo } from "@/types/database";
 
@@ -399,4 +400,69 @@ export async function resolverGrupoGestaoEquipe(): Promise<ClienteBusca | null> 
     GRUPO_CLIENTE_GESTAO_EQUIPE,
     GRUPO_CLIENTE_GESTAO_EQUIPE
   );
+}
+
+function guardarEmailExterno(destino: Map<string, string>, bruto: string | null | undefined) {
+  const email = (bruto ?? "").trim();
+  if (!email || !email.includes("@") || isEmailEscritorio(email)) return;
+  const chave = email.toLowerCase();
+  if (!destino.has(chave)) destino.set(chave, email);
+}
+
+/** E-mails de quem já participou de reunião desse grupo, sem endereços do escritório. */
+export async function listarEmailsExternosDoGrupo(
+  grupoCliente: string
+): Promise<string[]> {
+  const grupo = grupoCliente.trim();
+  if (!grupo) return [];
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const cis: string[] = [];
+  const pagina = 1000;
+  for (let from = 0; ; from += pagina) {
+    const { data } = await supabase
+      .from("pessoas")
+      .select("ci")
+      .eq("grupo_cliente", grupo)
+      .range(from, from + pagina - 1);
+    const rows = data ?? [];
+    for (const row of rows) {
+      if (row.ci) cis.push(row.ci);
+    }
+    if (rows.length < pagina) break;
+  }
+  if (cis.length === 0) return [];
+
+  const emails = new Map<string, string>();
+  const reuniaoIds: string[] = [];
+  for (let i = 0; i < cis.length; i += 150) {
+    const { data } = await supabase
+      .from("reunioes")
+      .select("id, emails_cliente")
+      .in("cliente_id", cis.slice(i, i + 150));
+    for (const reuniao of data ?? []) {
+      reuniaoIds.push(reuniao.id);
+      for (const email of reuniao.emails_cliente ?? []) {
+        guardarEmailExterno(emails, email);
+      }
+    }
+  }
+
+  for (let i = 0; i < reuniaoIds.length; i += 150) {
+    const { data } = await supabase
+      .from("reuniao_participantes")
+      .select("email")
+      .in("reuniao_id", reuniaoIds.slice(i, i + 150))
+      .is("colaborador_id", null);
+    for (const participante of data ?? []) {
+      guardarEmailExterno(emails, participante.email);
+    }
+  }
+
+  return [...emails.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }

@@ -276,7 +276,7 @@ export function ReunioesAnterioresPanel({
               {passosPreview.length > 0 ? (
                 <ul className="divide-y divide-slate-100">
                   {passosPreview.map((item, i) => {
-                    const { pessoa, resto } = separarPessoaDoPasso(
+                    const { pessoas, resto } = separarPessoaDoPasso(
                       item.text,
                       colaboradores
                     );
@@ -297,7 +297,16 @@ export function ReunioesAnterioresPanel({
                           >
                             {resto}
                           </p>
-                          {pessoa && <PessoaChip pessoa={pessoa} />}
+                          {pessoas.length > 0 && (
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              {pessoas.map((pessoa) => (
+                                <PessoaChip
+                                  key={`${pessoa.colaborador_id ?? ""}|${pessoa.email ?? ""}|${pessoa.nome}`}
+                                  pessoa={pessoa}
+                                />
+                              ))}
+                            </span>
+                          )}
                         </div>
                       </li>
                     );

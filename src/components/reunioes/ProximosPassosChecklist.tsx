@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { clsx } from "clsx";
 import {
   AlertTriangle,
   CalendarDays,
-  CheckCircle2,
   ExternalLink,
   ListChecks,
   Loader2,
@@ -14,7 +14,12 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
-import { colaboradorPorNome } from "@/components/reunioes/PassoResponsavel";
+import {
+  colaboradorPorNome,
+  recomporPassoComMarcador,
+  separarPessoaDoPasso,
+  ResponsaveisSugeridos,
+} from "@/components/reunioes/PassoResponsavel";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import {
   parseChecklist,
@@ -34,7 +39,7 @@ function chaveTexto(t: string | null | undefined): string {
 function tomStatusTarefa(status: string): "green" | "amber" | "red" | "gray" {
   const s = status.trim().toLowerCase();
   if (s.startsWith("conclu")) return "green";
-  if (s.startsWith("abert")) return "amber";
+  if (s.startsWith("abert") || s.startsWith("pend")) return "amber";
   if (s.startsWith("cancel")) return "red";
   return "gray";
 }
@@ -76,47 +81,48 @@ function DetalheVios({
 }
 
 /** Situação no VIOS de um item de "Próximos passos" (último envio). */
-function StatusVios({
+export function StatusVios({
   a,
   colaboradores,
 }: {
   a: AgendamentoViosStatus;
   colaboradores: ColaboradorOpt[];
 }) {
+  const tom = a.status_tarefa ? tomStatusTarefa(a.status_tarefa) : "gray";
   const statusTarefa = a.ci_vios ? (
     a.status_tarefa ? (
-      <Badge tone={tomStatusTarefa(a.status_tarefa)}>{a.status_tarefa}</Badge>
+      <span
+        className={clsx(
+          "inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold",
+          tom === "green" && "bg-emerald-100 text-emerald-800",
+          tom === "amber" && "bg-amber-100 text-amber-800",
+          tom === "red" && "bg-red-100 text-red-800",
+          tom === "gray" && "bg-slate-100 text-slate-700"
+        )}
+      >
+        {a.status_tarefa}
+      </span>
     ) : (
-      <span className="text-slate-400">Status não encontrado na base</span>
+      <span className="text-sm font-medium text-slate-400">Status não encontrado na base</span>
     )
+  ) : null;
+  const linkCi = a.ci_vios ? (
+    <a
+      href={`${VIOS_TAREFA_URL}${a.ci_vios}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Abrir a tarefa no VIOS (nova aba)"
+      className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand-700"
+    >
+      <span className="font-mono tabular-nums">CI {a.ci_vios}</span>
+      <ExternalLink size={12} />
+    </a>
   ) : null;
   if (a.status === "concluido") {
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-        {a.ci_vios ? (
-          <a
-            href={`${VIOS_TAREFA_URL}${a.ci_vios}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Abrir a tarefa no VIOS (nova aba)"
-            className="group inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-2 pr-2.5 font-medium text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-          >
-            <CheckCircle2 size={14} className="text-emerald-600" />
-            Agendado no VIOS
-            <span className="h-3 w-px bg-emerald-200" aria-hidden />
-            <span className="font-mono tabular-nums">CI {a.ci_vios}</span>
-            <ExternalLink
-              size={12}
-              className="text-emerald-500 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-700"
-            />
-          </a>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-2 pr-2.5 font-medium text-emerald-700">
-            <CheckCircle2 size={14} className="text-emerald-600" />
-            Agendado no VIOS
-          </span>
-        )}
         {statusTarefa}
+        {linkCi}
         <DetalheVios a={a} colaboradores={colaboradores} />
         {!a.ci_vios && (
           <span className="inline-flex items-center gap-1 text-amber-700">
@@ -140,9 +146,9 @@ function StatusVios({
   }
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 py-1 pl-2 pr-2.5 font-medium text-amber-700">
+      <span className="inline-flex items-center gap-1.5 text-slate-500">
         <Loader2 size={13} className="animate-spin" />
-        {a.status === "processando" ? "Agendando no VIOS…" : "Na fila do VIOS…"}
+        {a.status === "processando" ? "Enviando ao VIOS…" : "Na fila de envio…"}
       </span>
       <DetalheVios a={a} colaboradores={colaboradores} />
     </div>
@@ -235,10 +241,14 @@ export function ProximosPassosChecklist({
 
       <ul className="space-y-2">
         {items.map((item, index) => {
+          const citado = separarPessoaDoPasso(item.text, colaboradores);
+          const textoCampo = citado.pessoas.length ? citado.resto : item.text;
           const rotuloEnvio = rotuloEnviadoAgendamento(item);
           const agendamento = item.text.trim()
             ? agendamentosVios.find(
-                (a) => chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(item.text)
+                (a) =>
+                  chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(item.text) ||
+                  chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(textoCampo)
               )
             : undefined;
           return (
@@ -253,11 +263,18 @@ export function ProximosPassosChecklist({
             <div className={simples ? "min-w-0 flex-1 space-y-2" : "min-w-0"}>
               <input
                 type="text"
-                value={item.text}
-                onChange={(e) => patchItem(index, { text: e.target.value })}
+                value={textoCampo}
+                onChange={(e) =>
+                  patchItem(index, {
+                    text: recomporPassoComMarcador(e.target.value, citado.marcador),
+                  })
+                }
                 placeholder="Descreva a ação..."
                 className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
+              {citado.pessoas.length > 0 && (
+                <ResponsaveisSugeridos pessoas={citado.pessoas} />
+              )}
               {agendamento ? (
                 <StatusVios a={agendamento} colaboradores={colaboradores} />
               ) : (

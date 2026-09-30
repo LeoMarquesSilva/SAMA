@@ -40,6 +40,31 @@ function empresaDoEmail(email: string): string | null {
 }
 
 const PREFIXO_RE = /^\s*([^:\n]{2,80}?)\s*:\s+([\s\S]+)$/;
+const SUFIXO_RE = /^([\s\S]+?)\s+\(([^()]*)\)\s*$/;
+const PARTICULA = new Set(["de", "da", "do", "dos", "das", "e", "di", "du", "del"]);
+const PALAVRA_GENERICA = new Set([
+  "online",
+  "presencial",
+  "processo",
+  "urgente",
+  "interno",
+  "externo",
+  "ok",
+  "sim",
+  "nao",
+  "não",
+  "email",
+  "ata",
+  "pauta",
+  "vios",
+  "fellow",
+  "cliente",
+  "equipe",
+]);
+
+export type MarcadorResponsavel =
+  | { tipo: "prefixo"; bruto: string }
+  | { tipo: "sufixo"; bruto: string };
 
 function nomeDoEmail(email: string): string {
   return email
@@ -59,65 +84,153 @@ function normalizaNome(s: string): string {
     .toLowerCase();
 }
 
+function pessoaDoColaborador(colab: ColaboradorOpt): PessoaCitada {
+  return {
+    nome: colab.nome,
+    email: colab.email,
+    avatar_url: colab.avatar_url,
+    colaborador_id: colab.id,
+  };
+}
+
+function formatarNomeSolto(s: string): string {
+  return s
+    .trim()
+    .split(/\s+/)
+    .map((p, i) => {
+      if (i > 0 && PARTICULA.has(p.toLowerCase())) return p.toLowerCase();
+      if (p === p.toLowerCase()) return p.charAt(0).toUpperCase() + p.slice(1);
+      return p;
+    })
+    .join(" ");
+}
+
+/** Nome que o Fellow deixou solto, sem cadastro correspondente. */
+function pareceNomeLivre(s: string, modo: "prefixo" | "sufixo"): boolean {
+  const parts = s.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length || parts.length > 6) return false;
+  const tokenOk = (p: string, i: number) => {
+    if (PARTICULA.has(p.toLowerCase()) && parts.length > 1 && i > 0) return true;
+    return /^[\p{L}][\p{L}.'’-]*$/u.test(p) && p.length >= 2;
+  };
+  if (!parts.every(tokenOk)) return false;
+  if (parts.length === 1) {
+    const w = parts[0].toLowerCase();
+    if (w.length < 3 || PALAVRA_GENERICA.has(w)) return false;
+    if (modo === "sufixo") return /^[\p{Lu}]/u.test(parts[0]);
+    return true;
+  }
+  return /^[\p{Lu}]/u.test(parts[0]);
+}
+
+function pessoaDeAlvo(
+  alvo: string,
+  colaboradores: ColaboradorOpt[],
+  modo: "prefixo" | "sufixo"
+): PessoaCitada | null {
+  const limpo = alvo.trim();
+  if (!limpo) return null;
+
+  if (limpo.includes("@")) {
+    if (!EMAIL_RE.test(limpo)) return null;
+    const colab = colaboradores.find(
+      (c) => c.email && emailsEscritorioIguais(c.email, limpo)
+    );
+    if (colab) return pessoaDoColaborador(colab);
+    const externo = !isEmailEscritorio(limpo);
+    return {
+      nome: nomeDoEmail(limpo),
+      email: limpo,
+      avatar_url: null,
+      colaborador_id: null,
+      externo,
+      empresa: externo ? empresaDoEmail(limpo) : null,
+    };
+  }
+
+  const colab = colaboradorPorNome(limpo, colaboradores);
+  if (colab) return pessoaDoColaborador(colab);
+  if (!pareceNomeLivre(limpo, modo)) return null;
+  return {
+    nome: formatarNomeSolto(limpo),
+    email: null,
+    avatar_url: null,
+    colaborador_id: null,
+  };
+}
+
 /**
- * Separa o colaborador citado no início do passo ("email@escritorio: ação" ou
- * "Nome do Colaborador: ação"). Só reconhece e-mails do escritório ou nomes da equipe.
+ * Tira do texto quem o Fellow marcou como responsável.
+ * Prefixo: "email@dominio: ação" ou "Nome: ação".
+ * Sufixo: "ação (Nome Completo)" ou "ação (Nome 1, Nome 2)".
  */
 export function separarPessoaDoPasso(
   texto: string,
   colaboradores: ColaboradorOpt[]
-): { pessoa: PessoaCitada | null; prefixo: string; resto: string } {
-  const m = texto.match(PREFIXO_RE);
-  if (!m) return { pessoa: null, prefixo: "", resto: texto };
-  const alvo = m[1].trim();
-  const resto = m[2];
-  const prefixo = texto.slice(0, texto.length - resto.length);
+): {
+  pessoa: PessoaCitada | null;
+  pessoas: PessoaCitada[];
+  prefixo: string;
+  resto: string;
+  marcador: MarcadorResponsavel | null;
+} {
+  const vazio = {
+    pessoa: null,
+    pessoas: [] as PessoaCitada[],
+    prefixo: "",
+    resto: texto,
+    marcador: null,
+  };
 
-  if (alvo.includes("@")) {
-    const colab = colaboradores.find(
-      (c) => c.email && emailsEscritorioIguais(c.email, alvo)
-    );
-    if (colab) {
+  const prefixo = texto.match(PREFIXO_RE);
+  if (prefixo) {
+    const alvo = prefixo[1].trim();
+    const pessoa = pessoaDeAlvo(alvo, colaboradores, "prefixo");
+    if (pessoa) {
       return {
-        pessoa: {
-          nome: colab.nome,
-          email: colab.email,
-          avatar_url: colab.avatar_url,
-          colaborador_id: colab.id,
-        },
-        prefixo,
-        resto,
+        pessoa,
+        pessoas: [pessoa],
+        prefixo: `${alvo}: `,
+        resto: prefixo[2],
+        marcador: { tipo: "prefixo", bruto: alvo },
       };
     }
-    if (!EMAIL_RE.test(alvo)) return { pessoa: null, prefixo: "", resto: texto };
-    const externo = !isEmailEscritorio(alvo);
-    return {
-      pessoa: {
-        nome: nomeDoEmail(alvo),
-        email: alvo,
-        avatar_url: null,
-        colaborador_id: null,
-        externo,
-        empresa: externo ? empresaDoEmail(alvo) : null,
-      },
-      prefixo,
-      resto,
-    };
   }
 
-  const chave = normalizaNome(alvo);
-  const colab = colaboradores.find((c) => normalizaNome(c.nome) === chave);
-  if (!colab) return { pessoa: null, prefixo: "", resto: texto };
-  return {
-    pessoa: {
-      nome: colab.nome,
-      email: colab.email,
-      avatar_url: colab.avatar_url,
-      colaborador_id: colab.id,
-    },
-    prefixo,
-    resto,
-  };
+  const sufixo = texto.match(SUFIXO_RE);
+  if (sufixo) {
+    const partes = sufixo[2]
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (partes.length > 0 && partes.length <= 8) {
+      const pessoas = partes.map((p) => pessoaDeAlvo(p, colaboradores, "sufixo"));
+      if (pessoas.every((p): p is PessoaCitada => p !== null)) {
+        return {
+          pessoa: pessoas[0] ?? null,
+          pessoas,
+          prefixo: "",
+          resto: sufixo[1].trim(),
+          marcador: { tipo: "sufixo", bruto: sufixo[2].trim() },
+        };
+      }
+    }
+  }
+
+  return vazio;
+}
+
+/** Devolve o marcador do Fellow ao texto editado, para não perder o responsável. */
+export function recomporPassoComMarcador(
+  resto: string,
+  marcador: MarcadorResponsavel | null
+): string {
+  const acao = resto.trim();
+  if (!marcador) return acao;
+  if (marcador.tipo === "prefixo") {
+    return acao ? `${marcador.bruto}: ${acao}` : `${marcador.bruto}:`;
+  }
+  return acao ? `${acao} (${marcador.bruto})` : `(${marcador.bruto})`;
 }
 
 /** Colaborador da equipe pelo nome exibido (ex.: responsável vindo do VIOS). */
@@ -173,22 +286,12 @@ export function PessoaChip({
   );
 }
 
-/** Linha "Responsável" discreta, para ir abaixo do texto da tarefa. */
-export function ResponsavelLinha({
-  pessoa,
-  className,
-}: {
-  pessoa: PessoaCitada;
-  className?: string;
-}) {
+function PessoaSugerida({ pessoa }: { pessoa: PessoaCitada }) {
   return (
     <span
       title={pessoa.email ?? pessoa.nome}
-      className={clsx("inline-flex max-w-full items-center gap-2 text-xs text-slate-500", className)}
+      className="inline-flex max-w-full items-center gap-1.5"
     >
-      <span className="font-medium uppercase tracking-wide text-[10px] text-slate-400">
-        Responsável
-      </span>
       <Avatar
         nome={pessoa.nome}
         src={pessoa.avatar_url}
@@ -203,6 +306,46 @@ export function ResponsavelLinha({
       )}
     </span>
   );
+}
+
+/** Quem o Fellow indicou no action item: foto e nome, ou o e-mail quando não há nome. */
+export function ResponsaveisSugeridos({
+  pessoas,
+  className,
+}: {
+  pessoas: PessoaCitada[];
+  className?: string;
+}) {
+  if (!pessoas.length) return null;
+  return (
+    <span
+      className={clsx(
+        "flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-500",
+        className
+      )}
+    >
+      <span className="font-medium text-[11px] text-slate-500">
+        Responsável sugerido pelo Fellow
+      </span>
+      {pessoas.map((pessoa) => (
+        <PessoaSugerida
+          key={`${pessoa.colaborador_id ?? ""}|${pessoa.email ?? ""}|${pessoa.nome}`}
+          pessoa={pessoa}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Linha "Responsável" discreta, para ir abaixo do texto da tarefa. */
+export function ResponsavelLinha({
+  pessoa,
+  className,
+}: {
+  pessoa: PessoaCitada;
+  className?: string;
+}) {
+  return <ResponsaveisSugeridos pessoas={[pessoa]} className={className} />;
 }
 
 /** Texto do passo com o colaborador citado destacado por avatar. */
