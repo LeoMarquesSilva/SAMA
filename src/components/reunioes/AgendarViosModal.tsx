@@ -17,12 +17,8 @@ import {
   ETIQUETAS_VISUAIS,
   tarefasDaEtiqueta,
 } from "@/lib/vios-depara-etiqueta";
-import {
-  buscarOpcoesVios,
-  usuarioViosDoColaborador,
-  type OpcaoVios,
-} from "@/lib/vios-opcoes";
-import { resolverOpcoesVios } from "@/lib/vios-status-actions";
+import { usuarioViosDoColaborador, type OpcaoVios } from "@/lib/vios-opcoes";
+import { listarUsuariosVios } from "@/lib/vios-status-actions";
 import {
   ResponsaveisSugeridos,
   separarPessoaDoPasso,
@@ -41,8 +37,6 @@ import {
   Send,
 } from "lucide-react";
 
-type PastaTipo = "Processo" | "Atendimento";
-
 type Linha = ViosPassoEnvio & {
   selecionado: boolean;
   enviadoVios?: boolean;
@@ -53,17 +47,10 @@ type Linha = ViosPassoEnvio & {
   grupoEtiqueta: string;
 };
 
-type DadosOpcoes = {
-  titulo: string | null;
-  area: string | null;
-  etapas: OpcaoVios[];
-  etiquetas: OpcaoVios[];
-  usuarios: OpcaoVios[];
-};
-
-type EstadoOpcoes =
-  | { status: "carregando"; noVios?: boolean }
-  | { status: "ok"; dados: DadosOpcoes }
+/** Responsáveis e etiquetas do VIOS: iguais para qualquer pasta, carregados uma vez. */
+type ListasVios =
+  | { status: "carregando" }
+  | { status: "ok"; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[] }
   | { status: "erro"; erro: string };
 
 const ETIQUETA_PADRAO = "PROVIDÊNCIA";
@@ -115,9 +102,6 @@ function numeroCompleto(l: Linha): boolean {
     : n.replace(/\D/g, "").length === 20;
 }
 
-function chave(tipo: string | undefined, numero: string): string {
-  return `${tipo ?? "Processo"}|${numero}`;
-}
 
 export function AgendarViosModal({
   open,
@@ -165,7 +149,7 @@ export function AgendarViosModal({
   }, [proximosPassos, colaboradores]);
 
   const [linhas, setLinhas] = useState<Linha[]>([]);
-  const [opcoes, setOpcoes] = useState<Record<string, EstadoOpcoes>>({});
+  const [listas, setListas] = useState<ListasVios>({ status: "carregando" });
   const [erro, setErro] = useState<string>();
   const [pending, start] = useTransition();
   const selecionadas = linhas.filter((l) => l.selecionado);
@@ -177,72 +161,57 @@ export function AgendarViosModal({
     }
   }, [open, iniciais]);
 
+  // Responsáveis/etiquetas do VIOS: uma consulta só, sem depender da pasta.
+  useEffect(() => {
+    if (!open || listas.status === "ok") return;
+    let vivo = true;
+    listarUsuariosVios()
+      .then((r) => {
+        if (!vivo) return;
+        setListas(
+          r.ok
+            ? { status: "ok", usuarios: r.usuarios, etiquetas: r.etiquetas }
+            : { status: "erro", erro: r.erro }
+        );
+      })
+      .catch(() => {
+        if (vivo) {
+          setListas({
+            status: "erro",
+            erro: "Não foi possível carregar os responsáveis. Recarregue a página (Ctrl+F5).",
+          });
+        }
+      });
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Pré-seleciona o responsável do VIOS a partir do colaborador citado no passo.
+  useEffect(() => {
+    if (listas.status !== "ok" || !open) return;
+    aplicarPadroes(listas.usuarios);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listas.status, open, iniciais]);
+
   function patch(index: number, partial: Partial<Linha>) {
     setLinhas((atual) =>
       atual.map((l, i) => (i === index ? { ...l, ...partial } : l))
     );
   }
 
-  /** Preenche o responsável do SAMA quando os usuários da pasta chegam. */
-  function aplicarPadroes(dados: DadosOpcoes, k: string) {
+  /** Preenche o responsável do VIOS a partir do colaborador do SAMA. */
+  function aplicarPadroes(usuarios: OpcaoVios[]) {
     setLinhas((atual) =>
       atual.map((l) => {
-        if (chave(l.pastaTipo, numeroDaLinha(l)) !== k) return l;
-        const next: Linha = { ...l };
-        if (!next.responsavel_vios || !dados.usuarios.some((u) => u.nome === next.responsavel_vios)) {
-          const colab = colaboradores.find((c) => c.id === next.colaborador_id);
-          const nome = colab?.nome || next.responsavelSugerido;
-          next.responsavel_vios =
-            usuarioViosDoColaborador(nome, dados.usuarios)?.nome ?? "";
-        }
-        return next;
+        if (l.responsavel_vios && usuarios.some((u) => u.nome === l.responsavel_vios)) return l;
+        const colab = colaboradores.find((c) => c.id === l.colaborador_id);
+        const nome = colab?.nome || l.responsavelSugerido;
+        return { ...l, responsavel_vios: usuarioViosDoColaborador(nome, usuarios)?.nome ?? "" };
       })
     );
   }
-
-  /** Resolve as opções da pasta: catálogo (instantâneo) ou, se preciso, o próprio VIOS. */
-  async function carregarOpcoes(tipo: PastaTipo, numero: string) {
-    const k = chave(tipo, numero);
-    setOpcoes((o) => ({ ...o, [k]: { status: "carregando" } }));
-    try {
-      let dados: DadosOpcoes;
-      const r = await resolverOpcoesVios(tipo, numero);
-      if (r.ok) {
-        dados = r;
-      } else if (r.precisaVios) {
-        setOpcoes((o) => ({ ...o, [k]: { status: "carregando", noVios: true } }));
-        const v = await buscarOpcoesVios(tipo, numero);
-        dados = { titulo: v.titulo, area: (v as { area?: string | null }).area ?? null, etapas: v.etapas, etiquetas: v.etiquetas, usuarios: v.usuarios };
-      } else {
-        throw new Error(r.erro);
-      }
-      setOpcoes((o) => ({ ...o, [k]: { status: "ok", dados } }));
-      aplicarPadroes(dados, k);
-    } catch (e) {
-      setOpcoes((o) => ({
-        ...o,
-        [k]: { status: "erro", erro: e instanceof Error ? e.message : "Falha ao consultar o VIOS." },
-      }));
-    }
-  }
-
-  // Carrega sozinho quando a pasta é informada (sem botão): espera a digitação parar.
-  const pendentes = linhas
-    .filter((l) => l.selecionado && numeroCompleto(l))
-    .map((l) => chave(l.pastaTipo, numeroDaLinha(l)))
-    .filter((k, i, a) => a.indexOf(k) === i && !opcoes[k])
-    .join(";");
-  useEffect(() => {
-    if (!pendentes) return;
-    const t = setTimeout(() => {
-      for (const k of pendentes.split(";")) {
-        const [tipo, ...resto] = k.split("|");
-        void carregarOpcoes(tipo as PastaTipo, resto.join("|"));
-      }
-    }, 700);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendentes]);
 
   function enviar() {
     setErro(undefined);
@@ -264,32 +233,23 @@ export function AgendarViosModal({
       if (!numeroCompleto(l)) {
         return setErro(`Complete o número do processo (CNJ) do passo ${n}.`);
       }
-      const op = opcoes[chave(l.pastaTipo, numeroDaLinha(l))];
-      if (op?.status !== "ok") {
-        return setErro(
-          op?.status === "erro"
-            ? `Pasta do passo ${n}: ${op.erro}`
-            : `Aguarde carregar o responsável da pasta do passo ${n}.`
-        );
-      }
       if (!l.tarefa?.trim()) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
-      const permitidas = tarefasDaEtiqueta(
-        l.grupoEtiqueta,
-        l.pastaTipo === "Atendimento" ? "Atendimento" : "Processo",
-        op.dados.etapas.map((e) => e.nome)
-      );
-      if (!permitidas.includes(l.tarefa)) {
+      if (!tarefasDaEtiqueta(l.grupoEtiqueta, l.pastaTipo).includes(l.tarefa)) {
         return setErro(
-          `O tipo de tarefa "${l.tarefa}" não existe no VIOS para a pasta do passo ${n}. Escolha outro.`
+          `O tipo de tarefa "${l.tarefa}" não existe no VIOS para ${
+            l.pastaTipo === "Atendimento" ? "pasta de atendimento" : "processo"
+          } (passo ${n}). Escolha outro.`
         );
       }
       if (!l.responsavel_vios) return setErro(`Selecione o responsável do passo ${n}.`);
     }
+    if (listas.status !== "ok") {
+      return setErro("Aguarde carregar a lista de responsáveis do VIOS.");
+    }
+    const etiquetasVios = listas.etiquetas;
     start(async () => {
       const r = await onEnviar(
         selecionadas.map((l) => {
-          const dados = opcoes[chave(l.pastaTipo, numeroDaLinha(l))];
-          const catalogo = dados?.status === "ok" ? dados.dados : undefined;
           return {
           text: l.text,
           texto_checklist: l.texto_checklist,
@@ -297,8 +257,9 @@ export function AgendarViosModal({
           prazo: l.prazo,
           tipo: ETIQUETA_PADRAO,
           tarefa: l.tarefa,
-          tarefa_id: idPorNome(catalogo?.etapas, l.tarefa ?? ""),
-          etiqueta_id: idPorNome(catalogo?.etiquetas, ETIQUETA_PADRAO),
+          // o robô escolhe o tipo de tarefa pelo nome na tela da pasta
+          tarefa_id: "",
+          etiqueta_id: idPorNome(etiquetasVios, ETIQUETA_PADRAO),
           etiqueta: ETIQUETA_PADRAO,
           responsavel_vios: l.responsavel_vios,
           pastaTipo: l.pastaTipo,
@@ -383,9 +344,6 @@ export function AgendarViosModal({
               {linhas.map((linha, index) => {
                 const rotuloEnvio = rotuloEnviadoAgendamento(linha);
                 const numero = numeroDaLinha(linha);
-                const op = numero ? opcoes[chave(linha.pastaTipo, numero)] : undefined;
-                const dados = op?.status === "ok" ? op.dados : undefined;
-                const semOpcoes = !dados;
                 const tipoPasta = linha.pastaTipo ?? "Processo";
                 const { pessoas, resto } = separarPessoaDoPasso(
                   linha.texto_checklist || linha.text,
@@ -525,48 +483,16 @@ export function AgendarViosModal({
                                       ? "0000000-00.0000.0.00.0000"
                                       : "Nº da pasta — ex.: 51762"
                                   }
-                                  className={clsx(
-                                    campo,
-                                    "pr-9 tabular-nums",
-                                    op?.status === "erro" &&
-                                      "border-red-300 focus:border-red-500 focus:ring-red-500",
-                                    dados && "border-emerald-300"
-                                  )}
+                                  className={clsx(campo, "tabular-nums")}
                                 />
-                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                                  {op?.status === "carregando" && (
-                                    <Loader2 size={16} className="animate-spin text-brand-500" />
-                                  )}
-                                  {dados && <CheckCircle2 size={16} className="text-emerald-500" />}
-                                  {op?.status === "erro" && (
-                                    <AlertCircle size={16} className="text-red-500" />
-                                  )}
-                                </span>
                               </div>
-                              {op?.status === "carregando" && (
-                                <p className="text-xs text-slate-500">
-                                  {op.noVios
-                                    ? "Pasta nova para o SAMA: o robô está consultando o VIOS (até ~30 s, só na primeira vez)…"
-                                    : "Carregando a pasta e o responsável no VIOS…"}
-                                </p>
-                              )}
-                              {op?.status === "erro" && (
-                                <p className="text-xs text-red-600">{op.erro}</p>
-                              )}
-                              {dados && (
-                                <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                                  <span className="font-medium text-emerald-700">
-                                    {dados.titulo || "Pasta do VIOS"}
-                                  </span>
-                                </p>
-                              )}
-                              {!op && (
-                                <p className="text-xs text-slate-400">
-                                  {tipoPasta === "Processo" && numero
-                                    ? `${numero.replace(/\D/g, "").length}/20 dígitos — a pasta e o responsável carregam ao completar o CNJ.`
-                                    : "A pasta e o responsável carregam ao digitar o número."}
-                                </p>
-                              )}
+                              <p className="text-xs text-slate-400">
+                                {tipoPasta === "Processo"
+                                  ? numero
+                                    ? `${numero.replace(/\D/g, "").length}/20 dígitos do CNJ.`
+                                    : "Informe o CNJ do processo."
+                                  : "Informe o nº da pasta de atendimento."}
+                              </p>
                             </div>
                           </div>
                         </section>
@@ -580,11 +506,7 @@ export function AgendarViosModal({
                               label="Etiqueta"
                               value={linha.grupoEtiqueta}
                               onChange={(v) => {
-                                const tarefas = tarefasDaEtiqueta(
-                                  v,
-                                  tipoPasta,
-                                  dados?.etapas.map((e) => e.nome)
-                                );
+                                const tarefas = tarefasDaEtiqueta(v, tipoPasta);
                                 patch(index, {
                                   grupoEtiqueta: v,
                                   ...(linha.tarefa && tarefas.includes(linha.tarefa)
@@ -604,11 +526,7 @@ export function AgendarViosModal({
                               emptyOption="Selecione"
                               placeholder="Selecione"
                               searchable
-                              options={tarefasDaEtiqueta(
-                                linha.grupoEtiqueta,
-                                tipoPasta,
-                                dados?.etapas.map((e) => e.nome)
-                              ).map((nome) => ({
+                              options={tarefasDaEtiqueta(linha.grupoEtiqueta, tipoPasta).map((nome) => ({
                                 value: nome,
                                 label: nome,
                               }))}
@@ -618,12 +536,18 @@ export function AgendarViosModal({
                               value={linha.responsavel_vios ?? ""}
                               onChange={(v) => patch(index, { responsavel_vios: v })}
                               emptyOption="Selecione"
-                              placeholder={semOpcoes ? "Informe a pasta" : "Selecione"}
-                              disabled={semOpcoes}
+                              placeholder={
+                                listas.status === "carregando"
+                                  ? "Carregando…"
+                                  : listas.status === "erro"
+                                    ? "Erro ao carregar"
+                                    : "Selecione"
+                              }
+                              disabled={listas.status !== "ok"}
                               searchable
                               options={
-                                dados
-                                  ? dados.usuarios.map((u) => ({
+                                listas.status === "ok"
+                                  ? listas.usuarios.map((u) => ({
                                       value: u.nome,
                                       label: u.nome,
                                     }))

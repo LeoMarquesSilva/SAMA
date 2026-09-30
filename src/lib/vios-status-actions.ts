@@ -142,6 +142,39 @@ export async function resolverOpcoesVios(
   };
 }
 
+/**
+ * Responsáveis e etiquetas do VIOS (as mesmas em qualquer pasta), do catálogo salvo pelo
+ * robô. Não consulta pasta nem processo nenhum.
+ */
+export async function listarUsuariosVios(): Promise<
+  { ok: true; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[] } | { ok: false; erro: string }
+> {
+  const pessoa = await getPessoaAtual();
+  if (!pessoa) return { ok: false, erro: "Não autenticado." };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("vios_catalogo_tarefas")
+    .select("usuarios, etiquetas, atualizado_em")
+    .order("atualizado_em", { ascending: false });
+  if (error) return { ok: false, erro: error.message };
+  const usuarios = new Map<string, OpcaoVios>();
+  const etiquetas = new Map<string, OpcaoVios>();
+  for (const r of data ?? []) {
+    for (const u of (r.usuarios ?? []) as OpcaoVios[]) {
+      // o usuário do robô não é responsável de tarefa
+      if (u?.id && !usuarios.has(u.id) && !/f[eê]nix agendador/i.test(u.nome)) usuarios.set(u.id, u);
+    }
+    for (const e of (r.etiquetas ?? []) as OpcaoVios[]) {
+      if (e?.id && !etiquetas.has(e.id)) etiquetas.set(e.id, e);
+    }
+  }
+  return {
+    ok: true,
+    usuarios: [...usuarios.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    etiquetas: [...etiquetas.values()],
+  };
+}
+
 export type AgendamentoViosStatus = {
   id: string;
   observacao: string;
