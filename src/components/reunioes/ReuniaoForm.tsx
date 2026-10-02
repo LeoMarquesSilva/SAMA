@@ -504,7 +504,7 @@ export function ReuniaoForm({
   }
 
   function handleTipoChange(v: string) {
-    if (tipoUsaGrupoInterno(v, tipos)) {
+    if (!agendarNovo && tipoUsaGrupoInterno(v, tipos)) {
       clienteManualRef.current = false;
     }
     setTipo(v);
@@ -514,6 +514,15 @@ export function ReuniaoForm({
     if (!open) return;
 
     if (tipoUsaGrupoInterno(tipo, tipos)) {
+      // Reunião nova começa sem cliente. O grupo interno só entra ao editar.
+      if (agendarNovo) {
+        if (!clienteManualRef.current) {
+          setClientePrefill(null);
+          setClienteSugerido(false);
+          preencherEmailsDoGrupo(null);
+        }
+        return;
+      }
       aplicarClienteGestaoEquipe();
       return;
     }
@@ -567,6 +576,7 @@ export function ReuniaoForm({
     };
   }, [
     open,
+    agendarNovo,
     tipo,
     prefillKey,
     reuniao?.id,
