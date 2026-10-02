@@ -270,8 +270,12 @@ async function graphJson<T>(
     const txt = await res.text();
     throw new Error(`Graph ${res.status}: ${txt.slice(0, 280)}`);
   }
+  // Cancelar evento responde 202 com corpo vazio. res.json() nisso vira
+  // "Unexpected end of JSON input" mesmo com o Outlook já cancelado.
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const txt = await res.text();
+  if (!txt.trim()) return undefined as T;
+  return JSON.parse(txt) as T;
 }
 
 function eventPayload(input: GraphEventInput) {

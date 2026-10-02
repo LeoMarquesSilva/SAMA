@@ -99,6 +99,7 @@ export function ReunioesAnterioresPanel({
   onRestaurarPauta,
   onTrazerPassos,
   onRemoverPassos,
+  incluirPassos = true,
   colaboradores = [],
 }: {
   colaboradores?: ColaboradorOpt[];
@@ -106,6 +107,8 @@ export function ReunioesAnterioresPanel({
   exceptId?: string | null;
   onTrazerPauta: (pauta: PautaReuniao) => void;
   onRestaurarPauta: () => void;
+  /** Reunião nova não leva próximos passos. */
+  incluirPassos?: boolean;
   onTrazerPassos: (proximosPassos: string) => void;
   onRemoverPassos: (proximosPassos: string) => void;
 }) {
@@ -232,6 +235,7 @@ export function ReunioesAnterioresPanel({
                 />
                 Trazer pauta
               </label>
+              {incluirPassos && (
               <label className="flex cursor-pointer items-center gap-2">
                 <Checkbox
                   checked={Boolean(selPassos[r.id])}
@@ -240,6 +244,7 @@ export function ReunioesAnterioresPanel({
                 />
                 Trazer próximos passos
               </label>
+              )}
             </div>
           </li>
         ))}

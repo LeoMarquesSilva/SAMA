@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { VIOS_PASTA_TIPOS, type ViosPassoEnvio } from "@/lib/vios-agendamento";
 import {
   ETIQUETAS_VISUAIS,
+  etiquetaViosDaEscolha,
   tarefasDaEtiqueta,
 } from "@/lib/vios-depara-etiqueta";
 import { usuarioViosDoColaborador, type OpcaoVios } from "@/lib/vios-opcoes";
@@ -43,7 +44,7 @@ type Linha = ViosPassoEnvio & {
   enviadoViosEm?: string | null;
   /** Nome que o Fellow indicou, para pré-selecionar o responsável do VIOS. */
   responsavelSugerido?: string;
-  /** Filtro visual da lista de tarefas. Não vai para o RPA. */
+  /** Providência ou Prazo. Define a etiqueta gravada no VIOS. */
   grupoEtiqueta: string;
 };
 
@@ -52,8 +53,6 @@ type ListasVios =
   | { status: "carregando" }
   | { status: "ok"; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[] }
   | { status: "erro"; erro: string };
-
-const ETIQUETA_PADRAO = "PROVIDÊNCIA";
 
 function normalizarNome(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().trim();
@@ -250,17 +249,18 @@ export function AgendarViosModal({
     start(async () => {
       const r = await onEnviar(
         selecionadas.map((l) => {
+          const etiqueta = etiquetaViosDaEscolha(l.grupoEtiqueta);
           return {
           text: l.text,
           texto_checklist: l.texto_checklist,
           colaborador_id: l.colaborador_id,
           prazo: l.prazo,
-          tipo: ETIQUETA_PADRAO,
+          tipo: etiqueta.nome,
           tarefa: l.tarefa,
           // o robô escolhe o tipo de tarefa pelo nome na tela da pasta
           tarefa_id: "",
-          etiqueta_id: idPorNome(etiquetasVios, ETIQUETA_PADRAO),
-          etiqueta: ETIQUETA_PADRAO,
+          etiqueta_id: idPorNome(etiquetasVios, etiqueta.nome) || etiqueta.id,
+          etiqueta: etiqueta.nome,
           responsavel_vios: l.responsavel_vios,
           pastaTipo: l.pastaTipo,
           pasta: l.pasta,

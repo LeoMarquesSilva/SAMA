@@ -225,7 +225,9 @@ export function recomporPassoComMarcador(
   resto: string,
   marcador: MarcadorResponsavel | null
 ): string {
-  const acao = resto.trim();
+  // Não usar trim: o espaço no fim da palavra some no meio da digitação
+  // e a próxima letra gruda na anterior.
+  const acao = resto;
   if (!marcador) return acao;
   if (marcador.tipo === "prefixo") {
     return acao ? `${marcador.bruto}: ${acao}` : `${marcador.bruto}:`;

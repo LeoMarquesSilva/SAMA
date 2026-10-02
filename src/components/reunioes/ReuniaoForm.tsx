@@ -101,20 +101,25 @@ function Secao({
   titulo,
   children,
   destaque,
+  acoes,
 }: {
   icon: LucideIcon;
   titulo: string;
   children: React.ReactNode;
   destaque?: string;
+  acoes?: React.ReactNode;
 }) {
   return (
     <section
       className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
       data-onboarding={destaque}
     >
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-        <Icon size={16} className="text-brand-600" />
-        {titulo}
+      <h3 className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-800">
+        <span className="flex items-center gap-2">
+          <Icon size={16} className="text-brand-600" />
+          {titulo}
+        </span>
+        {acoes}
       </h3>
       {children}
     </section>
@@ -572,7 +577,7 @@ export function ReuniaoForm({
       objetivos: String(fd.get("objetivos") ?? ""),
       resultado:
         status === "REALIZADA" ? resultadoTexto : String(fd.get("resultado") ?? ""),
-      proximos_passos: proximosPassos,
+      proximos_passos: agendarNovo ? "" : proximosPassos,
       motivo_cancelamento: String(fd.get("motivo_cancelamento") ?? ""),
       participantes: fd.getAll("participantes").map(String),
       participantes_externos: parseExternos(fd.get("participantes_externos")),
@@ -832,6 +837,20 @@ export function ReuniaoForm({
   }
 
   const podeReverterOutlook = editing && horarioSomenteLeitura && Boolean(reuniao?.id);
+  const inicioEcoa = src?.data_hora_inicio;
+  const podeCancelarEcoa = Boolean(
+    editing &&
+      origemSama &&
+      status === "AGENDADA" &&
+      inicioEcoa &&
+      new Date(inicioEcoa).getTime() > Date.now()
+  );
+  const focarMotivo = useRef(false);
+  useEffect(() => {
+    if (!focarMotivo.current || status !== "CANCELADA") return;
+    focarMotivo.current = false;
+    document.getElementById(`${formFieldId}-motivo_cancelamento`)?.focus();
+  }, [status, formFieldId]);
 
   function handleReverterOutlook() {
     if (!reuniao?.id || fellowBusy || pending || revertPending) return;
@@ -852,7 +871,23 @@ export function ReuniaoForm({
 
   const mostrarAta = status === "REALIZADA" || tourDestaque === "agenda-ata";
   const secaoAta = mostrarAta ? (
-    <Secao icon={FileText} titulo="Ata" destaque="agenda-ata">
+    <Secao
+      icon={FileText}
+      titulo="Ata"
+      destaque="agenda-ata"
+      acoes={
+        fellowAtivo ? (
+          <FellowImportLabelActions
+            status={fellowResumoStatus}
+            detail={fellowResumoDetail}
+            motivo={fellowImportMotivo}
+            onRefresh={handleImportarFellow}
+            busy={fellowBusy}
+            showRefresh
+          />
+        ) : undefined
+      }
+    >
       {fellowAtivo && fellowMsg && (
         <p
           className={clsx(
@@ -871,19 +906,7 @@ export function ReuniaoForm({
         key={reuniao?.id ?? prefillKey}
         id={fieldId("resultado")}
         name="resultado"
-        label="Ata"
-        labelAdornment={
-          fellowAtivo ? (
-            <FellowImportLabelActions
-              status={fellowResumoStatus}
-              detail={fellowResumoDetail}
-              motivo={fellowImportMotivo}
-              onRefresh={handleImportarFellow}
-              busy={fellowBusy}
-              showRefresh
-            />
-          ) : undefined
-        }
+        aria-label="Ata"
         value={resultadoTexto}
         onChange={setResultadoTexto}
         error={fieldErrors.resultado}
@@ -1177,6 +1200,7 @@ export function ReuniaoForm({
               colaboradores={colaboradores}
               clienteId={clienteIdAtual || null}
               exceptId={reuniao?.id}
+              incluirPassos={!agendarNovo}
               onTrazerPauta={setPauta}
               onRestaurarPauta={() => setPauta(parsePauta(src?.pauta) ?? pautaVazia())}
               onTrazerPassos={(passos) =>
@@ -1190,6 +1214,7 @@ export function ReuniaoForm({
           </>
         )}
         {editing && secaoAta}
+        {!agendarNovo && (
         <ProximosPassosChecklist
           value={proximosPassos}
           onChange={setProximosPassos}
@@ -1221,6 +1246,7 @@ export function ReuniaoForm({
             </>
           }
         />
+        )}
         {!editing && secaoAta}
 
         {error && (
@@ -1235,7 +1261,20 @@ export function ReuniaoForm({
         )}
 
         <div className="sticky bottom-0 z-[1] -mx-5 -mb-4 flex items-center justify-between gap-2 border-t border-slate-100 bg-white/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-5 sm:px-6">
-          {podeReverterOutlook ? (
+          {podeCancelarEcoa ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={pending || fellowBusy || revertPending}
+              onClick={() => {
+                focarMotivo.current = true;
+                setStatus("CANCELADA");
+              }}
+            >
+              Cancelar reunião
+            </Button>
+          ) : podeReverterOutlook ? (
             <Button
               type="button"
               variant="ghost"
@@ -1260,7 +1299,13 @@ export function ReuniaoForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={pending || fellowBusy || revertPending}>
-              {pending ? "Salvando..." : modoViaB && !editing ? "Agendar e enviar ao Outlook" : "Salvar"}
+              {pending
+                ? "Salvando..."
+                : status === "CANCELADA" && editing
+                  ? "Confirmar cancelamento"
+                  : modoViaB && !editing
+                    ? "Agendar e enviar ao Outlook"
+                    : "Salvar"}
             </Button>
           </div>
         </div>
@@ -1274,7 +1319,7 @@ export function ReuniaoForm({
       colaboradores={colaboradores}
       areaPadrao={undefined}
       onEnviar={async (passos) => {
-        const r = await enviarReuniaoAoVios(reuniao!.id, passos);
+        const r = await enviarReuniaoAoVios(reuniao!.id, passos, proximosPassos);
         if (r.ok) {
           setProximosPassos((atual) =>
             r.proximosPassos ??

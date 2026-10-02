@@ -26,7 +26,7 @@ export const AGENDAMENTO_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "pauta",
     title: "O restante fica no SAMA",
-    body: "A pauta só aparece na reunião nova: 1. Objetivo, 2. Assuntos a serem tratados e 3. Pendências. O cliente fica logo abaixo do título. Depois de escolhê-lo, o painel de reuniões anteriores surge acima da pauta, e os e-mails de quem já participou daquele grupo entram no convite.",
+    body: "A pauta só aparece na reunião nova: 1. Objetivo, 2. Assuntos a serem tratados e 3. Pendências. O cliente fica logo abaixo do título. Depois de escolhê-lo, o painel de reuniões anteriores surge acima da pauta, e os e-mails de quem já participou daquele grupo entram no convite. Os próximos passos ficam para depois da reunião.",
     target: "agenda-pauta",
     placement: "top",
   },
@@ -38,16 +38,9 @@ export const AGENDAMENTO_TOUR_STEPS: OnboardingStep[] = [
     placement: "top",
   },
   {
-    id: "passos",
-    title: "Próximos passos e o VIOS",
-    body: "Escreva cada ação numa linha. Depois que a reunião passou, o botão Enviar para Agendamento aparece neste bloco. Na linha do passo entram o CI e o status da tarefa: Aberta, Concluída ou Cancelada.",
-    target: "agenda-passos",
-    placement: "top",
-  },
-  {
     id: "finish",
     title: "É por esses pontos",
-    body: "Agendar abre o formulário na ordem do convite: título, pessoas, horário e sala. Cliente, pauta e próximos passos vêm depois. A ata aparece quando a reunião já aconteceu.",
+    body: "Agendar abre o formulário na ordem do convite: título, pessoas, horário e sala. Cliente e pauta vêm depois. A ata e os próximos passos aparecem quando a reunião já aconteceu.",
     placement: "center",
     finishLabel: "Começar a usar",
   },

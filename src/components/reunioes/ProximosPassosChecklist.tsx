@@ -185,12 +185,14 @@ export function ProximosPassosChecklist({
   agendamentosVios?: AgendamentoViosStatus[];
 }) {
   const [items, setItems] = useState<ChecklistItem[]>(() => initItems(value));
+  const [rascunhos, setRascunhos] = useState<Record<number, string>>({});
   const lastEmitted = useRef(value);
 
   useEffect(() => {
     if (value !== lastEmitted.current) {
       lastEmitted.current = value;
       setItems(initItems(value));
+      setRascunhos({});
     }
   }, [value]);
 
@@ -263,10 +265,20 @@ export function ProximosPassosChecklist({
             <div className={simples ? "min-w-0 flex-1 space-y-2" : "min-w-0"}>
               <input
                 type="text"
-                value={textoCampo}
-                onChange={(e) =>
+                value={rascunhos[index] ?? textoCampo}
+                onChange={(e) => {
+                  const digitado = e.target.value;
+                  setRascunhos((atual) => ({ ...atual, [index]: digitado }));
                   patchItem(index, {
-                    text: recomporPassoComMarcador(e.target.value, citado.marcador),
+                    text: recomporPassoComMarcador(digitado, citado.marcador),
+                  });
+                }}
+                onBlur={() =>
+                  setRascunhos((atual) => {
+                    if (!(index in atual)) return atual;
+                    const next = { ...atual };
+                    delete next[index];
+                    return next;
                   })
                 }
                 placeholder="Descreva a ação..."
@@ -319,6 +331,31 @@ export function ProximosPassosChecklist({
           );
         })}
       </ul>
+
+      {(() => {
+        const soltos = agendamentosVios.filter((a) => {
+          const chave = chaveTexto(a.passo_texto ?? a.observacao);
+          if (!chave) return true;
+          return !items.some((item) => {
+            const citado = separarPessoaDoPasso(item.text, colaboradores);
+            return (
+              chaveTexto(item.text) === chave ||
+              chaveTexto(citado.resto) === chave
+            );
+          });
+        });
+        if (soltos.length === 0) return null;
+        return (
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+            <p className="text-xs font-medium text-slate-500">
+              Agendado no VIOS e ainda sem linha correspondente
+            </p>
+            {soltos.map((a) => (
+              <StatusVios key={a.id} a={a} colaboradores={colaboradores} />
+            ))}
+          </div>
+        );
+      })()}
 
       <Button type="button" variant="secondary" size="sm" onClick={addItem}>
         <Plus size={14} />

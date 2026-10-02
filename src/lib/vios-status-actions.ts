@@ -205,13 +205,18 @@ type AgendamentoViosRow = {
   responsavel: string | null;
   data: string;
   pasta: string;
-  resultado: { ci_vios?: string | number | null; ci_pasta?: string | null; avisos?: string[] } | null;
+  resultado: {
+    ci_vios?: string | number | null;
+    ci_pasta?: string | null;
+    avisos?: string[];
+    vios_status?: string | null;
+  } | null;
   criado_em: string;
   atualizado_em: string;
 };
 
 async function comStatusTarefa(
-  linhas: Omit<AgendamentoViosStatus, "status_tarefa">[]
+  linhas: (Omit<AgendamentoViosStatus, "status_tarefa"> & { status_gravado?: string | null })[]
 ): Promise<AgendamentoViosStatus[]> {
   const admin = createAdminClient();
   const cis = [...new Set(linhas.map((l) => l.ci_vios).filter((ci): ci is string => Boolean(ci)))];
@@ -225,13 +230,20 @@ async function comStatusTarefa(
       if (t.ci) statusPorCi.set(t.ci, t.vios_status ?? null);
     }
   }
-  return linhas.map((l) => ({
+  return linhas.map(({ status_gravado, ...l }) => ({
     ...l,
-    status_tarefa: l.ci_vios ? (statusPorCi.get(l.ci_vios) ?? null) : null,
+    status_tarefa: l.ci_vios
+      ? (statusPorCi.get(l.ci_vios) ||
+          status_gravado ||
+          // Tarefa recém-criada ainda não entrou no espelho do VIOS. No VIOS ela nasce Aberta.
+          (l.status === "concluido" ? "Aberta" : null))
+      : null,
   }));
 }
 
-function linhaAgendamento(r: AgendamentoViosRow): Omit<AgendamentoViosStatus, "status_tarefa"> {
+function linhaAgendamento(
+  r: AgendamentoViosRow
+): Omit<AgendamentoViosStatus, "status_tarefa"> & { status_gravado: string | null } {
   const res = r.resultado ?? {};
   return {
     id: r.id,
@@ -244,6 +256,7 @@ function linhaAgendamento(r: AgendamentoViosRow): Omit<AgendamentoViosStatus, "s
     data: r.data,
     pasta: r.pasta,
     ci_vios: res.ci_vios != null ? String(res.ci_vios) : null,
+    status_gravado: res.vios_status?.trim() || null,
     ci_pasta: res.ci_pasta ?? null,
     avisos: Array.isArray(res.avisos) ? res.avisos : [],
     criado_em: r.criado_em,

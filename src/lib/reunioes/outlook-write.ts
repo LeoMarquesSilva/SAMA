@@ -423,7 +423,9 @@ function casoDoPasso(passo: ViosPassoEnvio): CasoAgendamentoVios {
 
 export async function enviarReuniaoAoVios(
   reuniaoId: string,
-  passosEnvio?: ViosPassoEnvio[]
+  passosEnvio?: ViosPassoEnvio[],
+  /** Checklist que está na tela, inclusive linhas ainda não salvas. */
+  checklistAtual?: string
 ): Promise<ActionResult> {
   const pessoa = await getPessoaAtual();
   if (!pessoa) return { ok: false, error: "Não autenticado." };
@@ -481,7 +483,7 @@ export async function enviarReuniaoAoVios(
           );
 
     const proximosPassos = marcarPassosEnviadosVios(
-      reuniao.proximos_passos,
+      checklistAtual ?? reuniao.proximos_passos,
       passos.map((p) => (p as ViosPassoEnvio).texto_checklist || p.text)
     );
     const admin = createAdminClient();

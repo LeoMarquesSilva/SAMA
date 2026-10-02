@@ -4,8 +4,8 @@
  * (todas as áreas de Processo e de Atendimento). Não edite à mão: atualize a planilha
  * e gere de novo.
  *
- * - etiqueta: PROVIDÊNCIA → "PROVIDENCIA"; ENVIAR → "PRAZO" (só agrupa a lista; o RPA
- *   continua recebendo a etiqueta PROVIDÊNCIA).
+ * - etiqueta: PROVIDÊNCIA → "PROVIDENCIA" (VIOS: PROVIDÊNCIA); ENVIAR → "PRAZO"
+ *   (VIOS: ENVIAR). Prazo não pode ser gravado como Providência.
  * - pastas: coluna C — em que tipo de pasta o VIOS tem esse tipo de tarefa.
  * - Com a pasta carregada, a lista ainda é cortada pelos tipos que o VIOS aceita naquela
  *   pasta (depende da área).
@@ -345,6 +345,12 @@ export const TAREFAS_POR_ETIQUETA: Record<EtiquetaVisual, readonly string[]> = {
  * Tipos de tarefa da etiqueta, filtrados pelo tipo de pasta e, se informado, pelos
  * tipos que o VIOS aceita na pasta (lista carregada com a pasta).
  */
+/** Nome e id da etiqueta no select do VIOS. Prazo na tela é ENVIAR no VIOS. */
+export function etiquetaViosDaEscolha(escolha: string): { nome: string; id: string } {
+  if (escolha === "PRAZO") return { nome: "ENVIAR", id: "1" };
+  return { nome: "PROVIDÊNCIA", id: "204" };
+}
+
 export function tarefasDaEtiqueta(
   etiqueta: string,
   pastaTipo?: PastaDepara | string,
