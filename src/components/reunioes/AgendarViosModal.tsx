@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { VIOS_PASTA_TIPOS, type ViosPassoEnvio } from "@/lib/vios-agendamento";
 import {
   ETIQUETAS_VISUAIS,
-  etiquetaViosDaEscolha,
+  etiquetasViosDoEnvio,
   tarefasDaEtiqueta,
   TAREFA_REVISAR,
 } from "@/lib/vios-depara-etiqueta";
@@ -68,6 +68,19 @@ function idPorNome(opcoes: OpcaoVios[] | undefined, nome: string): string {
   if (!opcoes || !nome.trim()) return "";
   const alvo = normalizarNome(nome);
   return opcoes.find((o) => normalizarNome(o.nome) === alvo)?.id ?? "";
+}
+
+/** Ids e nomes que o VIOS deve marcar: a etiqueta da tela e PROVIDÊNCIA DE REUNIÃO. */
+function etiquetasDoPasso(opcoes: OpcaoVios[], escolha: string) {
+  const lista = etiquetasViosDoEnvio(escolha);
+  const ids = lista
+    .map((e) => idPorNome(opcoes, e.nome) || e.id)
+    .filter(Boolean);
+  return {
+    principal: lista[0]?.nome ?? "",
+    ids: ids.join(","),
+    nomes: lista.map((e) => e.nome).join(", "),
+  };
 }
 
 function normalizarTexto(t: string | null | undefined): string {
@@ -273,7 +286,7 @@ export function AgendarViosModal({
     start(async () => {
       const envio: ViosPassoEnvio[] = [];
       for (const l of selecionadas) {
-        const etiqueta = etiquetaViosDaEscolha(l.grupoEtiqueta);
+        const etiqueta = etiquetasDoPasso(etiquetasVios, l.grupoEtiqueta);
         const comum = {
           texto_checklist: l.texto_checklist,
           colaborador_id: l.colaborador_id,
@@ -287,24 +300,26 @@ export function AgendarViosModal({
         envio.push({
           ...comum,
           text: l.text,
-          tipo: etiqueta.nome,
+          tipo: etiqueta.principal,
           tarefa: l.tarefa,
-          etiqueta_id: idPorNome(etiquetasVios, etiqueta.nome) || etiqueta.id,
-          etiqueta: etiqueta.nome,
+          // O robô em produção marca um id só. Os dois nomes vão em `etiqueta`
+          // (PROVIDÊNCIA ou ENVIAR, mais PROVIDÊNCIA DE REUNIÃO) para a versão
+          // nova selecionar as duas no VIOS.
+          etiqueta_id: etiqueta.ids.split(",")[0] ?? "",
+          etiqueta: etiqueta.nomes,
           responsavel_vios: l.responsavel_vios,
           revisor_vios: l.revisor_vios,
         });
         // Prazo (ENVIAR no VIOS) abre também a REVISAR para o revisor escolhido.
         if (l.grupoEtiqueta === "PRAZO" && l.revisor_vios?.trim()) {
-          const providencia = etiquetaViosDaEscolha("PROVIDENCIA");
+          const providencia = etiquetasDoPasso(etiquetasVios, "PROVIDENCIA");
           envio.push({
             ...comum,
             text: `${TAREFA_REVISAR.replace(/^\d+\.\s*/, "")}: ${l.text}`,
-            tipo: providencia.nome,
+            tipo: providencia.principal,
             tarefa: TAREFA_REVISAR,
-            etiqueta_id:
-              idPorNome(etiquetasVios, providencia.nome) || providencia.id,
-            etiqueta: providencia.nome,
+            etiqueta_id: providencia.ids.split(",")[0] ?? "",
+            etiqueta: providencia.nomes,
             responsavel_vios: l.revisor_vios,
           });
         }
@@ -606,7 +621,11 @@ export function AgendarViosModal({
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <SelectMenu
                               label="Etiqueta"
-                              value={linha.grupoEtiqueta}
+                              value={
+                                linha.grupoEtiqueta === "PRAZO"
+                                  ? "PRAZO"
+                                  : "PROVIDENCIA"
+                              }
                               onChange={(v) => {
                                 const tarefas = tarefasDaEtiqueta(v, tipoPasta);
                                 patch(index, {

@@ -12,7 +12,7 @@ export function PautaFields({
 }: {
   value: PautaReuniao | null | undefined;
   onChange: (pauta: PautaReuniao) => void;
-  /** Ações do bloco (ex.: enviar a pauta para o cliente). */
+  /** Ações extras no cabeçalho do bloco da pauta. */
   acoes?: React.ReactNode;
 }) {
   const pauta = value ?? pautaVazia();

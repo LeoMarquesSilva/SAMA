@@ -12,9 +12,11 @@
  */
 export const ETIQUETAS_VISUAIS = [
   { value: "PROVIDENCIA", label: "Providência" },
-  { value: "PROVIDENCIA_REUNIAO", label: "Providência de reunião" },
   { value: "PRAZO", label: "Prazo" },
 ] as const;
+
+/** Sempre gravada junto no VIOS: o agendamento saiu do SAMA. */
+export const ETIQUETA_PROVIDENCIA_REUNIAO = "PROVIDÊNCIA DE REUNIÃO";
 
 export type EtiquetaEscolha = (typeof ETIQUETAS_VISUAIS)[number]["value"];
 /** Etiquetas do de-para da planilha (Providência de reunião reaproveita a lista de Providência). */
@@ -352,17 +354,20 @@ export const TAREFAS_POR_ETIQUETA: Record<EtiquetaVisual, readonly string[]> = {
  * tipos que o VIOS aceita na pasta (lista carregada com a pasta).
  */
 /**
- * Nome e id da etiqueta no select do VIOS. Prazo na tela é ENVIAR no VIOS.
- * "Providência de reunião" é uma etiqueta própria do VIOS; o id vem resolvido pelo
- * nome no catálogo (vios_catalogo_tarefas) e o 204 de PROVIDÊNCIA fica como reserva
- * para o robô não travar enquanto a etiqueta não existir no VIOS.
+ * Nome e id da etiqueta principal no select do VIOS. Prazo na tela é ENVIAR.
+ * PROVIDÊNCIA DE REUNIÃO entra sempre junto, resolvida pelo nome no catálogo.
  */
 export function etiquetaViosDaEscolha(escolha: string): { nome: string; id: string } {
   if (escolha === "PRAZO") return { nome: "ENVIAR", id: "1" };
-  if (escolha === "PROVIDENCIA_REUNIAO") {
-    return { nome: "PROVIDÊNCIA DE REUNIÃO", id: "204" };
-  }
   return { nome: "PROVIDÊNCIA", id: "204" };
+}
+
+/** Etiquetas marcadas no VIOS: a escolhida na tela e PROVIDÊNCIA DE REUNIÃO. */
+export function etiquetasViosDoEnvio(escolha: string): { nome: string; id: string }[] {
+  return [
+    etiquetaViosDaEscolha(escolha),
+    { nome: ETIQUETA_PROVIDENCIA_REUNIAO, id: "" },
+  ];
 }
 
 export function tarefasDaEtiqueta(

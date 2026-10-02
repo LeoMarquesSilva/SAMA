@@ -66,8 +66,8 @@ import {
 } from "@/lib/vios-status-actions";
 import { PautaFields } from "@/components/reunioes/PautaFields";
 import { ReunioesAnterioresPanel } from "@/components/reunioes/ReunioesAnterioresPanel";
-import { parsePauta, pautaTemConteudo, pautaVazia, type PautaReuniao } from "@/lib/pauta";
-import { enviarPautaParaCliente } from "@/lib/reunioes/pauta-email";
+import { parsePauta, pautaVazia, type PautaReuniao } from "@/lib/pauta";
+import { enviarAtaParaCliente } from "@/lib/reunioes/pauta-email";
 import {
   checklistTemItens,
   marcarPassosEnviadosVios,
@@ -863,42 +863,42 @@ export function ReuniaoForm({
     });
   }
 
-  function handleEnviarPauta() {
+  function handleEnviarAta() {
     setPautaMsg(undefined);
     startPautaTransition(async () => {
-      const r = await enviarPautaParaCliente({
+      const r = await enviarAtaParaCliente({
         titulo: tituloRef.current?.value?.trim() || src?.titulo || "",
         clienteId: clienteIdAtual || null,
-        dataHoraInicio: slotInicio || null,
+        dataHoraInicio: slotInicio || src?.data_hora_inicio || null,
         emails: emailsCliente,
-        pauta,
+        ata: resultadoTexto,
       });
       setPautaMsg(
         r.ok
           ? {
               ok: true,
-              texto: `Pauta enviada para ${(r.enviadosPara ?? []).join(", ")}.`,
+              texto: `Ata enviada para ${(r.enviadosPara ?? []).join(", ")}.`,
             }
-          : { ok: false, texto: r.error ?? "Falha ao enviar a pauta." }
+          : { ok: false, texto: r.error ?? "Falha ao enviar a ata." }
       );
     });
   }
 
-  const podeEnviarPauta =
-    pautaTemConteudo(pauta) && emailsCliente.length > 0 && !pautaEnviando;
+  const podeEnviarAta =
+    resultadoTexto.trim().length > 0 && emailsCliente.length > 0 && !pautaEnviando;
 
-  const acoesPauta = (
+  const acoesAta = (
     <Button
       type="button"
       variant="secondary"
       size="sm"
-      disabled={!podeEnviarPauta}
-      onClick={handleEnviarPauta}
+      disabled={!podeEnviarAta}
+      onClick={handleEnviarAta}
       title={
         emailsCliente.length === 0
-          ? "Informe os e-mails do cliente para enviar a pauta."
-          : !pautaTemConteudo(pauta)
-            ? "Preencha a pauta antes de enviar."
+          ? "Informe os e-mails do cliente para enviar a ata."
+          : !resultadoTexto.trim()
+            ? "A ata ainda está vazia."
             : undefined
       }
     >
@@ -907,7 +907,7 @@ export function ReuniaoForm({
       ) : (
         <Mail size={14} />
       )}
-      {pautaEnviando ? "Enviando…" : "Enviar pauta para cliente"}
+      {pautaEnviando ? "Enviando…" : "Enviar ata para cliente"}
     </Button>
   );
 
@@ -955,16 +955,19 @@ export function ReuniaoForm({
       titulo="Ata"
       destaque="agenda-ata"
       acoes={
-        fellowAtivo ? (
-          <FellowImportLabelActions
-            status={fellowResumoStatus}
-            detail={fellowResumoDetail}
-            motivo={fellowImportMotivo}
-            onRefresh={handleImportarFellow}
-            busy={fellowBusy}
-            showRefresh
-          />
-        ) : undefined
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {acoesAta}
+          {fellowAtivo ? (
+            <FellowImportLabelActions
+              status={fellowResumoStatus}
+              detail={fellowResumoDetail}
+              motivo={fellowImportMotivo}
+              onRefresh={handleImportarFellow}
+              busy={fellowBusy}
+              showRefresh
+            />
+          ) : null}
+        </div>
       }
     >
       {fellowAtivo && fellowMsg && (
@@ -990,6 +993,16 @@ export function ReuniaoForm({
         onChange={setResultadoTexto}
         error={fieldErrors.resultado}
       />
+      {pautaMsg && (
+        <p
+          className={clsx(
+            "rounded-lg px-3 py-2 text-sm",
+            pautaMsg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"
+          )}
+        >
+          {pautaMsg.texto}
+        </p>
+      )}
     </Secao>
   ) : null;
 
@@ -1308,19 +1321,7 @@ export function ReuniaoForm({
                 setProximosPassos((atual) => removerDoChecklist(atual, passos))
               }
             />
-            <PautaFields value={pauta} onChange={setPauta} acoes={acoesPauta} />
-            {pautaMsg && (
-              <p
-                className={clsx(
-                  "rounded-lg px-3 py-2 text-sm",
-                  pautaMsg.ok
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "bg-red-50 text-red-700"
-                )}
-              >
-                {pautaMsg.texto}
-              </p>
-            )}
+            <PautaFields value={pauta} onChange={setPauta} />
           </>
         )}
         {editing && secaoAta}
