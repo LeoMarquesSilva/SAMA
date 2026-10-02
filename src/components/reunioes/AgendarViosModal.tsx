@@ -17,13 +17,19 @@ import {
   ETIQUETAS_VISUAIS,
   etiquetaViosDaEscolha,
   tarefasDaEtiqueta,
+  TAREFA_REVISAR,
 } from "@/lib/vios-depara-etiqueta";
 import { usuarioViosDoColaborador, type OpcaoVios } from "@/lib/vios-opcoes";
-import { listarUsuariosVios } from "@/lib/vios-status-actions";
 import {
+  listarUsuariosVios,
+  type AgendamentoViosStatus,
+} from "@/lib/vios-status-actions";
+import {
+  colaboradorPorNome,
   ResponsaveisSugeridos,
   separarPessoaDoPasso,
 } from "@/components/reunioes/PassoResponsavel";
+import { StatusVios } from "@/components/reunioes/ProximosPassosChecklist";
 import {
   AlertCircle,
   Bot,
@@ -44,7 +50,7 @@ type Linha = ViosPassoEnvio & {
   enviadoViosEm?: string | null;
   /** Nome que o Fellow indicou, para pré-selecionar o responsável do VIOS. */
   responsavelSugerido?: string;
-  /** Providência ou Prazo. Define a etiqueta gravada no VIOS. */
+  /** Providência, Providência de reunião ou Prazo. Define a etiqueta gravada no VIOS. */
   grupoEtiqueta: string;
 };
 
@@ -62,6 +68,10 @@ function idPorNome(opcoes: OpcaoVios[] | undefined, nome: string): string {
   if (!opcoes || !nome.trim()) return "";
   const alvo = normalizarNome(nome);
   return opcoes.find((o) => normalizarNome(o.nome) === alvo)?.id ?? "";
+}
+
+function normalizarTexto(t: string | null | undefined): string {
+  return String(t ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function numeroDaLinha(l: Linha): string {
@@ -107,12 +117,15 @@ export function AgendarViosModal({
   onClose,
   proximosPassos,
   colaboradores,
+  agendamentosVios = [],
   onEnviar,
 }: {
   open: boolean;
   onClose: () => void;
   proximosPassos: string;
   colaboradores: ColaboradorOpt[];
+  /** Situação no VIOS dos passos já enviados (mesmas informações de "Próximos passos"). */
+  agendamentosVios?: AgendamentoViosStatus[];
   /** Mantido na API; a área não é mais escolhida neste modal. */
   areaPadrao?: string | null;
   onEnviar: (passos: ViosPassoEnvio[]) => Promise<{ ok: boolean; error?: string; id?: string }>;
@@ -138,6 +151,7 @@ export function AgendarViosModal({
         grupoEtiqueta: "PROVIDENCIA",
         responsavelSugerido: sugerido,
         responsavel_vios: sugerido,
+        revisor_vios: "",
         pastaTipo: "Processo",
         pasta: "",
         processo: "",
@@ -241,33 +255,61 @@ export function AgendarViosModal({
         );
       }
       if (!l.responsavel_vios) return setErro(`Selecione o responsável do passo ${n}.`);
+      if (l.grupoEtiqueta === "PRAZO" && !l.revisor_vios?.trim()) {
+        return setErro(
+          `Selecione o revisor do passo ${n} — a etiqueta Prazo abre a tarefa ${TAREFA_REVISAR} para ele.`
+        );
+      }
+      if (l.enviadoVios) {
+        return setErro(
+          `O passo ${n} já foi enviado para agendamento. Desmarque-o para não duplicar a tarefa no VIOS.`
+        );
+      }
     }
     if (listas.status !== "ok") {
       return setErro("Aguarde carregar a lista de responsáveis do VIOS.");
     }
     const etiquetasVios = listas.etiquetas;
     start(async () => {
-      const r = await onEnviar(
-        selecionadas.map((l) => {
-          const etiqueta = etiquetaViosDaEscolha(l.grupoEtiqueta);
-          return {
-          text: l.text,
+      const envio: ViosPassoEnvio[] = [];
+      for (const l of selecionadas) {
+        const etiqueta = etiquetaViosDaEscolha(l.grupoEtiqueta);
+        const comum = {
           texto_checklist: l.texto_checklist,
           colaborador_id: l.colaborador_id,
           prazo: l.prazo,
-          tipo: etiqueta.nome,
-          tarefa: l.tarefa,
-          // o robô escolhe o tipo de tarefa pelo nome na tela da pasta
-          tarefa_id: "",
-          etiqueta_id: idPorNome(etiquetasVios, etiqueta.nome) || etiqueta.id,
-          etiqueta: etiqueta.nome,
-          responsavel_vios: l.responsavel_vios,
           pastaTipo: l.pastaTipo,
           pasta: l.pasta,
           processo: l.processo,
-          };
-        })
-      );
+          // o robô escolhe o tipo de tarefa pelo nome na tela da pasta
+          tarefa_id: "",
+        };
+        envio.push({
+          ...comum,
+          text: l.text,
+          tipo: etiqueta.nome,
+          tarefa: l.tarefa,
+          etiqueta_id: idPorNome(etiquetasVios, etiqueta.nome) || etiqueta.id,
+          etiqueta: etiqueta.nome,
+          responsavel_vios: l.responsavel_vios,
+          revisor_vios: l.revisor_vios,
+        });
+        // Prazo (ENVIAR no VIOS) abre também a REVISAR para o revisor escolhido.
+        if (l.grupoEtiqueta === "PRAZO" && l.revisor_vios?.trim()) {
+          const providencia = etiquetaViosDaEscolha("PROVIDENCIA");
+          envio.push({
+            ...comum,
+            text: `${TAREFA_REVISAR.replace(/^\d+\.\s*/, "")}: ${l.text}`,
+            tipo: providencia.nome,
+            tarefa: TAREFA_REVISAR,
+            etiqueta_id:
+              idPorNome(etiquetasVios, providencia.nome) || providencia.id,
+            etiqueta: providencia.nome,
+            responsavel_vios: l.revisor_vios,
+          });
+        }
+      }
+      const r = await onEnviar(envio);
       if (!r.ok) {
         setErro(r.error ?? "Falha ao agendar no VIOS.");
         return;
@@ -278,6 +320,45 @@ export function AgendarViosModal({
 
   const campo =
     "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+
+  /** Responsáveis do VIOS com a foto do colaborador correspondente no SAMA. */
+  const opcoesResponsavel = useMemo(
+    () =>
+      listas.status === "ok"
+        ? listas.usuarios.map((u) => {
+            const colab = colaboradorPorNome(u.nome, colaboradores);
+            return {
+              value: u.nome,
+              label: u.nome,
+              avatar: { nome: colab?.nome ?? u.nome, src: colab?.avatar_url ?? null },
+            };
+          })
+        : [],
+    [listas, colaboradores]
+  );
+
+  function opcoesResponsavelCom(valor: string | undefined) {
+    if (opcoesResponsavel.length > 0) return opcoesResponsavel;
+    return valor ? [{ value: valor, label: valor }] : [];
+  }
+
+  const placeholderResponsavel =
+    listas.status === "carregando"
+      ? "Carregando…"
+      : listas.status === "erro"
+        ? "Erro ao carregar"
+        : "Selecione";
+
+  /** Situação no VIOS do último envio deste passo. */
+  function agendamentoDaLinha(l: Linha): AgendamentoViosStatus | undefined {
+    const chaves = [l.texto_checklist, l.text]
+      .map((t) => normalizarTexto(t))
+      .filter(Boolean);
+    if (chaves.length === 0) return undefined;
+    return agendamentosVios.find((a) =>
+      chaves.includes(normalizarTexto(a.passo_texto ?? a.observacao))
+    );
+  }
 
   const disponiveis = linhas.filter((l) => !l.enviadoVios);
   const todosMarcados =
@@ -350,6 +431,8 @@ export function AgendarViosModal({
                   colaboradores
                 );
                 const pessoa = pessoas[0] ?? null;
+                const jaEnviado = Boolean(linha.enviadoVios);
+                const agendamento = agendamentoDaLinha(linha);
                 return (
                   <li
                     key={index}
@@ -357,21 +440,34 @@ export function AgendarViosModal({
                       "overflow-hidden rounded-xl border transition-colors",
                       linha.selecionado
                         ? "border-brand-300 bg-white shadow-sm ring-1 ring-brand-100"
-                        : "border-slate-200 bg-slate-50/70 hover:border-slate-300"
+                        : jaEnviado
+                          ? "border-slate-200 bg-white"
+                          : "border-slate-200 bg-slate-50/70 hover:border-slate-300"
                     )}
                   >
                     <label
+                      aria-disabled={jaEnviado}
+                      title={
+                        jaEnviado
+                          ? "Este passo já foi enviado para agendamento — não dá para enviar de novo."
+                          : undefined
+                      }
                       className={clsx(
-                        "group flex cursor-pointer items-start gap-3.5 px-4 py-3.5 transition-colors",
-                        linha.selecionado
-                          ? "border-b border-brand-100 bg-brand-50/60"
-                          : "hover:bg-white"
+                        "group flex items-start gap-3.5 px-4 py-3.5 transition-colors",
+                        jaEnviado
+                          ? "cursor-default"
+                          : linha.selecionado
+                            ? "cursor-pointer border-b border-brand-100 bg-brand-50/60"
+                            : "cursor-pointer hover:bg-white"
                       )}
                     >
                       <input
                         type="checkbox"
                         checked={linha.selecionado}
-                        onChange={(e) => patch(index, { selecionado: e.target.checked })}
+                        disabled={jaEnviado}
+                        onChange={(e) =>
+                          !jaEnviado && patch(index, { selecionado: e.target.checked })
+                        }
                         className="peer sr-only"
                       />
                       <span
@@ -379,9 +475,11 @@ export function AgendarViosModal({
                         className={clsx(
                           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all",
                           "peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400 peer-focus-visible:ring-offset-1",
-                          linha.selecionado
-                            ? "border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-600/30"
-                            : "border-slate-300 bg-white text-transparent group-hover:border-brand-400"
+                          jaEnviado
+                            ? "border-emerald-500 bg-emerald-500 text-white"
+                            : linha.selecionado
+                              ? "border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-600/30"
+                              : "border-slate-300 bg-white text-transparent group-hover:border-brand-400"
                         )}
                       >
                         <Check size={13} strokeWidth={3} />
@@ -407,6 +505,10 @@ export function AgendarViosModal({
                               </Badge>
                             )}
                           </span>
+                        )}
+                        {/* Mesmas informações de "Próximos passos": tarefa, responsável, data, CI e situação. */}
+                        {agendamento && (
+                          <StatusVios a={agendamento} colaboradores={colaboradores} />
                         )}
                       </span>
                     </label>
@@ -536,30 +638,10 @@ export function AgendarViosModal({
                               value={linha.responsavel_vios ?? ""}
                               onChange={(v) => patch(index, { responsavel_vios: v })}
                               emptyOption="Selecione"
-                              placeholder={
-                                listas.status === "carregando"
-                                  ? "Carregando…"
-                                  : listas.status === "erro"
-                                    ? "Erro ao carregar"
-                                    : "Selecione"
-                              }
+                              placeholder={placeholderResponsavel}
                               disabled={listas.status !== "ok"}
                               searchable
-                              options={
-                                listas.status === "ok"
-                                  ? listas.usuarios.map((u) => ({
-                                      value: u.nome,
-                                      label: u.nome,
-                                    }))
-                                  : linha.responsavel_vios
-                                    ? [
-                                        {
-                                          value: linha.responsavel_vios,
-                                          label: linha.responsavel_vios,
-                                        },
-                                      ]
-                                    : []
-                              }
+                              options={opcoesResponsavelCom(linha.responsavel_vios)}
                             />
                             <DateBrInput
                               label="Data para conclusão"
@@ -567,6 +649,28 @@ export function AgendarViosModal({
                               onChange={(prazo) => patch(index, { prazo })}
                             />
                           </div>
+                          {/* Prazo vira ENVIAR no VIOS; o revisor recebe a REVISAR do mesmo prazo. */}
+                          {linha.grupoEtiqueta === "PRAZO" && (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                              <SelectMenu
+                                label="Revisor"
+                                value={linha.revisor_vios ?? ""}
+                                onChange={(v) => patch(index, { revisor_vios: v })}
+                                emptyOption="Selecione"
+                                placeholder={placeholderResponsavel}
+                                disabled={listas.status !== "ok"}
+                                searchable
+                                options={opcoesResponsavelCom(linha.revisor_vios)}
+                              />
+                              <p className="text-xs leading-snug text-slate-500 sm:col-span-1 lg:col-span-3 lg:self-end lg:pb-2">
+                                Além do prazo (ENVIAR), o robô abre a tarefa{" "}
+                                <span className="font-medium text-slate-600">
+                                  {TAREFA_REVISAR}
+                                </span>{" "}
+                                na mesma pasta e data, com o revisor como responsável.
+                              </p>
+                            </div>
+                          )}
                         </section>
 
                         <section className="space-y-2">

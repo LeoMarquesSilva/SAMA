@@ -59,6 +59,7 @@ async function resolverPessoasSync(
     const { data } = await supabase
       .from("usuarios")
       .select("id, email, nome")
+      .is("desativado_em", null)
       .not("email", "is", null);
     const pessoas = (data ?? []).filter(
       (p): p is PessoaSync => Boolean(p.email?.trim())

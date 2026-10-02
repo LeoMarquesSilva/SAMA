@@ -5,6 +5,9 @@ import { ArrowLeft, Building2, CalendarClock, Users } from "lucide-react";
 import { requireClientesAccess } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatDuration } from "@/lib/format";
+import { separarEmails } from "@/lib/emails-cliente";
+import { labelTipoReuniao } from "@/lib/reuniao-tipos";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import { Badge } from "@/components/ui/Badge";
 import { AvatarGroup } from "@/components/ui/Avatar";
 import {
@@ -68,6 +71,7 @@ export default async function ClienteDetalhePage({
     )[0];
   const ultima = reunioes.find((r) => r.status === "REALIZADA");
 
+  const tiposReuniao = await listarTiposReuniao();
   const porTipo = reunioes.reduce<Record<string, number>>((acc, r) => {
     acc[r.tipo] = (acc[r.tipo] ?? 0) + 1;
     return acc;
@@ -99,7 +103,11 @@ export default async function ClienteDetalhePage({
                 .join(" · ")}
             </p>
             <p className="mt-0.5 text-xs text-slate-400">
-              {[c.telefone, c.email, c.responsaveis && `Resp.: ${c.responsaveis}`]
+              {[
+                c.telefone,
+                ...separarEmails(c.email),
+                c.responsaveis && `Resp.: ${c.responsaveis}`,
+              ]
                 .filter(Boolean)
                 .join(" · ") || "Sem contato cadastrado"}
             </p>
@@ -137,7 +145,7 @@ export default async function ClienteDetalhePage({
           <div className="mt-3 flex flex-wrap gap-2">
             {Object.entries(porTipo).map(([t, n]) => (
               <Badge key={t} tone={tipoTone[t as TipoReuniao]}>
-                {TIPO_REUNIAO[t as TipoReuniao]}: {n}
+                {labelTipoReuniao(t, tiposReuniao)}: {n}
               </Badge>
             ))}
           </div>
@@ -168,7 +176,9 @@ export default async function ClienteDetalhePage({
                     </Badge>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <Badge tone={tipoTone[r.tipo]}>{TIPO_REUNIAO[r.tipo]}</Badge>
+                    <Badge tone={tipoTone[r.tipo]}>
+                      {labelTipoReuniao(r.tipo, tiposReuniao)}
+                    </Badge>
                     <span className="inline-flex items-center gap-1">
                       <CalendarClock size={13} />
                       {formatDateTime(r.data_hora_inicio)}

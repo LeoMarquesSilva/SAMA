@@ -1,11 +1,6 @@
 import { z } from "zod";
-import { TIPO_ATIVIDADE_INTERNA, TIPO_REUNIAO } from "@/lib/constants";
+import { TIPO_ATIVIDADE_INTERNA } from "@/lib/constants";
 import { isUrl } from "@/lib/validate";
-
-const TIPOS_REUNIAO = Object.keys(TIPO_REUNIAO) as [
-  keyof typeof TIPO_REUNIAO,
-  ...Array<keyof typeof TIPO_REUNIAO>,
-];
 
 const TIPOS_ATIVIDADE = Object.keys(TIPO_ATIVIDADE_INTERNA) as [
   keyof typeof TIPO_ATIVIDADE_INTERNA,
@@ -50,9 +45,10 @@ export type ClienteFormValues = z.infer<typeof clienteSchema>;
 export const reuniaoSchema = z
   .object({
     titulo: z.string().trim().min(2, "Informe um título."),
-    tipo: z.enum(TIPOS_REUNIAO, {
-      message: "Selecione o tipo.",
-    }),
+    tipo: z
+      .string()
+      .trim()
+      .regex(/^[A-Z0-9_]{2,40}$/, "Selecione o tipo."),
     modalidade: z.enum(
       ["PRESENCIAL_ESCRITORIO", "PRESENCIAL_EXTERNO", "ONLINE"],
       { message: "Selecione a modalidade." }
@@ -113,6 +109,11 @@ export const reuniaoSchema = z
       .array(z.string().trim().email("E-mail do cliente inválido."))
       .optional(),
     origem: z.enum(["SAMA", "OUTLOOK"]).optional(),
+    demanda: z
+      .enum(["INSOLVENCIA", "CIVEL", "INSOLVENCIA_CIVEL"])
+      .optional()
+      .or(z.literal("")),
+    ata_restrita: z.boolean().optional(),
     criar_outlook: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {

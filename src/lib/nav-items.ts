@@ -9,12 +9,14 @@ import {
   ListChecks,
   Clock,
   CircleHelp,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import {
   canAccessAjuda,
   canAccessCalendario,
   canAccessClientes,
+  canAccessConfiguracoes,
   canAccessDashboard,
   canAccessProximosPassos,
   canAccessRelatorios,
@@ -88,6 +90,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Tarefas VIOS",
     icon: ListTodo,
     visible: canAccessTarefas,
+  },
+  {
+    href: "/configuracoes",
+    label: "Configurações",
+    icon: Settings,
+    visible: canAccessConfiguracoes,
+    hideOnMobile: true,
   },
 ];
 

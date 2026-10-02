@@ -90,7 +90,10 @@ export default async function AppLayout({
               email={pessoa.email}
               avatarUrl={urlDeFotoUtil(fotos?.[0]?.avatar_url ?? pessoa.avatar_url)}
             />
-            <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-6">
+            <main
+              data-app-scroll
+              className="flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-6"
+            >
               <ConteudoNavegacao>{children}</ConteudoNavegacao>
             </main>
           </div>

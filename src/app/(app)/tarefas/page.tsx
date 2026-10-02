@@ -3,6 +3,7 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { createClient } from "@/lib/supabase/server";
 import { TarefasClient } from "@/components/tarefas/TarefasClient";
 import { viosConfigurado } from "@/lib/vios";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import { getTarefasSyncInfo } from "@/app/(app)/tarefas/actions";
 import type { ViosTarefaRow } from "@/types/database";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
@@ -24,6 +25,7 @@ export default async function TarefasPage() {
       supabase
         .from("usuarios")
         .select("id, nome, email, avatar_url")
+        .is("desativado_em", null)
         .order("nome"),
       supabase
         .from("colaboradores")
@@ -72,6 +74,7 @@ export default async function TarefasPage() {
       pessoas={pessoasAvatar}
       usuarios={usuarios ?? []}
       colaboradores={(colaboradores as ColaboradorOpt[]) ?? []}
+      tiposReuniao={await listarTiposReuniao()}
       isAdmin={isAdmin}
       pessoaAtualId={pessoa?.id ?? null}
     />

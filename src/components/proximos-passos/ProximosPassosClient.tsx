@@ -10,7 +10,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ReuniaoForm } from "@/components/reunioes/ReuniaoForm";
 import { togglePassoReuniao } from "@/app/(app)/proximos-passos/actions";
 import type { PassoReuniaoGrupo } from "@/lib/proximos-passos";
-import { TIPO_REUNIAO } from "@/lib/constants";
+import {
+  labelTipoReuniao,
+  type TipoReuniaoItem,
+} from "@/lib/reuniao-tipos";
 import { formatDateTime } from "@/lib/format";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
@@ -32,6 +35,7 @@ export function ProximosPassosClient({
   grupos,
   totais,
   colaboradores,
+  tiposReuniao,
   fellowAtivo,
   onboardingEnabled = false,
   agendamentosPorReuniao = {},
@@ -39,6 +43,7 @@ export function ProximosPassosClient({
   grupos: PassoReuniaoGrupo[];
   totais: { pendentes: number; realizados: number };
   colaboradores: ColaboradorOpt[];
+  tiposReuniao?: TipoReuniaoItem[];
   fellowAtivo: boolean;
   onboardingEnabled?: boolean;
   agendamentosPorReuniao?: Record<string, AgendamentoViosStatus[]>;
@@ -67,7 +72,7 @@ export function ProximosPassosClient({
             grupo.reuniao.titulo,
             grupo.reuniao.cliente?.nome,
             grupo.reuniao.cliente?.grupo_cliente,
-            TIPO_REUNIAO[grupo.reuniao.tipo],
+            labelTipoReuniao(grupo.reuniao.tipo, tiposReuniao),
           ]
             .filter(Boolean)
             .join(" ")
@@ -217,7 +222,7 @@ export function ProximosPassosClient({
                       <CalendarClock size={13} />
                       {formatDateTime(grupo.reuniao.data_hora_inicio)}
                     </span>
-                    <span>{TIPO_REUNIAO[grupo.reuniao.tipo]}</span>
+                    <span>{labelTipoReuniao(grupo.reuniao.tipo, tiposReuniao)}</span>
                     {grupo.reuniao.cliente?.nome && (
                       <span>{grupo.reuniao.cliente.nome}</span>
                     )}
@@ -336,6 +341,7 @@ export function ProximosPassosClient({
           onSaved={() => router.refresh()}
           reuniao={editReuniao}
           colaboradores={colaboradores}
+          tiposReuniao={tiposReuniao}
           fellowAtivo={fellowAtivo}
         />
       )}

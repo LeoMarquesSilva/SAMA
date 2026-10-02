@@ -3,7 +3,10 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { tipoReuniaoOptions } from "@/lib/constants";
+import {
+  tiposReuniaoPadrao,
+  type TipoReuniaoItem,
+} from "@/lib/reuniao-tipos";
 import { todayKeyInTz } from "@/lib/timezone";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { Input } from "@/components/ui/Input";
@@ -26,6 +29,7 @@ export function DashboardFiltros({
   pessoa,
   tipo,
   pessoas,
+  tiposReuniao,
   filtrarPorPessoa,
 }: {
   periodo: string;
@@ -33,6 +37,8 @@ export function DashboardFiltros({
   pessoa: string;
   tipo: string;
   pessoas: PessoaOpt[];
+  /** Tipos de Configurações; todos entram, inclusive os desativados com histórico. */
+  tiposReuniao?: TipoReuniaoItem[];
   /** Admin ou sócio fundador — pode filtrar métricas por colaborador. */
   filtrarPorPessoa: boolean;
 }) {
@@ -108,7 +114,10 @@ export function DashboardFiltros({
           onChange={(v) => update({ tipo: v })}
           emptyOption="Todos os tipos"
           placeholder="Todos os tipos"
-          options={tipoReuniaoOptions(false)}
+          options={(tiposReuniao?.length
+            ? tiposReuniao
+            : tiposReuniaoPadrao()
+          ).map((t) => ({ value: t.chave, label: t.label }))}
           className="w-full sm:w-52"
         />
       </div>

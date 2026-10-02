@@ -180,6 +180,7 @@ export async function ativarPessoa(id: string): Promise<ActionResult> {
       ativo: true,
       senha_provisoria: true,
       auth_user_id: authUserId,
+      desativado_em: null,
       onboarding_calendario_concluido: false,
       onboarding_dashboard_concluido: false,
       onboarding_proximos_passos_concluido: false,
@@ -221,7 +222,13 @@ export async function desativarPessoa(id: string): Promise<ActionResult> {
 
   const { error } = await supabase
     .from("usuarios")
-    .update({ ativo: false, senha_provisoria: false, auth_user_id: null })
+    .update({
+      ativo: false,
+      senha_provisoria: false,
+      auth_user_id: null,
+      // Marca a desativação: é isso que tira a pessoa das seleções do sistema.
+      desativado_em: new Date().toISOString(),
+    })
     .eq("id", id);
 
   if (error) return { ok: false, error: "Erro ao desativar pessoa." };

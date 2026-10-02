@@ -27,6 +27,7 @@ import {
 import { canViewAgendaTodos, podeVerAgendaDe } from "@/lib/constants";
 import { outlookConfigurado } from "@/lib/graph";
 import { fellowConfigurado } from "@/lib/fellow";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import type {
   AtividadeComPessoa,
   OutlookEventoComPessoa,
@@ -55,12 +56,19 @@ export default async function CalendarioPage({
       pessoa?.onboarding_proximos_passos_concluido ?? true,
   };
   const verAgendaTodos = canViewAgendaTodos(pessoa);
+  const tiposReuniao = await listarTiposReuniao();
   const { start, end } = calendarioEventQueryRange();
 
-  const { data: pessoasRaw } = await supabase
+  // Desativado sai das seleções; quem só não tem login continua na lista.
+  const { data: pessoasRaw, error: pessoasErr } = await supabase
     .from("usuarios")
     .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
+    .is("desativado_em", null)
     .order("nome");
+  // Sem log, um erro aqui some e a lista de agendas fica vazia sem explicação.
+  if (pessoasErr) {
+    console.error("[calendario] falha ao listar usuarios:", pessoasErr.message);
+  }
   const pessoasBase = (pessoasRaw ?? []).filter((p) => podeVerAgendaDe(pessoa, p));
   const pessoaScope = resolveCalendarioPessoaScope(
     filtroInicial.pessoa,
@@ -178,6 +186,7 @@ export default async function CalendarioPage({
             ...c,
             avatar_url: avatarDaPessoa(c.email, c.avatar_url, avatares),
           }))}
+          tiposReuniao={tiposReuniao}
           verAgendaTodos={verAgendaTodos}
           verFiltroPessoas={pessoas.length > 1}
           pessoaAtualId={pessoa?.id ?? null}

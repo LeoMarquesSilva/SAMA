@@ -7,6 +7,7 @@ import { ProximosPassosClient } from "@/components/proximos-passos/ProximosPasso
 import { agruparPassosReunioes, contarPassosTotais } from "@/lib/proximos-passos";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { fellowConfigurado } from "@/lib/fellow";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import { listarAgendamentosViosPorReunioes } from "@/lib/vios-status-actions";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export default async function ProximosPassosPage() {
       grupos={grupos}
       totais={totais}
       colaboradores={colaboradores ?? []}
+      tiposReuniao={await listarTiposReuniao()}
       fellowAtivo={fellowConfigurado()}
       onboardingEnabled={!onboarding.proximosPassosConcluido}
       agendamentosPorReuniao={agendamentosPorReuniao}

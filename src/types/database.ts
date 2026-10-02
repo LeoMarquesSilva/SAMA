@@ -16,6 +16,10 @@ export type Pessoa = {
   onboarding_dashboard_concluido?: boolean;
   onboarding_proximos_passos_concluido?: boolean;
   onboarding_agendamento_concluido?: boolean;
+  /** Visão 360º: vê os dados dos demais usuários sem ser admin. */
+  visao_global?: boolean | null;
+  /** Desativado de propósito: sai das seleções do sistema. */
+  desativado_em?: string | null;
   criado_em: string;
   atualizado_em: string;
   /** Preenchido na listagem de /pessoas (Supabase Auth). */
@@ -97,6 +101,7 @@ export type ModalidadeReuniao =
   | "PRESENCIAL_ESCRITORIO"
   | "PRESENCIAL_EXTERNO"
   | "ONLINE";
+export type DemandaReuniao = "INSOLVENCIA" | "CIVEL" | "INSOLVENCIA_CIVEL";
 export type StatusReuniao =
   | "AGENDADA"
   | "REALIZADA"
@@ -153,6 +158,10 @@ export type Reuniao = {
   sala?: string | null;
   emails_cliente?: string[] | null;
   sharepoint_item_id?: string | null;
+  /** Classificação da demanda tratada na reunião. */
+  demanda?: DemandaReuniao | null;
+  /** Trancada: ata/reunião só para os gestores da área e para o criador. */
+  ata_restrita?: boolean | null;
   vios_envio_status?: "enviado" | "erro" | null;
   vios_envio_erro?: string | null;
   criado_em: string;

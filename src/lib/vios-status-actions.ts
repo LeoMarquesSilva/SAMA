@@ -235,8 +235,8 @@ async function comStatusTarefa(
     status_tarefa: l.ci_vios
       ? (statusPorCi.get(l.ci_vios) ||
           status_gravado ||
-          // Tarefa recém-criada ainda não entrou no espelho do VIOS. No VIOS ela nasce Aberta.
-          (l.status === "concluido" ? "Aberta" : null))
+          // Tarefa recém-criada ainda não entrou no espelho do VIOS: ela nasce Pendente.
+          (l.status === "concluido" ? "Pendente" : null))
       : null,
   }));
 }

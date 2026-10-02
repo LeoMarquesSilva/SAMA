@@ -21,6 +21,7 @@ import { Avatar, PersonTag, AvatarGroup } from "@/components/ui/Avatar";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { limparCorpoOutlook } from "@/lib/outlook";
 import { ReuniaoForm } from "@/components/reunioes/ReuniaoForm";
+import { labelTipoReuniao, type TipoReuniaoItem } from "@/lib/reuniao-tipos";
 import { AtividadeForm } from "@/components/atividades/AtividadeForm";
 import {
   listarPessoasParaSync,
@@ -63,7 +64,7 @@ import {
 import {
   EXIBIR_RECLASSIFICACAO_ATIVIDADE,
   TIPO_ATIVIDADE_INTERNA,
-  TIPO_REUNIAO,
+
   STATUS_REUNIAO,
 } from "@/lib/constants";
 import {
@@ -130,6 +131,7 @@ export function OutlookClient({
   outlookVinculos = [],
   pessoas,
   colaboradores,
+  tiposReuniao,
   verAgendaTodos,
   verFiltroPessoas = false,
   pessoaAtualId,
@@ -146,6 +148,7 @@ export function OutlookClient({
   }[];
   pessoas: PessoaOpt[];
   colaboradores: ColaboradorOpt[];
+  tiposReuniao?: TipoReuniaoItem[];
   verAgendaTodos: boolean;
   verFiltroPessoas?: boolean;
   pessoaAtualId: string | null;
@@ -691,6 +694,7 @@ export function OutlookClient({
                 key={e.id}
                 item={e}
                 verAgendaTodos={verAgendaTodos}
+                tiposReuniao={tiposReuniao}
                 onEditar={() => onSelectItem(e)}
               />
             )
@@ -708,6 +712,7 @@ export function OutlookClient({
             refreshCalendario();
           }}
           colaboradores={colaboradores}
+          tiposReuniao={tiposReuniao}
           usuarios={pessoas}
           fellowAtivo={fellowAtivo}
           tourDestaque={tourDestaque}
@@ -733,6 +738,7 @@ export function OutlookClient({
             setFStatus("TODOS");
           }}
           colaboradores={colaboradores}
+          tiposReuniao={tiposReuniao}
           usuarios={pessoas}
           fellowAtivo={fellowAtivo}
         />
@@ -773,6 +779,7 @@ export function OutlookClient({
           reuniao={editReuniao}
           donoCalendarioId={editReuniaoDonoId}
           colaboradores={colaboradores}
+          tiposReuniao={tiposReuniao}
           usuarios={pessoas}
           fellowAtivo={fellowAtivo}
         />
@@ -852,7 +859,9 @@ export function OutlookClient({
                       </p>
                       <p className="text-xs text-slate-500">
                         {STATUS_REUNIAO[g.reuniao.status]}
-                        {g.reuniao.tipo ? ` · ${TIPO_REUNIAO[g.reuniao.tipo]}` : ""}
+                        {g.reuniao.tipo
+                          ? ` · ${labelTipoReuniao(g.reuniao.tipo, tiposReuniao)}`
+                          : ""}
                       </p>
                     </div>
                   </button>
@@ -889,15 +898,17 @@ export function OutlookClient({
 function RegistroCard({
   item,
   verAgendaTodos,
+  tiposReuniao,
   onEditar,
 }: {
   item: CalendarioItem;
   verAgendaTodos: boolean;
+  tiposReuniao?: TipoReuniaoItem[];
   onEditar: () => void;
 }) {
   const isReuniao = item.itemKind === "reuniao";
   const label = isReuniao
-    ? TIPO_REUNIAO[item.reuniao!.tipo]
+    ? labelTipoReuniao(item.reuniao!.tipo, tiposReuniao)
     : TIPO_ATIVIDADE_INTERNA[item.atividade!.tipo];
   const statusLabel = isReuniao
     ? STATUS_REUNIAO[item.reuniao!.status]

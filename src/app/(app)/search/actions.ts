@@ -44,6 +44,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
     supabase
       .from("usuarios")
       .select("id, nome, email, avatar_url")
+      .is("desativado_em", null)
       .or(`nome.ilike.${like},email.ilike.${like}`)
       .limit(5),
     supabase

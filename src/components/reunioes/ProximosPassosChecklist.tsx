@@ -168,6 +168,7 @@ export function ProximosPassosChecklist({
   error,
   label = "Próximos passos",
   labelAdornment,
+  rodape,
   required,
   colaboradores = [],
   simples = true,
@@ -178,6 +179,8 @@ export function ProximosPassosChecklist({
   error?: string;
   label?: string;
   labelAdornment?: React.ReactNode;
+  /** Ações que vêm depois do preenchimento (ex.: Enviar para Agendamento). */
+  rodape?: React.ReactNode;
   required?: boolean;
   colaboradores?: ColaboradorOpt[];
   simples?: boolean;
@@ -357,10 +360,13 @@ export function ProximosPassosChecklist({
         );
       })()}
 
-      <Button type="button" variant="secondary" size="sm" onClick={addItem}>
-        <Plus size={14} />
-        Adicionar ação
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={addItem}>
+          <Plus size={14} />
+          Adicionar ação
+        </Button>
+        {rodape}
+      </div>
 
       <input
         type="hidden"

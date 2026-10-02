@@ -42,12 +42,20 @@ export function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, closeDisabled, onClose]);
 
+  // Trava o scroll do fundo. O conteúdo do app rola no <main data-app-scroll>,
+  // então travar só o body deixava a tela de trás acompanhar o scroll do modal.
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const alvos = [
+      document.body,
+      ...document.querySelectorAll<HTMLElement>("[data-app-scroll]"),
+    ];
+    const anteriores = alvos.map((el) => el.style.overflow);
+    for (const el of alvos) el.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      alvos.forEach((el, i) => {
+        el.style.overflow = anteriores[i];
+      });
     };
   }, [open]);
 

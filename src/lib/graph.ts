@@ -421,3 +421,44 @@ export async function findUsersByDisplayPrefix(
     mail: u.mail ?? u.userPrincipalName ?? null,
   }));
 }
+
+/**
+ * Envia e-mail pela caixa de um usuário do escritório (app-only).
+ * Exige a permissão de aplicativo Mail.Send no registro do Azure; sem ela o
+ * Graph devolve 403 e a mensagem sobe para quem clicou.
+ */
+export async function sendMail(input: {
+  remetenteEmail: string;
+  assunto: string;
+  corpoHtml: string;
+  para: string[];
+  cc?: string[];
+  salvarEnviados?: boolean;
+}): Promise<void> {
+  const destinatarios = (lista: string[]) =>
+    lista
+      .map((e) => e.trim())
+      .filter(Boolean)
+      .map((address) => ({ emailAddress: { address } }));
+
+  const toRecipients = destinatarios(input.para);
+  if (toRecipients.length === 0) {
+    throw new Error("Nenhum destinatário para o e-mail.");
+  }
+
+  await graphJson(
+    `/users/${encodeURIComponent(input.remetenteEmail)}/sendMail`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        message: {
+          subject: input.assunto,
+          body: { contentType: "HTML", content: input.corpoHtml },
+          toRecipients,
+          ccRecipients: destinatarios(input.cc ?? []),
+        },
+        saveToSentItems: input.salvarEnviados ?? true,
+      }),
+    }
+  );
+}

@@ -4,6 +4,8 @@ import { requireRelatoriosAccess } from "@/lib/auth";
 import { canExportRelatorios } from "@/lib/nav-access";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
+import { labelTipoReuniao } from "@/lib/reuniao-tipos";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import {
   TIPO_REUNIAO,
   STATUS_REUNIAO,
@@ -42,6 +44,7 @@ export default async function RelatoriosPage({
   });
 
   const supabase = await createClient();
+  const tiposReuniao = await listarTiposReuniao();
 
   let q = supabase
     .from("reunioes")
@@ -100,6 +103,7 @@ export default async function RelatoriosPage({
         tipo={tipo}
         de={de.toISOString()}
         ate={ate.toISOString()}
+        tiposReuniao={tiposReuniao}
         podeExportar={podeExportar}
       />
 
@@ -147,7 +151,7 @@ export default async function RelatoriosPage({
               <tr key={i} className="border-b border-slate-100">
                 <td className="py-2 pr-2 text-slate-800">{r.titulo}</td>
                 <td className="py-2 pr-2 text-slate-600">
-                  {TIPO_REUNIAO[r.tipo] ?? r.tipo}
+                  {labelTipoReuniao(r.tipo, tiposReuniao)}
                 </td>
                 <td className="py-2 pr-2 text-slate-600">
                   {r.cliente?.nome

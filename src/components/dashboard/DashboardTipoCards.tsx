@@ -190,7 +190,7 @@ export function DashboardTipoCards({
   pessoa,
 }: {
   pendentes: number;
-  reunioesPorTipo: { key: TipoReuniaoKey; label: string; value: number }[];
+  reunioesPorTipo: { key: string; label: string; value: number }[];
   atividadesPorTipo: { key: string; label: string; value: number }[];
   periodo: DashboardPeriodo;
   dataDia: string;

@@ -36,3 +36,7 @@ export function requireRelatoriosAccess(): Promise<Pessoa> {
 export function requireTimesheetAccess(): Promise<Pessoa> {
   return requireModulo("timesheet");
 }
+
+export function requireConfiguracoesAccess(): Promise<Pessoa> {
+  return requireModulo("configuracoes");
+}

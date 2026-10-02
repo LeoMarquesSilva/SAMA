@@ -60,14 +60,18 @@ type PessoaAgenda = {
   is_admin: boolean;
   cargo: CargoPessoa;
   departamento: string | null;
+  /** Visão 360º: vê os dados dos demais usuários sem ser admin. */
+  visao_global?: boolean | null;
 };
 
-/** Agenda de todos: administradores ou qualquer sócio (ECOA F1.2). */
+/** Agenda de todos: admin, qualquer sócio ou quem tem visão 360º (ECOA F1.2). */
 export function canViewAgendaTodos(
   pessoa: PessoaAgenda | null | undefined
 ): boolean {
   if (!pessoa) return false;
-  return pessoa.is_admin || pessoa.cargo === "SOCIO";
+  return (
+    pessoa.is_admin || pessoa.cargo === "SOCIO" || pessoa.visao_global === true
+  );
 }
 
 type PessoaAgendaComId = PessoaAgenda & { id?: string | null };
@@ -96,6 +100,22 @@ export function cargoPessoaLabel(
   return CARGO_PESSOA[cargo];
 }
 
+/** Classificação da demanda tratada na reunião (ECOA). */
+export const DEMANDA_REUNIAO = {
+  INSOLVENCIA: "Insolvência",
+  CIVEL: "Cível",
+  INSOLVENCIA_CIVEL: "Insolvência e Cível",
+} as const;
+
+export type DemandaReuniaoKey = keyof typeof DEMANDA_REUNIAO;
+
+export function demandaReuniaoOptions() {
+  return (Object.keys(DEMANDA_REUNIAO) as DemandaReuniaoKey[]).map((k) => ({
+    value: k,
+    label: DEMANDA_REUNIAO[k],
+  }));
+}
+
 export const STATUS_CLIENTE = {
   ATIVO: "Ativo",
   INATIVO: "Inativo",
@@ -106,12 +126,12 @@ export type StatusCliente = keyof typeof STATUS_CLIENTE;
 // ─── Enums das próximas fases (referência) ───────────────────────────────────
 
 export const TIPO_REUNIAO = {
-  CAPTACAO: "Captação",
+  CAPTACAO: "Captação / Cross-selling",
   FIDELIZACAO: "Fidelização",
-  RELACIONAMENTO_INSTITUCIONAL: "Relacionamento Institucional",
+  RELACIONAMENTO_INSTITUCIONAL: "Relacionamento institucional",
   GESTAO_ESTRATEGICA: "Gestão Estratégica",
   GESTAO_EQUIPE: "Gestão de Equipe",
-  GESTAO_OPERACIONAL: "Gestão Operacional",
+  GESTAO_OPERACIONAL: "Operacional",
   EVENTOS_PALESTRAS: "Eventos e Palestras",
 } as const;
 
@@ -132,7 +152,7 @@ export function reuniaoTipoUsaGrupoInterno(tipo: TipoReuniaoKey): boolean {
 
 export const TIPO_REUNIAO_DESCRICAO: Record<TipoReuniaoKey, string> = {
   CAPTACAO:
-    "Reuniões com potenciais clientes, parceiros ou contatos estratégicos com o objetivo de gerar novas oportunidades de negócio, apresentar o escritório ou desenvolver relacionamentos comerciais que possam resultar em contratação de serviços.",
+    "Reuniões voltadas à geração de receita nova: prospecção de potenciais clientes, parceiros e contatos estratégicos, e também a oferta de outras áreas do escritório a clientes que já são da casa (cross-selling). Inclui apresentação institucional, levantamento de necessidades e desdobramentos que possam resultar em nova contratação de serviços.",
   FIDELIZACAO:
     "Reuniões com clientes e Consultores ativos, voltadas ao fortalecimento do relacionamento, acompanhamento da satisfação, identificação de novas demandas e ampliação da parceria entre cliente e escritório.",
   RELACIONAMENTO_INSTITUCIONAL:
@@ -160,12 +180,40 @@ export const TIPO_REUNIAO_TONE: Record<
   EVENTOS_PALESTRAS: "purple",
 };
 
-/** Opções para SelectMenu; inclui descrição quando usado no formulário. */
+/**
+ * Opções para SelectMenu com TODOS os tipos, inclusive os que saíram de uso.
+ * É o que vale para filtro de dashboard/relatório: metade da base usa os antigos
+ * e sem eles não haveria como filtrar aquelas reuniões.
+ */
 export function tipoReuniaoOptions(withDescription = true) {
   return (Object.keys(TIPO_REUNIAO) as TipoReuniaoKey[]).map((k) => ({
     value: k,
     label: TIPO_REUNIAO[k],
     ...(withDescription ? { description: TIPO_REUNIAO_DESCRICAO[k] } : {}),
+  }));
+}
+
+/** Tipos que uma reunião nova pode receber. Os demais ficam só no histórico. */
+export const TIPOS_REUNIAO_NOVA: TipoReuniaoKey[] = [
+  "GESTAO_OPERACIONAL",
+  "CAPTACAO",
+  "RELACIONAMENTO_INSTITUCIONAL",
+];
+
+/**
+ * Opções do tipo no formulário de reunião. Só os tipos em uso — mas, ao editar
+ * uma reunião antiga, o tipo dela entra na lista para não ser trocado sem querer
+ * ao salvar.
+ */
+export function tipoReuniaoOptionsNova(tipoAtual?: TipoReuniaoKey | null) {
+  const keys = [...TIPOS_REUNIAO_NOVA];
+  if (tipoAtual && TIPO_REUNIAO[tipoAtual] && !keys.includes(tipoAtual)) {
+    keys.push(tipoAtual);
+  }
+  return keys.map((k) => ({
+    value: k,
+    label: TIPO_REUNIAO[k],
+    description: TIPO_REUNIAO_DESCRICAO[k],
   }));
 }
 

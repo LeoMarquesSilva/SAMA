@@ -38,6 +38,7 @@ import {
   type DashboardPeriodo,
 } from "@/lib/dashboard-filtros";
 import { countEventosPendentes } from "@/lib/calendario";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import { canViewAgendaTodos } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -133,7 +134,11 @@ export default async function DashboardPage({
     reunioesQ,
     outlookDonoQ,
     atividadesQ,
-    supabase.from("usuarios").select("id, nome, email, avatar_url").order("nome"),
+    supabase
+      .from("usuarios")
+      .select("id, nome, email, avatar_url")
+      .is("desativado_em", null)
+      .order("nome"),
     proximasReunioesQ,
     proximasOutlookQ,
     countEventosPendentes(supabase, {
@@ -180,13 +185,15 @@ export default async function DashboardPage({
   const reunioesRealizadas = reunioes.filter((r) => r.status === "REALIZADA");
   const atividadesRealizadas = atividades.filter((a) => a.status === "REALIZADA");
 
-  const reunioesPorTipo = (Object.keys(TIPO_REUNIAO) as TipoReuniaoKey[]).map(
-    (key) => ({
-      key,
-      label: TIPO_REUNIAO[key],
-      value: reunioesRealizadas.filter((r) => r.tipo === key).length,
-    })
-  );
+  // Tipos vêm de Configurações; inclui os desativados que ainda têm histórico.
+  const tiposReuniao = await listarTiposReuniao();
+  const reunioesPorTipo = tiposReuniao
+    .map((t) => ({
+      key: t.chave,
+      label: t.label,
+      value: reunioesRealizadas.filter((r) => r.tipo === t.chave).length,
+    }))
+    .filter((t) => t.value > 0 || tiposReuniao.find((x) => x.chave === t.key)?.ativo);
 
   const avatares = await mapaAvatarColaboradorPorEmail(supabase);
   const pessoasComFoto = (pessoas ?? []).map((p) => ({
@@ -222,6 +229,7 @@ export default async function DashboardPage({
           pessoa={fPessoa}
           tipo={fTipo}
           pessoas={pessoasComFoto}
+          tiposReuniao={tiposReuniao}
           filtrarPorPessoa={verAgendaTodos}
         />
       </div>

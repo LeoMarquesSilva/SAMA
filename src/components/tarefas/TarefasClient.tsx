@@ -30,6 +30,7 @@ import {
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AtividadeForm } from "@/components/atividades/AtividadeForm";
 import { ReuniaoForm } from "@/components/reunioes/ReuniaoForm";
+import type { TipoReuniaoItem } from "@/lib/reuniao-tipos";
 import { formatDate, formatDateTime } from "@/lib/format";
 import {
   buildDescricaoTarefa,
@@ -71,6 +72,7 @@ export function TarefasClient({
   syncInfo,
   pessoas,
   usuarios,
+  tiposReuniao,
   colaboradores,
   isAdmin,
   pessoaAtualId,
@@ -81,6 +83,7 @@ export function TarefasClient({
   syncInfo: TarefasSyncInfo;
   pessoas: { nome: string; avatar_url?: string | null }[];
   usuarios: { id: string; nome: string; avatar_url?: string | null }[];
+  tiposReuniao?: TipoReuniaoItem[];
   colaboradores: ColaboradorOpt[];
   isAdmin: boolean;
   pessoaAtualId: string | null;
@@ -490,6 +493,7 @@ export function TarefasClient({
             await vincularTarefaCategorizada(reuniaoTarefa.id, "REUNIAO", id);
           }}
           colaboradores={colaboradores}
+          tiposReuniao={tiposReuniao}
         />
       )}
 

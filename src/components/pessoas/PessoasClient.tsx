@@ -46,7 +46,10 @@ function ModulosResumo({ p, modulos }: { p: Pessoa; modulos: string[] }) {
 }
 
 function LoginBadge({ p }: { p: Pessoa }) {
-  if (!p.ativo) return <Badge tone="gray">Desativado</Badge>;
+  // "Desativado" é quem foi desativado de propósito; quem nunca foi ativado
+  // continua aparecendo nas seleções do sistema, então não vale o mesmo rótulo.
+  if (p.desativado_em) return <Badge tone="gray">Desativado</Badge>;
+  if (!p.ativo) return <Badge tone="amber">Sem login</Badge>;
   return (
     <Badge tone="green">
       {p.senha_provisoria ? "Ativo · senha provisória" : "Ativo"}
@@ -85,13 +88,20 @@ function LoginCell({ p, showUltimoAcesso }: { p: Pessoa; showUltimoAcesso?: bool
   );
 }
 
-type Situacao = "" | "ativos" | "provisoria" | "desativados" | "nunca";
+type Situacao =
+  | ""
+  | "ativos"
+  | "provisoria"
+  | "desativados"
+  | "sem-login"
+  | "nunca";
 
 const SITUACOES: { key: Situacao; label: string; soAdmin?: boolean }[] = [
   { key: "", label: "Todos" },
   { key: "ativos", label: "Com login" },
   { key: "provisoria", label: "Senha provisória" },
   { key: "desativados", label: "Desativados" },
+  { key: "sem-login", label: "Sem login" },
   { key: "nunca", label: "Nunca acessou", soAdmin: true },
 ];
 
@@ -153,7 +163,8 @@ export function PessoasClient({
       if (termo && !semAcento(`${p.nome} ${p.email}`).includes(termo)) return false;
       if (situacao === "ativos" && !p.ativo) return false;
       if (situacao === "provisoria" && !(p.ativo && p.senha_provisoria)) return false;
-      if (situacao === "desativados" && p.ativo) return false;
+      if (situacao === "desativados" && !p.desativado_em) return false;
+      if (situacao === "sem-login" && (p.ativo || p.desativado_em)) return false;
       if (situacao === "nunca" && !(p.ativo && !p.ultimo_acesso_em)) return false;
       if (area === "__sem" ? p.departamento : area && departamentoCanonico(p.departamento) !== area)
         return false;

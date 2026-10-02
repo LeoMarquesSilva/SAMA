@@ -16,15 +16,20 @@ import type { ColaboradorOpt } from "@/lib/colaboradores";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { ClienteSelect } from "@/components/clientes/ClienteSelect";
 import {
-  TIPO_REUNIAO_DESCRICAO,
   MODALIDADE_REUNIAO,
   STATUS_REUNIAO,
-  tipoReuniaoOptions,
-  reuniaoTipoUsaGrupoInterno,
-  type TipoReuniaoKey,
+  demandaReuniaoOptions,
 } from "@/lib/constants";
+import {
+  descricaoTipoReuniao,
+  opcoesTipoReuniao,
+  tipoReuniaoPadrao,
+  tiposReuniaoPadrao,
+  tipoUsaGrupoInterno,
+  type TipoReuniaoItem,
+} from "@/lib/reuniao-tipos";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import type { TipoReuniao, ModalidadeReuniao } from "@/types/database";
+import type { DemandaReuniao, ModalidadeReuniao } from "@/types/database";
 import { toDatetimeLocal } from "@/lib/format";
 import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { validateFields, type FieldErrors } from "@/lib/validate";
@@ -43,6 +48,8 @@ import {
   CalendarClock,
   FileText,
   Loader2,
+  Lock,
+  Mail,
   Send,
   Tags,
   Undo2,
@@ -59,7 +66,8 @@ import {
 } from "@/lib/vios-status-actions";
 import { PautaFields } from "@/components/reunioes/PautaFields";
 import { ReunioesAnterioresPanel } from "@/components/reunioes/ReunioesAnterioresPanel";
-import { parsePauta, pautaVazia, type PautaReuniao } from "@/lib/pauta";
+import { parsePauta, pautaTemConteudo, pautaVazia, type PautaReuniao } from "@/lib/pauta";
+import { enviarPautaParaCliente } from "@/lib/reunioes/pauta-email";
 import {
   checklistTemItens,
   marcarPassosEnviadosVios,
@@ -162,6 +170,7 @@ export function ReuniaoForm({
   prefill,
   afterCreate,
   colaboradores,
+  tiposReuniao,
   usuarios = [],
   fellowAtivo = false,
   donoCalendarioId,
@@ -175,6 +184,8 @@ export function ReuniaoForm({
   prefill?: ReuniaoPrefill | null;
   afterCreate?: (id: string) => Promise<void> | void;
   colaboradores: ColaboradorOpt[];
+  /** Tipos de classificação cadastrados em Configurações. */
+  tiposReuniao?: TipoReuniaoItem[];
   usuarios?: { id: string; nome: string; email: string; avatar_url?: string | null }[];
   fellowAtivo?: boolean;
   /** Dono do calendário Outlook (admin abrindo reunião de outro sócio). */
@@ -184,6 +195,8 @@ export function ReuniaoForm({
   /** Passo do tour que precisa deixar o bloco visível para o destaque. */
   tourDestaque?: string | null;
 }) {
+  // Sem a lista do banco (ex.: migration 0047 não aplicada), usa a do código.
+  const tipos = tiposReuniao?.length ? tiposReuniao : tiposReuniaoPadrao();
   const editing = Boolean(reuniao);
   const src = reuniao ?? prefill ?? null;
   const origemSama = src?.origem === "SAMA" || modoViaB;
@@ -238,7 +251,9 @@ export function ReuniaoForm({
     src?.modalidade ?? "PRESENCIAL_ESCRITORIO"
   );
   const [status, setStatus] = useState(src?.status ?? "AGENDADA");
-  const [tipo, setTipo] = useState<TipoReuniao>(src?.tipo ?? "CAPTACAO");
+  const [tipo, setTipo] = useState<string>(src?.tipo ?? tipoReuniaoPadrao(tipos));
+  const [demanda, setDemanda] = useState<DemandaReuniao | "">(src?.demanda ?? "");
+  const [ataRestrita, setAtaRestrita] = useState(Boolean(src?.ata_restrita));
   const [clientePrefill, setClientePrefill] = useState<ClientePrefill | null>(() => {
     const ci = src?.cliente_id ?? src?.cliente?.ci ?? "";
     if (!ci && !src?.cliente?.nome) return null;
@@ -261,6 +276,8 @@ export function ReuniaoForm({
   const emailsAutoRef = useRef<string[]>([]);
   const emailsGrupoPedidoRef = useRef("");
   const [viosMsg, setViosMsg] = useState<string>();
+  const [pautaMsg, setPautaMsg] = useState<{ ok: boolean; texto: string }>();
+  const [pautaEnviando, startPautaTransition] = useTransition();
   const [agendamentosVios, setAgendamentosVios] = useState<AgendamentoViosStatus[]>([]);
   const [pessoasAgenda, setPessoasAgenda] = useState<{ nome: string; email: string }[]>([]);
   const avisarPessoasAgenda = useCallback(
@@ -355,6 +372,8 @@ export function ReuniaoForm({
       setPauta(parsePauta(src?.pauta));
       setSala(src?.sala ?? (modoViaB ? SALA_SOMENTE_ONLINE : ""));
       setEmailsCliente(src?.emails_cliente ?? []);
+      setDemanda(src?.demanda ?? "");
+      setAtaRestrita(Boolean(src?.ata_restrita));
       emailsAutoRef.current = [];
       emailsGrupoPedidoRef.current = "";
       setClienteIdAtual(src?.cliente_id ?? src?.cliente?.ci ?? "");
@@ -394,6 +413,8 @@ export function ReuniaoForm({
       );
       if (fresh.modalidade) setModalidade(fresh.modalidade);
       if (fresh.status) setStatus(fresh.status);
+      setDemanda(fresh.demanda ?? "");
+      setAtaRestrita(Boolean(fresh.ata_restrita));
     });
 
     return () => {
@@ -445,7 +466,7 @@ export function ReuniaoForm({
   }
 
   function sugerirClienteDoTitulo(titulo: string) {
-    if (clienteManualRef.current || reuniaoTipoUsaGrupoInterno(tipo)) return;
+    if (clienteManualRef.current || tipoUsaGrupoInterno(tipo, tipos)) return;
     const ci = src?.cliente_id ?? src?.cliente?.ci ?? "";
     if (ci) return;
 
@@ -483,17 +504,16 @@ export function ReuniaoForm({
   }
 
   function handleTipoChange(v: string) {
-    const next = v as TipoReuniao;
-    if (reuniaoTipoUsaGrupoInterno(next as TipoReuniaoKey)) {
+    if (tipoUsaGrupoInterno(v, tipos)) {
       clienteManualRef.current = false;
     }
-    setTipo(next);
+    setTipo(v);
   }
 
   useEffect(() => {
     if (!open) return;
 
-    if (reuniaoTipoUsaGrupoInterno(tipo)) {
+    if (tipoUsaGrupoInterno(tipo, tipos)) {
       aplicarClienteGestaoEquipe();
       return;
     }
@@ -572,7 +592,8 @@ export function ReuniaoForm({
         ? Number(fd.get("duracao_minutos"))
         : undefined,
       cliente_id: String(fd.get("cliente_id") ?? ""),
-      link_online: String(fd.get("link_online") ?? ""),
+      // O link do Teams é gerado pelo Outlook; o campo saiu do formulário.
+      link_online: src?.link_online ?? "",
       local: String(fd.get("local") ?? ""),
       objetivos: String(fd.get("objetivos") ?? ""),
       resultado:
@@ -584,6 +605,8 @@ export function ReuniaoForm({
       pauta,
       sala: sala || undefined,
       emails_cliente: emailsCliente,
+      demanda,
+      ata_restrita: ataRestrita,
       origem: origemSama || modoViaB ? "SAMA" : "OUTLOOK",
       ata_texto:
         status === "REALIZADA" ? resultadoTexto : (src?.ata_texto ?? ""),
@@ -613,7 +636,6 @@ export function ReuniaoForm({
           min: { value: 1, message: "Duração deve ser maior que zero." },
         },
         cliente_id: { required: "Selecione ou crie um cliente." },
-        link_online: { url: "Link inválido — use http(s)://..." },
         ...(modalidade === "PRESENCIAL_EXTERNO"
           ? { local: { required: "Informe o local." } }
           : {}),
@@ -831,19 +853,66 @@ export function ReuniaoForm({
     });
   }
 
+  function handleEnviarPauta() {
+    setPautaMsg(undefined);
+    startPautaTransition(async () => {
+      const r = await enviarPautaParaCliente({
+        titulo: tituloRef.current?.value?.trim() || src?.titulo || "",
+        clienteId: clienteIdAtual || null,
+        dataHoraInicio: slotInicio || null,
+        emails: emailsCliente,
+        pauta,
+      });
+      setPautaMsg(
+        r.ok
+          ? {
+              ok: true,
+              texto: `Pauta enviada para ${(r.enviadosPara ?? []).join(", ")}.`,
+            }
+          : { ok: false, texto: r.error ?? "Falha ao enviar a pauta." }
+      );
+    });
+  }
+
+  const podeEnviarPauta =
+    pautaTemConteudo(pauta) && emailsCliente.length > 0 && !pautaEnviando;
+
+  const acoesPauta = (
+    <Button
+      type="button"
+      variant="secondary"
+      size="sm"
+      disabled={!podeEnviarPauta}
+      onClick={handleEnviarPauta}
+      title={
+        emailsCliente.length === 0
+          ? "Informe os e-mails do cliente para enviar a pauta."
+          : !pautaTemConteudo(pauta)
+            ? "Preencha a pauta antes de enviar."
+            : undefined
+      }
+    >
+      {pautaEnviando ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : (
+        <Mail size={14} />
+      )}
+      {pautaEnviando ? "Enviando…" : "Enviar pauta para cliente"}
+    </Button>
+  );
+
   function handleClose() {
     if (fellowBusy) return;
     onClose();
   }
 
   const podeReverterOutlook = editing && horarioSomenteLeitura && Boolean(reuniao?.id);
-  const inicioEcoa = src?.data_hora_inicio;
+  // Cancelar vale para reunião futura, em andamento ou já passada: só não faz
+  // sentido para quem já está cancelada ou marcada como realizada.
   const podeCancelarEcoa = Boolean(
     editing &&
       origemSama &&
-      status === "AGENDADA" &&
-      inicioEcoa &&
-      new Date(inicioEcoa).getTime() > Date.now()
+      (status === "AGENDADA" || status === "REAGENDADA")
   );
   const focarMotivo = useRef(false);
   useEffect(() => {
@@ -1049,13 +1118,26 @@ export function ReuniaoForm({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
               Tipo
-              <InfoTooltip text={TIPO_REUNIAO_DESCRICAO[tipo as TipoReuniaoKey]} />
+              <InfoTooltip text={descricaoTipoReuniao(tipo, tipos)} />
             </span>
             <SelectMenu
               name="tipo"
               value={tipo}
               onChange={handleTipoChange}
-              options={tipoReuniaoOptions()}
+              options={opcoesTipoReuniao(tipos, tipo)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              Demanda
+              <InfoTooltip text="Área da demanda tratada na reunião. Define as regras de providência do fluxo de agendamento." />
+            </span>
+            <SelectMenu
+              name="demanda"
+              value={demanda}
+              onChange={(v) => setDemanda(v as DemandaReuniao | "")}
+              emptyOption="Não definida"
+              options={demandaReuniaoOptions()}
             />
           </div>
           {modoViaB && !editing ? (
@@ -1090,18 +1172,6 @@ export function ReuniaoForm({
               label: l,
             }))}
           />
-          {modalidade === "ONLINE" && (
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Input
-                id={fieldId("link_online")}
-                name="link_online"
-                label="Link da reunião (opcional)"
-                placeholder="https://teams.microsoft.com/..."
-                defaultValue={src?.link_online ?? ""}
-                error={fieldErrors.link_online}
-              />
-            </div>
-          )}
           {modalidade === "PRESENCIAL_EXTERNO" && (
             <div className="sm:col-span-2 lg:col-span-3">
               <Input
@@ -1126,6 +1196,24 @@ export function ReuniaoForm({
               />
             </div>
           )}
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 sm:col-span-2 lg:col-span-4">
+            <input
+              type="checkbox"
+              checked={ataRestrita}
+              onChange={(e) => setAtaRestrita(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span className="min-w-0 text-sm">
+              <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                <Lock size={13} className="text-slate-400" />
+                Trancar a visualização desta reunião
+              </span>
+              <span className="mt-0.5 block text-xs leading-snug text-slate-500">
+                A reunião e a ata ficam visíveis só para os gestores da área e para
+                quem registrou.
+              </span>
+            </span>
+          </label>
         </div>
         </Secao>
 
@@ -1210,7 +1298,19 @@ export function ReuniaoForm({
                 setProximosPassos((atual) => removerDoChecklist(atual, passos))
               }
             />
-            <PautaFields value={pauta} onChange={setPauta} />
+            <PautaFields value={pauta} onChange={setPauta} acoes={acoesPauta} />
+            {pautaMsg && (
+              <p
+                className={clsx(
+                  "rounded-lg px-3 py-2 text-sm",
+                  pautaMsg.ok
+                    ? "bg-emerald-50 text-emerald-800"
+                    : "bg-red-50 text-red-700"
+                )}
+              >
+                {pautaMsg.texto}
+              </p>
+            )}
           </>
         )}
         {editing && secaoAta}
@@ -1223,27 +1323,27 @@ export function ReuniaoForm({
           colaboradores={colaboradores}
           agendamentosVios={agendamentosVios}
           labelAdornment={
-            <>
-              {status === "REALIZADA" && fellowAtivo ? (
-                <FellowImportLabelActions
-                  status={fellowPassosStatus}
-                  detail={fellowPassosDetail}
-                  motivo={fellowImportMotivo}
-                  reserveRefreshSpace
-                />
-              ) : null}
-              {(podeAgendarVios || tourDestaque === "agenda-passos") && (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={pending || !podeAgendarVios}
-                  onClick={() => podeAgendarVios && setViosAberto(true)}
-                >
-                  <Send size={14} />
-                  Enviar para Agendamento
-                </Button>
-              )}
-            </>
+            status === "REALIZADA" && fellowAtivo ? (
+              <FellowImportLabelActions
+                status={fellowPassosStatus}
+                detail={fellowPassosDetail}
+                motivo={fellowImportMotivo}
+                reserveRefreshSpace
+              />
+            ) : null
+          }
+          rodape={
+            (podeAgendarVios || tourDestaque === "agenda-passos") && (
+              <Button
+                type="button"
+                size="sm"
+                disabled={pending || !podeAgendarVios}
+                onClick={() => podeAgendarVios && setViosAberto(true)}
+              >
+                <Send size={14} />
+                Enviar para Agendamento
+              </Button>
+            )
           }
         />
         )}
@@ -1317,6 +1417,7 @@ export function ReuniaoForm({
       onClose={() => setViosAberto(false)}
       proximosPassos={proximosPassos}
       colaboradores={colaboradores}
+      agendamentosVios={agendamentosVios}
       areaPadrao={undefined}
       onEnviar={async (passos) => {
         const r = await enviarReuniaoAoVios(reuniao!.id, passos, proximosPassos);

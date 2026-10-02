@@ -45,6 +45,10 @@ export function canAccessTarefas(ctx: NavContext): boolean {
   return temModulo(ctx, "tarefas");
 }
 
+export function canAccessConfiguracoes(ctx: NavContext): boolean {
+  return temModulo(ctx, "configuracoes");
+}
+
 /** Exportação CSV/PDF completa — apenas administradores. */
 export function canExportRelatorios(ctx: { isAdmin: boolean; cargo?: CargoPessoa }): boolean {
   return ctx.isAdmin;

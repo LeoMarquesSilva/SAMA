@@ -3,6 +3,8 @@ import { getPessoaAtual } from "@/lib/currentPessoa";
 import { formatDateTime } from "@/lib/format";
 import { linhaCliente } from "@/lib/clientes";
 import { canExportRelatorios } from "@/lib/nav-access";
+import { labelTipoReuniao } from "@/lib/reuniao-tipos";
+import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import {
   TIPO_REUNIAO,
   MODALIDADE_REUNIAO,
@@ -83,10 +85,11 @@ export async function GET(request: Request) {
     "Criada em",
   ];
 
+  const tiposReuniao = await listarTiposReuniao();
   const linhas = rows.map((r) =>
     [
       r.titulo,
-      TIPO_REUNIAO[r.tipo] ?? r.tipo,
+      labelTipoReuniao(r.tipo, tiposReuniao),
       STATUS_REUNIAO[r.status] ?? r.status,
       MODALIDADE_REUNIAO[r.modalidade] ?? r.modalidade,
       formatDateTime(r.data_hora_inicio),

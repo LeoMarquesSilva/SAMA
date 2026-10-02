@@ -8,9 +8,12 @@ import { pautaVazia, type PautaReuniao } from "@/lib/pauta";
 export function PautaFields({
   value,
   onChange,
+  acoes,
 }: {
   value: PautaReuniao | null | undefined;
   onChange: (pauta: PautaReuniao) => void;
+  /** Ações do bloco (ex.: enviar a pauta para o cliente). */
+  acoes?: React.ReactNode;
 }) {
   const pauta = value ?? pautaVazia();
 
@@ -30,9 +33,12 @@ export function PautaFields({
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4"
       data-onboarding="agenda-pauta"
     >
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-        <ClipboardList size={16} className="text-brand-600" />
-        Pauta
+      <h3 className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-800">
+        <span className="flex items-center gap-2">
+          <ClipboardList size={16} className="text-brand-600" />
+          Pauta
+        </span>
+        {acoes}
       </h3>
       <Textarea
         label="1. Objetivo da reunião"
@@ -41,24 +47,9 @@ export function PautaFields({
         rows={4}
       />
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-slate-700">
-            2. Assuntos a serem tratados
-          </p>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              patch({
-                assuntos: [...pauta.assuntos, { titulo: "", descricao: "" }],
-              })
-            }
-          >
-            <Plus size={14} />
-            Assunto
-          </Button>
-        </div>
+        <p className="text-sm font-medium text-slate-700">
+          2. Assuntos a serem tratados
+        </p>
         {pauta.assuntos.map((a, i) => (
           <div
             key={i}
@@ -99,6 +90,20 @@ export function PautaFields({
             )}
           </div>
         ))}
+        {/* O botão fica depois da lista: o assunto novo entra no fim, onde o olho já está. */}
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            patch({
+              assuntos: [...pauta.assuntos, { titulo: "", descricao: "" }],
+            })
+          }
+        >
+          <Plus size={14} />
+          Adicionar assunto
+        </Button>
       </div>
       <Textarea
         label="3. Pendências / pontos para decisão"

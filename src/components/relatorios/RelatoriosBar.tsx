@@ -6,7 +6,10 @@ import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { iniciarNavegacao } from "@/components/layout/Navegacao";
-import { tipoReuniaoOptions } from "@/lib/constants";
+import {
+  tiposReuniaoPadrao,
+  type TipoReuniaoItem,
+} from "@/lib/reuniao-tipos";
 
 const PERIODOS = [
   { key: "mes", label: "Este mês" },
@@ -20,12 +23,15 @@ export function RelatoriosBar({
   tipo,
   de,
   ate,
+  tiposReuniao,
   podeExportar = true,
 }: {
   periodo: string;
   tipo: string;
   de: string;
   ate: string;
+  /** Tipos de Configurações; todos entram, inclusive os desativados com histórico. */
+  tiposReuniao?: TipoReuniaoItem[];
   podeExportar?: boolean;
 }) {
   const router = useRouter();
@@ -69,7 +75,10 @@ export function RelatoriosBar({
           onChange={(v) => update({ tipo: v })}
           emptyOption="Todos os tipos"
           placeholder="Todos os tipos"
-          options={tipoReuniaoOptions(false)}
+          options={(tiposReuniao?.length
+            ? tiposReuniao
+            : tiposReuniaoPadrao()
+          ).map((t) => ({ value: t.chave, label: t.label }))}
           className="w-full sm:w-52"
         />
       </div>

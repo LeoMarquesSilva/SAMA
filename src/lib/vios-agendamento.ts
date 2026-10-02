@@ -155,6 +155,8 @@ export type ViosPassoEnvio = {
   etiqueta?: string;
   /** Nome do responsável exatamente como no VIOS. */
   responsavel_vios?: string;
+  /** Revisor do prazo (etiqueta Prazo): ganha a tarefa REVISAR no mesmo fluxo. */
+  revisor_vios?: string;
   /** Texto original do item em "Próximos passos" (liga o item à tarefa do VIOS). */
   texto_checklist?: string;
   area?: string;

@@ -84,6 +84,8 @@ function buildRow(values: ReuniaoFormValues) {
     pauta: values.pauta ?? null,
     sala: values.sala || null,
     emails_cliente: values.emails_cliente ?? null,
+    demanda: values.demanda || null,
+    ata_restrita: values.ata_restrita ?? false,
     origem: values.origem ?? "OUTLOOK",
     motivo_cancelamento:
       values.status === "CANCELADA" ? values.motivo_cancelamento || null : null,
@@ -202,6 +204,9 @@ function mapReuniaoDbError(error: { message?: string; code?: string } | null): s
   }
   if (msg.includes("reunioes_cliente_id_fkey")) {
     return "Cliente inválido ou não encontrado na base.";
+  }
+  if (msg.includes("reunioes_tipo_fkey")) {
+    return "Tipo de classificação inválido. Recarregue a página — ele pode ter sido removido em Configurações.";
   }
   return "Erro ao salvar a reunião.";
 }

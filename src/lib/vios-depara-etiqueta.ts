@@ -12,10 +12,16 @@
  */
 export const ETIQUETAS_VISUAIS = [
   { value: "PROVIDENCIA", label: "Providência" },
+  { value: "PROVIDENCIA_REUNIAO", label: "Providência de reunião" },
   { value: "PRAZO", label: "Prazo" },
 ] as const;
 
-export type EtiquetaVisual = (typeof ETIQUETAS_VISUAIS)[number]["value"];
+export type EtiquetaEscolha = (typeof ETIQUETAS_VISUAIS)[number]["value"];
+/** Etiquetas do de-para da planilha (Providência de reunião reaproveita a lista de Providência). */
+export type EtiquetaVisual = "PROVIDENCIA" | "PRAZO";
+
+/** Tarefa que o revisor recebe quando a etiqueta é Prazo (ENVIAR no VIOS). */
+export const TAREFA_REVISAR = "2. REVISAR";
 export type PastaDepara = "Processo" | "Atendimento";
 
 export type ItemDepara = {
@@ -345,9 +351,17 @@ export const TAREFAS_POR_ETIQUETA: Record<EtiquetaVisual, readonly string[]> = {
  * Tipos de tarefa da etiqueta, filtrados pelo tipo de pasta e, se informado, pelos
  * tipos que o VIOS aceita na pasta (lista carregada com a pasta).
  */
-/** Nome e id da etiqueta no select do VIOS. Prazo na tela é ENVIAR no VIOS. */
+/**
+ * Nome e id da etiqueta no select do VIOS. Prazo na tela é ENVIAR no VIOS.
+ * "Providência de reunião" é uma etiqueta própria do VIOS; o id vem resolvido pelo
+ * nome no catálogo (vios_catalogo_tarefas) e o 204 de PROVIDÊNCIA fica como reserva
+ * para o robô não travar enquanto a etiqueta não existir no VIOS.
+ */
 export function etiquetaViosDaEscolha(escolha: string): { nome: string; id: string } {
   if (escolha === "PRAZO") return { nome: "ENVIAR", id: "1" };
+  if (escolha === "PROVIDENCIA_REUNIAO") {
+    return { nome: "PROVIDÊNCIA DE REUNIÃO", id: "204" };
+  }
   return { nome: "PROVIDÊNCIA", id: "204" };
 }
 
@@ -356,6 +370,7 @@ export function tarefasDaEtiqueta(
   pastaTipo?: PastaDepara | string,
   nomesVios?: readonly string[]
 ): string[] {
+  // Providência de reunião oferece os mesmos tipos de tarefa de Providência.
   const alvo: EtiquetaVisual = etiqueta === "PRAZO" ? "PRAZO" : "PROVIDENCIA";
   const pasta: PastaDepara | undefined =
     pastaTipo === "Atendimento" ? "Atendimento" : pastaTipo ? "Processo" : undefined;

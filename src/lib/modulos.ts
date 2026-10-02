@@ -9,6 +9,7 @@ export const MODULOS = [
   { key: "clientes", label: "Clientes", href: "/clientes", descricao: "Grupos, empresas e CIs" },
   { key: "relatorios", label: "Relatórios", href: "/relatorios", descricao: "Relatórios e exportações" },
   { key: "tarefas", label: "Tarefas VIOS", href: "/tarefas", descricao: "Tarefas sincronizadas do VIOS" },
+  { key: "configuracoes", label: "Configurações", href: "/configuracoes", descricao: "Tipos de classificação de reunião" },
 ] as const;
 
 export type ModuloKey = (typeof MODULOS)[number]["key"];

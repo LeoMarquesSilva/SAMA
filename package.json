@@ -10,6 +10,7 @@
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "prebuild": "npm run clean",
     "build": "next build",
+    "build:check": "node scripts/build-check.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

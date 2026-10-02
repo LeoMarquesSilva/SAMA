@@ -9,7 +9,8 @@ import {
 } from "@/lib/clientes-titulo";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { isEmailEscritorio } from "@/lib/email-escritorio";
-import { createClient } from "@/lib/supabase/server";
+import { separarEmails } from "@/lib/emails-cliente";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { EmpresaDoGrupo } from "@/types/database";
 
 export type ClienteBusca = {
@@ -409,7 +410,15 @@ function guardarEmailExterno(destino: Map<string, string>, bruto: string | null 
   if (!destino.has(chave)) destino.set(chave, email);
 }
 
-/** E-mails de quem já participou de reunião desse grupo, sem endereços do escritório. */
+/**
+ * E-mails de contato do grupo de clientes: o cadastro das empresas (inclusive os
+ * e-mails opcionais, que vêm juntos num campo só) e quem já participou de alguma
+ * reunião do grupo. Endereços do escritório ficam fora.
+ *
+ * A varredura de reuniões usa o cliente admin de propósito: com o cliente da
+ * sessão o RLS devolvia só as reuniões do próprio usuário, então cada pessoa via
+ * uma lista diferente. A visão é do GRUPO, não de quem está olhando.
+ */
 export async function listarEmailsExternosDoGrupo(
   grupoCliente: string
 ): Promise<string[]> {
@@ -422,26 +431,30 @@ export async function listarEmailsExternosDoGrupo(
   } = await supabase.auth.getUser();
   if (!user) return [];
 
+  const admin = createAdminClient();
+  const emails = new Map<string, string>();
+
   const cis: string[] = [];
   const pagina = 1000;
   for (let from = 0; ; from += pagina) {
-    const { data } = await supabase
+    const { data } = await admin
       .from("pessoas")
-      .select("ci")
+      .select("ci, email")
       .eq("grupo_cliente", grupo)
       .range(from, from + pagina - 1);
     const rows = data ?? [];
     for (const row of rows) {
       if (row.ci) cis.push(row.ci);
+      for (const email of separarEmails(row.email)) {
+        guardarEmailExterno(emails, email);
+      }
     }
     if (rows.length < pagina) break;
   }
-  if (cis.length === 0) return [];
 
-  const emails = new Map<string, string>();
   const reuniaoIds: string[] = [];
   for (let i = 0; i < cis.length; i += 150) {
-    const { data } = await supabase
+    const { data } = await admin
       .from("reunioes")
       .select("id, emails_cliente")
       .in("cliente_id", cis.slice(i, i + 150));
@@ -454,7 +467,7 @@ export async function listarEmailsExternosDoGrupo(
   }
 
   for (let i = 0; i < reuniaoIds.length; i += 150) {
-    const { data } = await supabase
+    const { data } = await admin
       .from("reuniao_participantes")
       .select("email")
       .in("reuniao_id", reuniaoIds.slice(i, i + 150))
