@@ -710,12 +710,13 @@ export function AgendarViosModal({
                                 options={opcoesResponsavelCom(linha.revisor_vios)}
                               />
                               <p className="text-xs leading-snug text-slate-500 sm:col-span-1 lg:col-span-3 lg:self-end lg:pb-2">
-                                O VIOS cria o fluxo depois desta tarefa, com a{" "}
+                                O VIOS cria o fluxo depois desta tarefa. Ciência dos
+                                agendamentos fica com o responsável. Protocolar fica com
+                                o responsável e com Samuel Willian Silva. A{" "}
                                 <span className="font-medium text-slate-600">
                                   {TAREFA_REVISAR}
                                 </span>{" "}
-                                dentro dele. O robô não abre outra: coloca o revisor como
-                                primeira pessoa dessa tarefa.
+                                fica com o revisor, como primeira pessoa.
                               </p>
                             </div>
                           )}

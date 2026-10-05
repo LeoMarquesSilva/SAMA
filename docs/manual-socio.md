@@ -390,7 +390,7 @@ Na tela só existem **Providência** e **Prazo**. Providência de reunião não 
 
 Prazo não vira Providência. No VIOS, a etiqueta de prazo se chama **ENVIAR**.
 
-No prazo, escolha também o **revisor**. O VIOS cria o fluxo sozinho, com a tarefa **2. REVISAR** dentro dele. O robô não abre outra tarefa: depois do agendamento, entra nesse fluxo e coloca o revisor como primeira pessoa da **2. REVISAR**.
+No prazo, escolha também o **revisor**. O VIOS cria o fluxo sozinho: Ciência dos agendamentos, **2. REVISAR** e Protocolar. O robô não abre outra tarefa. Ciência dos agendamentos fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A **2. REVISAR** fica com o revisor, como primeira pessoa.
 
 #### Quem entra na tarefa
 
