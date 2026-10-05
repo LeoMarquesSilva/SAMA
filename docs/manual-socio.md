@@ -390,14 +390,14 @@ Na tela só existem **Providência** e **Prazo**. Providência de reunião não 
 
 Prazo não vira Providência. No VIOS, a etiqueta de prazo se chama **ENVIAR**.
 
-No prazo, escolha também o **revisor**. O robô abre uma segunda tarefa, **2. REVISAR**, na mesma pasta e data. Essa revisão é providência: leva PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO.
+No prazo, escolha também o **revisor**. O VIOS cria o fluxo sozinho, com a tarefa **2. REVISAR** dentro dele. O robô não abre outra tarefa: depois do agendamento, entra nesse fluxo e coloca o revisor como primeira pessoa da **2. REVISAR**.
 
 #### Quem entra na tarefa
 
 | Situação | Responsáveis no VIOS |
 |----------|----------------------|
 | Demanda **Insolvência** ou **Insolvência e Cível**, etiqueta **Providência** | O responsável escolhido e quem estiver na lista (Lavínia e Lígia já vêm marcadas; dá para tirar ou incluir outra pessoa) |
-| Demanda **Insolvência** ou **Insolvência e Cível**, tarefa **2. REVISAR** do prazo | O revisor escolhido e a mesma lista |
+| Demanda **Insolvência** ou **Insolvência e Cível**, **2. REVISAR** do fluxo | O revisor escolhido e a mesma lista |
 | Demanda **Cível**, ou demanda em branco | Só a pessoa escolhida |
 | Etiqueta **Prazo** (a tarefa ENVIAR) | Só o responsável escolhido, em qualquer demanda |
 

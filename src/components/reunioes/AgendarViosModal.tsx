@@ -299,7 +299,7 @@ export function AgendarViosModal({
       if (!l.responsavel_vios) return setErro(`Selecione o responsável do passo ${n}.`);
       if (l.grupoEtiqueta === "PRAZO" && !l.revisor_vios?.trim()) {
         return setErro(
-          `Selecione o revisor do passo ${n} — a etiqueta Prazo abre a tarefa ${TAREFA_REVISAR} para ele.`
+          `Selecione o revisor do passo ${n}. O VIOS cria a tarefa ${TAREFA_REVISAR} no fluxo e o robô coloca essa pessoa nela.`
         );
       }
       if (l.enviadoVios) {
@@ -342,24 +342,15 @@ export function AgendarViosModal({
               ? []
               : (l.coparticipantes_vios ?? [])
           ),
-          revisor_vios: l.revisor_vios,
+          // O VIOS cria a 2. REVISAR no fluxo. Aqui vai só quem deve ficar nela.
+          revisor_vios:
+            l.grupoEtiqueta === "PRAZO"
+              ? juntarResponsaveis(
+                  l.revisor_vios ?? "",
+                  demandaIncluiInsolvencia(demanda) ? (l.coparticipantes_vios ?? []) : []
+                )
+              : undefined,
         });
-        // Prazo (ENVIAR no VIOS) abre também a REVISAR para o revisor escolhido.
-        if (l.grupoEtiqueta === "PRAZO" && l.revisor_vios?.trim()) {
-          const providencia = etiquetasDoPasso(etiquetasVios, "PROVIDENCIA");
-          envio.push({
-            ...comum,
-            text: `${TAREFA_REVISAR.replace(/^\d+\.\s*/, "")}: ${l.text}`,
-            tipo: providencia.principal,
-            tarefa: TAREFA_REVISAR,
-            etiqueta_id: providencia.ids.split(",")[0] ?? "",
-            etiqueta: providencia.nomes,
-            responsavel_vios: juntarResponsaveis(
-              l.revisor_vios ?? "",
-              demandaIncluiInsolvencia(demanda) ? (l.coparticipantes_vios ?? []) : []
-            ),
-          });
-        }
       }
       const r = await onEnviar(envio);
       if (!r.ok) {
@@ -705,7 +696,7 @@ export function AgendarViosModal({
                               onChange={(prazo) => patch(index, { prazo })}
                             />
                           </div>
-                          {/* Prazo vira ENVIAR no VIOS; o revisor recebe a REVISAR do mesmo prazo. */}
+                          {/* O VIOS cria a 2. REVISAR no fluxo. O revisor é aplicado nessa tarefa. */}
                           {linha.grupoEtiqueta === "PRAZO" && (
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                               <SelectMenu
@@ -719,11 +710,12 @@ export function AgendarViosModal({
                                 options={opcoesResponsavelCom(linha.revisor_vios)}
                               />
                               <p className="text-xs leading-snug text-slate-500 sm:col-span-1 lg:col-span-3 lg:self-end lg:pb-2">
-                                Além do prazo (ENVIAR), o robô abre a tarefa{" "}
+                                O VIOS cria o fluxo depois desta tarefa, com a{" "}
                                 <span className="font-medium text-slate-600">
                                   {TAREFA_REVISAR}
                                 </span>{" "}
-                                na mesma pasta e data, com o revisor como responsável.
+                                dentro dele. O robô não abre outra: coloca o revisor como
+                                primeira pessoa dessa tarefa.
                               </p>
                             </div>
                           )}

@@ -22,7 +22,7 @@ export type EtiquetaEscolha = (typeof ETIQUETAS_VISUAIS)[number]["value"];
 /** Etiquetas do de-para da planilha (Providência de reunião reaproveita a lista de Providência). */
 export type EtiquetaVisual = "PROVIDENCIA" | "PRAZO";
 
-/** Tarefa que o revisor recebe quando a etiqueta é Prazo (ENVIAR no VIOS). */
+/** Tarefa 2. REVISAR que o VIOS cria dentro do fluxo. O revisor é colocado nela. */
 export const TAREFA_REVISAR = "2. REVISAR";
 export type PastaDepara = "Processo" | "Atendimento";
 

@@ -16,6 +16,8 @@ export type CasoFilaVios = CasoAgendamentoVios & {
   tarefaId?: string;
   etiquetaId?: string;
   etiqueta?: string;
+  /** Pessoa da 2. REVISAR do fluxo. Pode vir com outras, separadas por vírgula. */
+  revisor?: string;
   /** Texto original do item de "Próximos passos". */
   textoChecklist?: string;
 };
@@ -82,6 +84,7 @@ export async function enfileirarCasosVios(
       tarefa_id: c.tarefaId || null,
       etiqueta_id: c.etiquetaId || null,
       etiqueta: c.etiqueta || null,
+      revisor: c.revisor?.trim() || null,
       passo_texto: c.textoChecklist?.trim() || c.observacao,
       status: "pendente",
     };

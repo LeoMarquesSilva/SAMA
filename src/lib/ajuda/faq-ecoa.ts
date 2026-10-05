@@ -30,12 +30,12 @@ export const FAQ_ECOA: FaqItem[] = [
   {
     question: "Como envio próximos passos ao VIOS?",
     answer:
-      "Na reunião realizada, salve os passos e use Enviar para Agendamento. Na tela a etiqueta é só Providência ou Prazo. Providência grava no VIOS PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO. Prazo grava ENVIAR e PROVIDÊNCIA DE REUNIÃO, e abre também a tarefa 2. REVISAR para o revisor.",
+      "Na reunião realizada, salve os passos e use Enviar para Agendamento. Na tela a etiqueta é só Providência ou Prazo. Providência grava no VIOS PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO. Prazo grava ENVIAR e PROVIDÊNCIA DE REUNIÃO. O VIOS cria a 2. REVISAR no fluxo, e o robô só troca o responsável dela para o revisor escolhido.",
   },
   {
     question: "Quando Lavínia e Lígia entram na providência?",
     answer:
-      "Quando a demanda é Insolvência ou Insolvência e Cível, Lavínia e Lígia já vêm marcadas na providência e na revisão do prazo. Dá para tirar uma das duas ou incluir outra pessoa antes de enviar. A tarefa ENVIAR do prazo fica só com o responsável. Demanda Cível ou em branco não sugere as duas.",
+      "Quando a demanda é Insolvência ou Insolvência e Cível, Lavínia e Lígia já vêm marcadas na providência e na 2. REVISAR do fluxo. Dá para tirar uma das duas ou incluir outra pessoa antes de enviar. A tarefa ENVIAR do prazo fica só com o responsável. Demanda Cível ou em branco não sugere as duas.",
   },
   {
     question: "Como cancelo uma reunião que eu criei no SAMA?",

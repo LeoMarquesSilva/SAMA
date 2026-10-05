@@ -477,6 +477,7 @@ export async function enviarReuniaoAoVios(
                 tarefaId: p.tarefa_id,
                 etiquetaId: p.etiqueta_id,
                 etiqueta: p.etiqueta,
+                revisor: p.revisor_vios,
                 textoChecklist: p.texto_checklist,
               };
             })
