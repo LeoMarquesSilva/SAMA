@@ -17,6 +17,7 @@ import {
   demandaIncluiInsolvencia,
   juntarResponsaveis,
   VIOS_PASTA_TIPOS,
+  type PastaProcessoOpcao,
   type ViosPassoEnvio,
 } from "@/lib/vios-agendamento";
 import {
@@ -26,6 +27,7 @@ import {
   TAREFA_REVISAR,
 } from "@/lib/vios-depara-etiqueta";
 import { usuarioViosDoColaborador, type OpcaoVios } from "@/lib/vios-opcoes";
+import { listarPastasDoProcesso } from "@/lib/vios-processos";
 import {
   listarUsuariosVios,
   type AgendamentoViosStatus,
@@ -64,6 +66,9 @@ type Linha = ViosPassoEnvio & {
    * Lista vazia = a pessoa tirou todo mundo.
    */
   coparticipantes_vios?: string[];
+  /** Pastas do CNJ na tabela de processos. Só a tela usa. */
+  pastas?: PastaProcessoOpcao[];
+  pastasStatus?: "carregando" | "ok" | "erro";
 };
 
 /** Responsáveis e etiquetas do VIOS: iguais para qualquer pasta, carregados uma vez. */
@@ -194,6 +199,13 @@ export function AgendarViosModal({
   const [erro, setErro] = useState<string>();
   const [pending, start] = useTransition();
   const selecionadas = linhas.filter((l) => l.selecionado);
+  const consultaPastas = linhas
+    .map((l, i) =>
+      l.selecionado && (l.pastaTipo ?? "Processo") === "Processo" && numeroCompleto(l)
+        ? `${i}:${numeroDaLinha(l)}`
+        : ""
+    )
+    .join("|");
 
   useEffect(() => {
     if (open) {
@@ -268,6 +280,53 @@ export function AgendarViosModal({
     );
   }
 
+  useEffect(() => {
+    if (!open || !consultaPastas) return;
+    let vivo = true;
+    const alvos = linhas
+      .map((l, index) => ({ l, index }))
+      .filter(
+        ({ l }) =>
+          l.selecionado && (l.pastaTipo ?? "Processo") === "Processo" && numeroCompleto(l)
+      );
+    const timers = alvos.map(({ l, index }) =>
+      window.setTimeout(() => {
+        const cnj = (l.processo ?? "").trim();
+        setLinhas((atual) =>
+          atual.map((row, i) =>
+            i === index && (row.processo ?? "").trim() === cnj
+              ? { ...row, pastasStatus: "carregando" }
+              : row
+          )
+        );
+        void listarPastasDoProcesso(cnj).then((res) => {
+          if (!vivo) return;
+          setLinhas((atual) =>
+            atual.map((row, i) => {
+              if (i !== index || (row.processo ?? "").trim() !== cnj) return row;
+              if (!res.ok) {
+                return { ...row, pastasStatus: "erro", pastas: [], ci_pasta: "" };
+              }
+              const ci =
+                res.pastas.length === 1
+                  ? res.pastas[0].ci
+                  : res.pastas.some((p) => p.ci === row.ci_pasta)
+                    ? row.ci_pasta
+                    : "";
+              return { ...row, pastasStatus: "ok", pastas: res.pastas, ci_pasta: ci };
+            })
+          );
+        });
+      }, 350)
+    );
+    return () => {
+      vivo = false;
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+    // A chave já resume número e linha. Relistar `linhas` reconsultaria a cada escolha de CI.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, consultaPastas]);
+
   function enviar() {
     setErro(undefined);
     if (selecionadas.length === 0) {
@@ -287,6 +346,14 @@ export function AgendarViosModal({
       }
       if (!numeroCompleto(l)) {
         return setErro(`Complete o número do processo (CNJ) do passo ${n}.`);
+      }
+      if ((l.pastaTipo ?? "Processo") === "Processo") {
+        if (l.pastasStatus === "carregando" || !l.pastasStatus) {
+          return setErro(`Aguarde a consulta das pastas do processo no passo ${n}.`);
+        }
+        if ((l.pastas?.length ?? 0) > 1 && !l.ci_pasta) {
+          return setErro(`Este processo tem mais de uma pasta. Escolha o CI no passo ${n}.`);
+        }
       }
       if (!l.tarefa?.trim()) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
       if (!tarefasDaEtiqueta(l.grupoEtiqueta, l.pastaTipo).includes(l.tarefa)) {
@@ -323,6 +390,7 @@ export function AgendarViosModal({
           pastaTipo: l.pastaTipo,
           pasta: l.pasta,
           processo: l.processo,
+          ci_pasta: l.ci_pasta,
           // o robô escolhe o tipo de tarefa pelo nome na tela da pasta
           tarefa_id: "",
         };
@@ -583,6 +651,9 @@ export function AgendarViosModal({
                                         pastaTipo: t,
                                         pasta: t === "Atendimento" ? linha.pasta : "",
                                         processo: t === "Processo" ? linha.processo : "",
+                                        ci_pasta: "",
+                                        pastas: [],
+                                        pastasStatus: undefined,
                                         ...(linha.tarefa &&
                                         tarefasDaEtiqueta(linha.grupoEtiqueta, t).includes(linha.tarefa)
                                           ? {}
@@ -617,7 +688,12 @@ export function AgendarViosModal({
                                     patch(
                                       index,
                                       tipoPasta === "Processo"
-                                        ? { processo: mascaraCnj(e.target.value) }
+                                        ? {
+                                            processo: mascaraCnj(e.target.value),
+                                            ci_pasta: "",
+                                            pastas: [],
+                                            pastasStatus: undefined,
+                                          }
                                         : { pasta: mascaraAtendimento(e.target.value) }
                                     )
                                   }
@@ -638,6 +714,71 @@ export function AgendarViosModal({
                                     : "Informe o CNJ do processo."
                                   : "Informe o nº da pasta de atendimento."}
                               </p>
+                              {tipoPasta === "Processo" && linha.pastasStatus === "carregando" && (
+                                <p className="text-xs text-slate-500">Consultando as pastas deste processo…</p>
+                              )}
+                              {tipoPasta === "Processo" &&
+                                linha.pastasStatus === "ok" &&
+                                (linha.pastas?.length ?? 0) === 1 && (
+                                  <p className="text-xs text-slate-600">
+                                    Pasta CI {linha.pastas?.[0]?.ci}
+                                    {linha.pastas?.[0]?.situacao_processo
+                                      ? ` · ${linha.pastas[0].situacao_processo}`
+                                      : ""}
+                                    {linha.pastas?.[0]?.acao ? ` · ${linha.pastas[0].acao}` : ""}
+                                  </p>
+                                )}
+                              {tipoPasta === "Processo" &&
+                                linha.pastasStatus === "ok" &&
+                                (linha.pastas?.length ?? 0) > 1 && (
+                                  <fieldset className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                                    <legend className="px-1 text-xs font-semibold text-amber-900">
+                                      Este processo está em {linha.pastas?.length} pastas. Escolha o CI.
+                                    </legend>
+                                    {linha.pastas?.map((pasta) => {
+                                      const ativo = linha.ci_pasta === pasta.ci;
+                                      return (
+                                        <label
+                                          key={pasta.ci}
+                                          className={clsx(
+                                            "flex cursor-pointer gap-2.5 rounded-md border px-3 py-2 text-sm",
+                                            ativo
+                                              ? "border-brand-300 bg-white"
+                                              : "border-transparent bg-white/70 hover:border-slate-200"
+                                          )}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`ci-processo-${index}`}
+                                            checked={ativo}
+                                            onChange={() => patch(index, { ci_pasta: pasta.ci })}
+                                            className="mt-1"
+                                          />
+                                          <span className="min-w-0">
+                                            <span className="block font-medium text-slate-900">
+                                              CI {pasta.ci}
+                                            </span>
+                                            <span className="mt-0.5 block text-xs leading-relaxed text-slate-600">
+                                              Situação: {pasta.situacao_processo || "—"}
+                                              {" · "}
+                                              Ação: {pasta.acao || "—"}
+                                              {" · "}
+                                              Nº {pasta.nro_cnj || numero}
+                                            </span>
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                  </fieldset>
+                                )}
+                              {tipoPasta === "Processo" &&
+                                linha.pastasStatus === "ok" &&
+                                (linha.pastas?.length ?? 0) === 0 &&
+                                numeroCompleto(linha) && (
+                                  <p className="text-xs text-slate-500">
+                                    Nenhuma pasta deste número na tabela de processos. O robô busca o CNJ no VIOS.
+                                  </p>
+                                )}
                             </div>
                           </div>
                         </section>

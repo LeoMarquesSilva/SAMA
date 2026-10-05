@@ -202,4 +202,13 @@ export type ViosPassoEnvio = {
   pastaTipo?: string;
   pasta?: string;
   processo?: string;
+  /** CI da pasta de processo, quando o mesmo CNJ existe em mais de uma. */
+  ci_pasta?: string;
+};
+
+export type PastaProcessoOpcao = {
+  ci: string;
+  situacao_processo: string | null;
+  acao: string | null;
+  nro_cnj: string | null;
 };

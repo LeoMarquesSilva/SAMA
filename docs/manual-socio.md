@@ -392,6 +392,8 @@ Prazo não vira Providência. No VIOS, a etiqueta de prazo se chama **ENVIAR**.
 
 No prazo, escolha também o **revisor**. O VIOS cria o fluxo sozinho: Ciência dos agendamentos, **2. REVISAR** e Protocolar. O robô não abre outra tarefa. Ciência dos agendamentos fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A **2. REVISAR** fica com o revisor, como primeira pessoa.
 
+Em pasta de **processo**, o número CNJ consulta a tabela de processos do escritório. Se o mesmo número estiver em mais de uma pasta, escolha o CI. A lista mostra o CI, a situação, a ação e o número. Com uma pasta só, o agendamento usa esse CI.
+
 #### Quem entra na tarefa
 
 | Situação | Responsáveis no VIOS |
