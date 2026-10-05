@@ -12,7 +12,12 @@ import {
   rotuloEnviadoAgendamento,
 } from "@/lib/proximos-passos-checklist";
 import { Badge } from "@/components/ui/Badge";
-import { VIOS_PASTA_TIPOS, type ViosPassoEnvio } from "@/lib/vios-agendamento";
+import {
+  demandaIncluiInsolvencia,
+  responsaveisViosDoEnvio,
+  VIOS_PASTA_TIPOS,
+  type ViosPassoEnvio,
+} from "@/lib/vios-agendamento";
 import {
   ETIQUETAS_VISUAIS,
   etiquetasViosDoEnvio,
@@ -131,6 +136,7 @@ export function AgendarViosModal({
   proximosPassos,
   colaboradores,
   agendamentosVios = [],
+  demanda = null,
   onEnviar,
 }: {
   open: boolean;
@@ -141,6 +147,8 @@ export function AgendarViosModal({
   agendamentosVios?: AgendamentoViosStatus[];
   /** Mantido na API; a área não é mais escolhida neste modal. */
   areaPadrao?: string | null;
+  /** Demanda da reunião. Insolvência inclui Lavínia e Lígia nas providências. */
+  demanda?: string | null;
   onEnviar: (passos: ViosPassoEnvio[]) => Promise<{ ok: boolean; error?: string; id?: string }>;
 }) {
   const iniciais = useMemo<Linha[]>(() => {
@@ -307,7 +315,11 @@ export function AgendarViosModal({
           // nova selecionar as duas no VIOS.
           etiqueta_id: etiqueta.ids.split(",")[0] ?? "",
           etiqueta: etiqueta.nomes,
-          responsavel_vios: l.responsavel_vios,
+          responsavel_vios: responsaveisViosDoEnvio(
+            l.responsavel_vios ?? "",
+            etiqueta.principal,
+            demanda
+          ),
           revisor_vios: l.revisor_vios,
         });
         // Prazo (ENVIAR no VIOS) abre também a REVISAR para o revisor escolhido.
@@ -320,7 +332,11 @@ export function AgendarViosModal({
             tarefa: TAREFA_REVISAR,
             etiqueta_id: providencia.ids.split(",")[0] ?? "",
             etiqueta: providencia.nomes,
-            responsavel_vios: l.revisor_vios,
+            responsavel_vios: responsaveisViosDoEnvio(
+              l.revisor_vios ?? "",
+              providencia.principal,
+              demanda
+            ),
           });
         }
       }
@@ -668,6 +684,13 @@ export function AgendarViosModal({
                               onChange={(prazo) => patch(index, { prazo })}
                             />
                           </div>
+                          {demandaIncluiInsolvencia(demanda) &&
+                            linha.grupoEtiqueta !== "PRAZO" && (
+                              <p className="text-xs leading-snug text-slate-500">
+                                Demanda de Insolvência: além deste responsável, Lavínia e
+                                Lígia entram nesta providência.
+                              </p>
+                            )}
                           {/* Prazo vira ENVIAR no VIOS; o revisor recebe a REVISAR do mesmo prazo. */}
                           {linha.grupoEtiqueta === "PRAZO" && (
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -687,6 +710,8 @@ export function AgendarViosModal({
                                   {TAREFA_REVISAR}
                                 </span>{" "}
                                 na mesma pasta e data, com o revisor como responsável.
+                                {demandaIncluiInsolvencia(demanda) &&
+                                  " Lavínia e Lígia entram junto nessa providência."}
                               </p>
                             </div>
                           )}

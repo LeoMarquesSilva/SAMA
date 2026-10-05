@@ -1430,6 +1430,7 @@ export function ReuniaoForm({
       colaboradores={colaboradores}
       agendamentosVios={agendamentosVios}
       areaPadrao={undefined}
+      demanda={demanda}
       onEnviar={async (passos) => {
         const r = await enviarReuniaoAoVios(reuniao!.id, passos, proximosPassos);
         if (r.ok) {

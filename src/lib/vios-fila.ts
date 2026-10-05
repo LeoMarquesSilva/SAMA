@@ -39,8 +39,15 @@ export async function enfileirarCasosVios(
   // O responsável do VIOS pode não ser o colaborador do passo (ex.: o revisor do
   // prazo). Nesse caso o e-mail vem do nome, não do colaborador original.
   const nomesVios = [
-    ...new Set(casos.map((c) => c.responsavelVios?.trim()).filter(Boolean)),
-  ] as string[];
+    ...new Set(
+      casos.flatMap((c) =>
+        (c.responsavelVios?.trim() || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+    ),
+  ];
   const { data: porNomeRows } = nomesVios.length
     ? await admin.from("colaboradores").select("nome, email").in("nome", nomesVios)
     : { data: [] as { nome: string; email: string | null }[] };
@@ -52,10 +59,11 @@ export async function enfileirarCasosVios(
     const colab = porId.get(c.colaboradorId);
     const viosNome = c.responsavelVios?.trim();
     const responsavel = viosNome || colab?.nome;
+    const primeiroResponsavel = responsavel?.split(",")[0]?.trim() || "";
     if (!responsavel) throw new Error(`Responsável do passo ${i + 1} não encontrado.`);
-    const email = viosNome
-      ? (emailPorNome.get(viosNome.toLowerCase()) ??
-        (colab?.nome?.trim().toLowerCase() === viosNome.toLowerCase()
+    const email = primeiroResponsavel
+      ? (emailPorNome.get(primeiroResponsavel.toLowerCase()) ??
+        (colab?.nome?.trim().toLowerCase() === primeiroResponsavel.toLowerCase()
           ? colab?.email
           : null) ??
         null)

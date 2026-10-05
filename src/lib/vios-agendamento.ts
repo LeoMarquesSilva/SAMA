@@ -141,6 +141,42 @@ export const VIOS_AREAS = [
 
 export const VIOS_DESCRICAO_PRAZO = "PROVIDÊNCIAS";
 
+/** Entram em toda providência quando a demanda da reunião é de Insolvência. */
+export const RESPONSAVEIS_EXTRA_INSOLVENCIA = [
+  "Lavinia Ferraz Crispim",
+  "Ligia Gilberti Lopes",
+] as const;
+
+export function demandaIncluiInsolvencia(demanda?: string | null): boolean {
+  return demanda === "INSOLVENCIA" || demanda === "INSOLVENCIA_CIVEL";
+}
+
+function nomeViosIgual(a: string, b: string): boolean {
+  const n = (s: string) =>
+    s.normalize("NFD").replace(/\p{M}/gu, "").replace(/\s+/g, " ").trim().toUpperCase();
+  return n(a) === n(b);
+}
+
+/**
+ * Providência de Insolvência: o responsável escolhido mais Lavínia e Lígia.
+ * Prazo (ENVIAR no VIOS) fica só com quem foi selecionado.
+ */
+export function responsaveisViosDoEnvio(
+  escolhido: string,
+  etiquetaPrincipal: string,
+  demanda?: string | null
+): string {
+  const base = escolhido.trim();
+  if (!base) return "";
+  const ehPrazo = nomeViosIgual(etiquetaPrincipal, "ENVIAR");
+  if (ehPrazo || !demandaIncluiInsolvencia(demanda)) return base;
+  const lista = [base];
+  for (const extra of RESPONSAVEIS_EXTRA_INSOLVENCIA) {
+    if (!lista.some((n) => nomeViosIgual(n, extra))) lista.push(extra);
+  }
+  return lista.join(", ");
+}
+
 export const VIOS_PASTA_TIPOS = ["Processo", "Atendimento"] as const;
 
 export type ViosPassoEnvio = {
