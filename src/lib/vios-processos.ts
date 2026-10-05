@@ -18,7 +18,7 @@ export async function listarPastasDoProcesso(
   if (error) return { ok: false, erro: error.message };
 
   const pastas = ((data ?? []) as PastaProcessoOpcao[])
-    .filter((p) => p?.ci)
+    .filter((p) => p?.ci && /^ativo$/i.test(String(p.situacao_processo ?? "").trim()))
     .map((p) => ({
       ci: String(p.ci).trim(),
       situacao_processo: p.situacao_processo?.trim() || null,

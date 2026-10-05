@@ -30,7 +30,7 @@ export const FAQ_ECOA: FaqItem[] = [
   {
     question: "Como envio próximos passos ao VIOS?",
     answer:
-      "Na reunião realizada, salve os passos e use Enviar para Agendamento. Na tela a etiqueta é só Providência ou Prazo. Providência grava no VIOS PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO. Prazo grava ENVIAR e PROVIDÊNCIA DE REUNIÃO. O VIOS cria o fluxo (Ciência dos agendamentos, 2. REVISAR e Protocolar). Ciência fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A 2. REVISAR fica com o revisor. Se o processo tiver mais de uma pasta, escolha o CI antes de enviar.",
+      "Na reunião realizada, salve os passos e use Enviar para Agendamento. Na tela a etiqueta é só Providência ou Prazo. Providência grava no VIOS PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO. Prazo grava ENVIAR e PROVIDÊNCIA DE REUNIÃO. O VIOS cria o fluxo (Ciência dos agendamentos, 2. REVISAR e Protocolar). Ciência fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A 2. REVISAR fica com o revisor. Se o processo tiver mais de uma pasta ativa, escolha o CI antes de enviar. Com uma pasta ativa, o CI entra sozinho.",
   },
   {
     question: "Quando Lavínia e Lígia entram na providência?",

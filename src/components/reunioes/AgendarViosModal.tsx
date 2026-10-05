@@ -352,7 +352,7 @@ export function AgendarViosModal({
           return setErro(`Aguarde a consulta das pastas do processo no passo ${n}.`);
         }
         if ((l.pastas?.length ?? 0) > 1 && !l.ci_pasta) {
-          return setErro(`Este processo tem mais de uma pasta. Escolha o CI no passo ${n}.`);
+          return setErro(`Este processo tem mais de uma pasta ativa. Escolha o CI no passo ${n}.`);
         }
       }
       if (!l.tarefa?.trim()) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
@@ -733,7 +733,7 @@ export function AgendarViosModal({
                                 (linha.pastas?.length ?? 0) > 1 && (
                                   <fieldset className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
                                     <legend className="px-1 text-xs font-semibold text-amber-900">
-                                      Este processo está em {linha.pastas?.length} pastas. Escolha o CI.
+                                      Este processo está em {linha.pastas?.length} pastas ativas. Escolha o CI.
                                     </legend>
                                     {linha.pastas?.map((pasta) => {
                                       const ativo = linha.ci_pasta === pasta.ci;
@@ -776,7 +776,7 @@ export function AgendarViosModal({
                                 (linha.pastas?.length ?? 0) === 0 &&
                                 numeroCompleto(linha) && (
                                   <p className="text-xs text-slate-500">
-                                    Nenhuma pasta deste número na tabela de processos. O robô busca o CNJ no VIOS.
+                                    Não foi localizada nenhuma pasta ativa com esse CNJ.
                                   </p>
                                 )}
                             </div>
@@ -862,38 +862,36 @@ export function AgendarViosModal({
                             </div>
                           )}
                           {demandaIncluiInsolvencia(demanda) && (
-                            <div className="space-y-2">
-                              <p className="text-xs leading-snug text-slate-500">
+                            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                              <p className="text-xs text-slate-500">
                                 {linha.grupoEtiqueta === "PRAZO"
-                                  ? "Na tarefa de revisar, além do revisor. Dá para tirar ou incluir outra pessoa."
-                                  : "Também nesta providência, junto do responsável. Dá para tirar ou incluir outra pessoa."}
+                                  ? "Na revisão, junto do revisor."
+                                  : "Junto do responsável."}
                               </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {(linha.coparticipantes_vios ?? []).map((nome) => (
-                                  <span
-                                    key={nome}
-                                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+                              {(linha.coparticipantes_vios ?? []).map((nome) => (
+                                <span
+                                  key={nome}
+                                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+                                >
+                                  {nome}
+                                  <button
+                                    type="button"
+                                    className="rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                                    aria-label={`Tirar ${nome}`}
+                                    onClick={() =>
+                                      patch(index, {
+                                        coparticipantes_vios: (
+                                          linha.coparticipantes_vios ?? []
+                                        ).filter((n) => n !== nome),
+                                      })
+                                    }
                                   >
-                                    {nome}
-                                    <button
-                                      type="button"
-                                      className="rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                                      aria-label={`Tirar ${nome}`}
-                                      onClick={() =>
-                                        patch(index, {
-                                          coparticipantes_vios: (
-                                            linha.coparticipantes_vios ?? []
-                                          ).filter((n) => n !== nome),
-                                        })
-                                      }
-                                    >
-                                      <X size={12} />
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
+                                    <X size={12} />
+                                  </button>
+                                </span>
+                              ))}
                               <SelectMenu
-                                label="Incluir pessoa"
+                                className="w-52"
                                 value=""
                                 onChange={(v) => {
                                   if (!v) return;
@@ -901,8 +899,8 @@ export function AgendarViosModal({
                                   if (atual.includes(v)) return;
                                   patch(index, { coparticipantes_vios: [...atual, v] });
                                 }}
-                                emptyOption="Adicionar"
-                                placeholder="Adicionar"
+                                emptyOption="Incluir pessoa"
+                                placeholder="Incluir pessoa"
                                 disabled={listas.status !== "ok"}
                                 searchable
                                 options={opcoesResponsavelCom(undefined).filter(
