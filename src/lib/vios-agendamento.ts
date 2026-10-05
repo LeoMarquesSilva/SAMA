@@ -141,7 +141,7 @@ export const VIOS_AREAS = [
 
 export const VIOS_DESCRICAO_PRAZO = "PROVIDÊNCIAS";
 
-/** Entram em toda providência quando a demanda da reunião é de Insolvência. */
+/** Sugestão inicial na providência quando a demanda da reunião é de Insolvência. */
 export const RESPONSAVEIS_EXTRA_INSOLVENCIA = [
   "Lavinia Ferraz Crispim",
   "Ligia Gilberti Lopes",
@@ -157,23 +157,26 @@ function nomeViosIgual(a: string, b: string): boolean {
   return n(a) === n(b);
 }
 
-/**
- * Providência de Insolvência: o responsável escolhido mais Lavínia e Lígia.
- * Prazo (ENVIAR no VIOS) fica só com quem foi selecionado.
- */
-export function responsaveisViosDoEnvio(
-  escolhido: string,
-  etiquetaPrincipal: string,
-  demanda?: string | null
-): string {
-  const base = escolhido.trim();
-  if (!base) return "";
-  const ehPrazo = nomeViosIgual(etiquetaPrincipal, "ENVIAR");
-  if (ehPrazo || !demandaIncluiInsolvencia(demanda)) return base;
-  const lista = [base];
-  for (const extra of RESPONSAVEIS_EXTRA_INSOLVENCIA) {
-    if (!lista.some((n) => nomeViosIgual(n, extra))) lista.push(extra);
-  }
+/** Nomes do catálogo do VIOS, quando existirem; senão o nome conhecido. */
+export function coparticipantesPadraoInsolvencia(
+  usuarios?: readonly { nome: string }[]
+): string[] {
+  return RESPONSAVEIS_EXTRA_INSOLVENCIA.map((nome) => {
+    const achado = usuarios?.find((u) => nomeViosIgual(u.nome, nome));
+    return achado?.nome ?? nome;
+  });
+}
+
+/** Responsável principal mais quem ficou marcado na lista. Não repete nome. */
+export function juntarResponsaveis(principal: string, extras: readonly string[]): string {
+  const lista: string[] = [];
+  const add = (nome: string) => {
+    const n = nome.trim();
+    if (!n || lista.some((x) => nomeViosIgual(x, n))) return;
+    lista.push(n);
+  };
+  add(principal);
+  for (const extra of extras) add(extra);
   return lista.join(", ");
 }
 

@@ -33,7 +33,7 @@ export const AGENDAMENTO_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "ata",
     title: "A ata fica aqui",
-    body: "Quando a reunião está realizada, este campo recebe o texto do Fellow. Use Buscar novamente para atualizar. Não há outro campo de ata para preencher à mão.",
+    body: "Quando a reunião está realizada, este campo recebe o texto do Fellow. Use Buscar novamente para atualizar. Enviar ata para cliente manda esse texto, não a pauta.",
     target: "agenda-ata",
     placement: "top",
   },

@@ -29,9 +29,9 @@ Eles aparecem no Calendário como "Não categorizados"
         ↓
 Você escolhe: Reunião, Atividade ou Ignorar
         ↓
-Depois da reunião, você registra Resumo e Próximos passos
+Depois da reunião, você registra a Ata e os Próximos passos
         ↓
-As ações ficam na tela Próximos passos
+A ata pode ir ao cliente; os passos podem ir ao VIOS
         ↓
 O Dashboard mostra seu resumo no período
 ```
@@ -224,8 +224,8 @@ Está errado no SAMA? Corrija no **Outlook** e clique em **Atualizar** no Calend
 |--------------------|------------------------|
 | Tipo da reunião, cliente, participantes (classificação) | Título do compromisso |
 | Status: Agendada, Realizada ou Cancelada | Data e horário |
-| Resumo e Próximos passos (após realizada) | Local, link online, convidados |
-| Modalidade (online, presencial etc.) | Reagendar, cancelar ou excluir |
+| Demanda, resumo, ata e próximos passos | Local, link online, convidados |
+| Modalidade (online, presencial etc.) | Reagendar ou excluir o convite |
 
 **Resumindo:** o que aparece no cartão do convite Outlook é só leitura. O restante é o registro gerencial que você preenche aqui.
 
@@ -237,6 +237,7 @@ Está errado no SAMA? Corrija no **Outlook** e clique em **Atualizar** no Calend
 | **Cliente** | Busque o cliente no cadastro (obrigatório na maioria dos tipos) |
 | **Participantes** | Confira quem veio do Outlook; ajuste se precisar |
 | **Modalidade** | Online, Presencial no escritório ou Externo |
+| **Demanda** | Insolvência, Cível ou Insolvência e Cível. Pode ficar em branco. Define quem entra na providência do VIOS |
 | **Status** | **Agendada** (vai acontecer) ou **Realizada** (já aconteceu) |
 
 [PRINT: Formulário de reunião parcialmente preenchido — Leonardo, tipo Gestão Operacional]
@@ -263,6 +264,27 @@ Com status **Realizada**, aparecem dois campos importantes:
 
 [PRINT: Checklist de proximos passos com duas ações]
 [PRINT: Botão Salvar no rodapé do modal]
+
+#### Ata
+
+Com status **Realizada**, a seção **Ata** mostra o texto que o Fellow coletou depois da reunião. **Buscar novamente** atualiza esse texto.
+
+**Enviar ata para cliente** fica nessa seção. O e-mail leva a ata, não a pauta. O botão só habilita quando a ata tem texto e existe ao menos um e-mail do cliente. E-mail do escritório vai em cópia.
+
+#### Reunião criada no SAMA
+
+No Calendário, **Agendar** abre uma reunião nova e manda o convite ao Outlook.
+
+- O **cliente começa vazio**. O grupo interno não vem marcado.
+- A **pauta** (objetivo, assuntos e pendências) entra no corpo do convite.
+- **Próximos passos não aparecem** na reunião nova. Eles ficam para depois, quando o status for Realizada.
+- Dá para trazer a **pauta** de uma reunião anterior do mesmo cliente. Os passos dessa reunião anterior não entram no agendamento novo.
+
+#### Cancelar reunião criada no SAMA
+
+Reunião criada pelo SAMA que ainda está **Agendada** ou **Reagendada** tem o botão **Cancelar reunião**. Informe o motivo e confirme. O SAMA grava o cancelamento e cancela o convite no Outlook.
+
+Reunião que veio só do Outlook continua sendo cancelada no Outlook. Depois, clique em **Atualizar**.
 
 ### 5.3 Registrar como Atividade
 
@@ -351,6 +373,44 @@ Pode ser que:
 - Nenhuma reunião realizada tenha próximos passos preenchidos, ou
 - Tudo já foi concluído — teste o filtro **Pendentes**.
 
+### 6.5 Enviar um passo ao VIOS
+
+Na reunião **realizada**, abra **Enviar para Agendamento**. Cada passo escolhido vira uma tarefa no VIOS.
+
+Antes de enviar, a reunião precisa estar salva. Em cada passo, escolha pasta, etiqueta, tipo de tarefa, responsável e data.
+
+#### Etiqueta na tela e no VIOS
+
+Na tela só existem **Providência** e **Prazo**. Providência de reunião não é uma terceira opção.
+
+| O que você escolhe | O que o VIOS marca |
+|--------------------|--------------------|
+| **Providência** | PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO |
+| **Prazo** | ENVIAR e PROVIDÊNCIA DE REUNIÃO |
+
+Prazo não vira Providência. No VIOS, a etiqueta de prazo se chama **ENVIAR**.
+
+No prazo, escolha também o **revisor**. O robô abre uma segunda tarefa, **2. REVISAR**, na mesma pasta e data. Essa revisão é providência: leva PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO.
+
+#### Quem entra na tarefa
+
+| Situação | Responsáveis no VIOS |
+|----------|----------------------|
+| Demanda **Insolvência** ou **Insolvência e Cível**, etiqueta **Providência** | O responsável escolhido e quem estiver na lista (Lavínia e Lígia já vêm marcadas; dá para tirar ou incluir outra pessoa) |
+| Demanda **Insolvência** ou **Insolvência e Cível**, tarefa **2. REVISAR** do prazo | O revisor escolhido e a mesma lista |
+| Demanda **Cível**, ou demanda em branco | Só a pessoa escolhida |
+| Etiqueta **Prazo** (a tarefa ENVIAR) | Só o responsável escolhido, em qualquer demanda |
+
+Se a pessoa escolhida já estiver na lista, o nome não se repete. Tirar todo mundo da lista manda só o responsável ou o revisor.
+
+A demanda é a da reunião, no campo **Demanda**. Se estiver em branco, Lavínia e Lígia não entram.
+
+#### Status que volta para o SAMA
+
+Depois do envio, o passo mostra o CI e o status da tarefa no VIOS. Tarefa recém-criada, ainda sem espelho, aparece como **Aberta**. Quando o VIOS atualizar, o status real substitui esse valor (por exemplo **Pendente** ou **Concluída**).
+
+Se o VIOS abrir um questionário de justificativa no meio do agendamento, o robô preenche, salva e segue a busca da pasta. Isso não é um passo seu na tela.
+
 ---
 
 ## 7. Dashboard
@@ -414,7 +474,13 @@ Clique em **Atualizar**. O SAMA remove o que não existe mais no Outlook.
 O ideal é sim, para as métricas ficarem certas. O que não importa, **Ignore**.
 
 **Reunião futura — onde coloco o resumo?**  
-Deixe **Agendada**. Depois que acontecer, mude para **Realizada** e preencha.
+Deixe **Agendada**. Depois que acontecer, mude para **Realizada** e preencha ata e próximos passos.
+
+**Cancelei no SAMA e o Outlook avisou erro, mas o convite sumiu.**  
+O cancelamento valeu. Uma resposta vazia do Outlook não significa que o convite ficou ativo.
+
+**Mandei providência de Insolvência e só foi o responsável.**  
+Confira a lista ao lado do responsável: Lavínia e Lígia vêm marcadas, mas dá para tirá-las antes do envio. Demanda em branco nem mostra essa lista. A tarefa que já foi criada no VIOS não muda sozinha.
 
 **Meu colega já categorizou a mesma reunião. Preciso também?**  
 **Sim.** Cada participante classifica **o próprio** compromisso no Outlook.
@@ -440,4 +506,7 @@ Sim. Dashboard, Calendário e Passos ficam na barra inferior. Dá para **Adicion
 | **Reunião** | Encontro registrado com tipo, cliente e participantes |
 | **Atividade** | Trabalho interno (parecer, despacho, audiência etc.) |
 | **Próximos passos** | Ações combinadas numa reunião realizada |
+| **Ata** | Texto da reunião coletado pelo Fellow, depois que ela aconteceu |
+| **Demanda** | Insolvência, Cível ou as duas. Define quem entra na providência do VIOS |
+| **Pauta** | Objetivo, assuntos e pendências. Vai no convite da reunião nova |
 | **Atualizar** | Sincronizar com o Outlook (inclui, atualiza e remove itens) |

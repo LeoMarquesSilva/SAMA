@@ -13,8 +13,9 @@ import {
 } from "@/lib/proximos-passos-checklist";
 import { Badge } from "@/components/ui/Badge";
 import {
+  coparticipantesPadraoInsolvencia,
   demandaIncluiInsolvencia,
-  responsaveisViosDoEnvio,
+  juntarResponsaveis,
   VIOS_PASTA_TIPOS,
   type ViosPassoEnvio,
 } from "@/lib/vios-agendamento";
@@ -47,6 +48,7 @@ import {
   Loader2,
   Scale,
   Send,
+  X,
 } from "lucide-react";
 
 type Linha = ViosPassoEnvio & {
@@ -57,6 +59,11 @@ type Linha = ViosPassoEnvio & {
   responsavelSugerido?: string;
   /** Providência, Providência de reunião ou Prazo. Define a etiqueta gravada no VIOS. */
   grupoEtiqueta: string;
+  /**
+   * Pessoas a mais na providência. undefined = ainda não sugerido.
+   * Lista vazia = a pessoa tirou todo mundo.
+   */
+  coparticipantes_vios?: string[];
 };
 
 /** Responsáveis e etiquetas do VIOS: iguais para qualquer pasta, carregados uma vez. */
@@ -227,7 +234,7 @@ export function AgendarViosModal({
     if (listas.status !== "ok" || !open) return;
     aplicarPadroes(listas.usuarios);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listas.status, open, iniciais]);
+  }, [listas.status, open, iniciais, demanda]);
 
   function patch(index: number, partial: Partial<Linha>) {
     setLinhas((atual) =>
@@ -239,10 +246,24 @@ export function AgendarViosModal({
   function aplicarPadroes(usuarios: OpcaoVios[]) {
     setLinhas((atual) =>
       atual.map((l) => {
-        if (l.responsavel_vios && usuarios.some((u) => u.nome === l.responsavel_vios)) return l;
+        const coparticipantes =
+          l.coparticipantes_vios !== undefined
+            ? l.coparticipantes_vios
+            : demandaIncluiInsolvencia(demanda)
+              ? coparticipantesPadraoInsolvencia(usuarios)
+              : undefined;
+        if (l.responsavel_vios && usuarios.some((u) => u.nome === l.responsavel_vios)) {
+          return coparticipantes === l.coparticipantes_vios
+            ? l
+            : { ...l, coparticipantes_vios: coparticipantes };
+        }
         const colab = colaboradores.find((c) => c.id === l.colaborador_id);
         const nome = colab?.nome || l.responsavelSugerido;
-        return { ...l, responsavel_vios: usuarioViosDoColaborador(nome, usuarios)?.nome ?? "" };
+        return {
+          ...l,
+          responsavel_vios: usuarioViosDoColaborador(nome, usuarios)?.nome ?? "",
+          coparticipantes_vios: coparticipantes,
+        };
       })
     );
   }
@@ -315,10 +336,11 @@ export function AgendarViosModal({
           // nova selecionar as duas no VIOS.
           etiqueta_id: etiqueta.ids.split(",")[0] ?? "",
           etiqueta: etiqueta.nomes,
-          responsavel_vios: responsaveisViosDoEnvio(
+          responsavel_vios: juntarResponsaveis(
             l.responsavel_vios ?? "",
-            etiqueta.principal,
-            demanda
+            l.grupoEtiqueta === "PRAZO" || !demandaIncluiInsolvencia(demanda)
+              ? []
+              : (l.coparticipantes_vios ?? [])
           ),
           revisor_vios: l.revisor_vios,
         });
@@ -332,10 +354,9 @@ export function AgendarViosModal({
             tarefa: TAREFA_REVISAR,
             etiqueta_id: providencia.ids.split(",")[0] ?? "",
             etiqueta: providencia.nomes,
-            responsavel_vios: responsaveisViosDoEnvio(
+            responsavel_vios: juntarResponsaveis(
               l.revisor_vios ?? "",
-              providencia.principal,
-              demanda
+              demandaIncluiInsolvencia(demanda) ? (l.coparticipantes_vios ?? []) : []
             ),
           });
         }
@@ -684,13 +705,6 @@ export function AgendarViosModal({
                               onChange={(prazo) => patch(index, { prazo })}
                             />
                           </div>
-                          {demandaIncluiInsolvencia(demanda) &&
-                            linha.grupoEtiqueta !== "PRAZO" && (
-                              <p className="text-xs leading-snug text-slate-500">
-                                Demanda de Insolvência: além deste responsável, Lavínia e
-                                Lígia entram nesta providência.
-                              </p>
-                            )}
                           {/* Prazo vira ENVIAR no VIOS; o revisor recebe a REVISAR do mesmo prazo. */}
                           {linha.grupoEtiqueta === "PRAZO" && (
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -710,9 +724,61 @@ export function AgendarViosModal({
                                   {TAREFA_REVISAR}
                                 </span>{" "}
                                 na mesma pasta e data, com o revisor como responsável.
-                                {demandaIncluiInsolvencia(demanda) &&
-                                  " Lavínia e Lígia entram junto nessa providência."}
                               </p>
+                            </div>
+                          )}
+                          {demandaIncluiInsolvencia(demanda) && (
+                            <div className="space-y-2">
+                              <p className="text-xs leading-snug text-slate-500">
+                                {linha.grupoEtiqueta === "PRAZO"
+                                  ? "Na tarefa de revisar, além do revisor. Dá para tirar ou incluir outra pessoa."
+                                  : "Também nesta providência, junto do responsável. Dá para tirar ou incluir outra pessoa."}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {(linha.coparticipantes_vios ?? []).map((nome) => (
+                                  <span
+                                    key={nome}
+                                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+                                  >
+                                    {nome}
+                                    <button
+                                      type="button"
+                                      className="rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                                      aria-label={`Tirar ${nome}`}
+                                      onClick={() =>
+                                        patch(index, {
+                                          coparticipantes_vios: (
+                                            linha.coparticipantes_vios ?? []
+                                          ).filter((n) => n !== nome),
+                                        })
+                                      }
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                              <SelectMenu
+                                label="Incluir pessoa"
+                                value=""
+                                onChange={(v) => {
+                                  if (!v) return;
+                                  const atual = linha.coparticipantes_vios ?? [];
+                                  if (atual.includes(v)) return;
+                                  patch(index, { coparticipantes_vios: [...atual, v] });
+                                }}
+                                emptyOption="Adicionar"
+                                placeholder="Adicionar"
+                                disabled={listas.status !== "ok"}
+                                searchable
+                                options={opcoesResponsavelCom(undefined).filter(
+                                  (o) =>
+                                    o.value &&
+                                    o.value !== linha.responsavel_vios &&
+                                    o.value !== linha.revisor_vios &&
+                                    !(linha.coparticipantes_vios ?? []).includes(o.value)
+                                )}
+                              />
                             </div>
                           )}
                         </section>
