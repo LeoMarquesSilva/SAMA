@@ -48,8 +48,10 @@ export function PastasAtendimentoClient({
           </h2>
           <p className="mt-0.5 max-w-3xl text-xs text-slate-500">
             Ao agendar uma reunião nova, cada participante interno da área recebe
-            um compromisso no VIOS nesta pasta. {comPasta} de {areas.length} áreas
-            com pasta. Área em branco não recebe o compromisso.
+            um compromisso no VIOS nesta pasta. Quem agenda também recebe: na
+            pasta da própria área ou, se ela estiver em branco, na pasta de quem
+            participa. {comPasta} de {areas.length} áreas com pasta. Área em branco
+            não recebe o compromisso, salvo quem está agendando.
           </p>
         </div>
         {podeEditar && (

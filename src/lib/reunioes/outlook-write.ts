@@ -405,7 +405,8 @@ const ETIQUETA_ECOA_ATENDIMENTO = "ECOA - ATENDIMENTO";
 
 /**
  * Reunião nova: um prazo no VIOS para cada participante cuja área tem pasta
- * de atendimento em Configurações. Área sem pasta não entra.
+ * de atendimento em Configurações. Quem agenda também recebe, na pasta da
+ * própria área ou, se ela estiver em branco, na pasta de quem participa.
  */
 async function enfileirarCompromissosDaReuniao(
   reuniaoId: string,
@@ -420,7 +421,9 @@ async function enfileirarCompromissosDaReuniao(
   const [{ data: partes, error }, { data: pastas, error: pastasErr }] = await Promise.all([
     admin
       .from("reuniao_participantes")
-      .select("colaborador_id, colaborador:colaboradores(nome, departamento)")
+      .select(
+        "colaborador_id, papel, colaborador:colaboradores(nome, departamento)"
+      )
       .eq("reuniao_id", reuniaoId)
       .not("colaborador_id", "is", null),
     admin.from("reuniao_pastas_area").select("area, pasta"),
@@ -447,22 +450,51 @@ async function enfileirarCompromissosDaReuniao(
     const pasta = pastaPorArea.get(chaveArea(colab?.departamento));
     if (!nome || !pasta) continue;
     vistos.add(colaboradorId);
-    const texto = titulo.trim() || "Reunião";
-    casos.push({
-      tipo: "Providências",
-      tarefa: TAREFA_REUNIAO_ATENDIMENTO,
-      observacao: texto,
-      data,
-      pasta,
-      pastaTipo: "Atendimento" as const,
-      colaboradorId,
-      responsavelVios: nome,
-      etiqueta: ETIQUETA_ECOA_ATENDIMENTO,
-      textoChecklist: texto,
-    });
+    casos.push(casoCompromisso(colaboradorId, nome, pasta, titulo, data));
   }
+
+  const organizador = (partes ?? []).find((p) => p.papel === "ORGANIZADOR");
+  const organizadorId = organizador?.colaborador_id;
+  if (organizadorId && !vistos.has(organizadorId)) {
+    const colab = Array.isArray(organizador.colaborador)
+      ? organizador.colaborador[0]
+      : organizador.colaborador;
+    const nome = colab?.nome?.trim();
+    const pastaPropria = pastaPorArea.get(chaveArea(colab?.departamento));
+    const pastas = pastaPropria
+      ? [pastaPropria]
+      : [...new Set(casos.map((c) => c.pasta))];
+    if (nome) {
+      for (const pasta of pastas) {
+        casos.push(casoCompromisso(organizadorId, nome, pasta, titulo, data));
+      }
+    }
+  }
+
   if (casos.length === 0) return;
   await enfileirarCasosVios(reuniaoId, criadoPorId, casos);
+}
+
+function casoCompromisso(
+  colaboradorId: string,
+  nome: string,
+  pasta: string,
+  titulo: string,
+  data: string
+) {
+  const texto = titulo.trim() || "Reunião";
+  return {
+    tipo: "Providências",
+    tarefa: TAREFA_REUNIAO_ATENDIMENTO,
+    observacao: texto,
+    data,
+    pasta,
+    pastaTipo: "Atendimento" as const,
+    colaboradorId,
+    responsavelVios: nome,
+    etiqueta: ETIQUETA_ECOA_ATENDIMENTO,
+    textoChecklist: texto,
+  };
 }
 
 function chaveArea(valor: string | null | undefined): string {
