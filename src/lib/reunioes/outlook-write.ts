@@ -400,13 +400,12 @@ export async function consultarAgendaLivre(opts: {
 }
 
 const VIOS_LIMITE_TODOS = 20;
-const PASTA_ATENDIMENTO_REUNIAO = "52091";
 const TAREFA_REUNIAO_ATENDIMENTO = "REUNIÃO / ATENDIMENTO AO CLIENTE";
 const ETIQUETA_ECOA_ATENDIMENTO = "ECOA - ATENDIMENTO";
 
 /**
- * Reunião nova: um prazo no VIOS para cada participante da Reestruturação.
- * A pasta 52091 é só dessa área. As outras pessoas da reunião não entram.
+ * Reunião nova: um prazo no VIOS para cada participante cuja área tem pasta
+ * de atendimento em Configurações. Área sem pasta não entra.
  */
 async function enfileirarCompromissosDaReuniao(
   reuniaoId: string,
@@ -418,12 +417,23 @@ async function enfileirarCompromissosDaReuniao(
   if (!data) return;
 
   const admin = createAdminClient();
-  const { data: partes, error } = await admin
-    .from("reuniao_participantes")
-    .select("colaborador_id, colaborador:colaboradores(nome, departamento)")
-    .eq("reuniao_id", reuniaoId)
-    .not("colaborador_id", "is", null);
-  if (error || !partes?.length) return;
+  const [{ data: partes, error }, { data: pastas, error: pastasErr }] = await Promise.all([
+    admin
+      .from("reuniao_participantes")
+      .select("colaborador_id, colaborador:colaboradores(nome, departamento)")
+      .eq("reuniao_id", reuniaoId)
+      .not("colaborador_id", "is", null),
+    admin.from("reuniao_pastas_area").select("area, pasta"),
+  ]);
+  if (error || pastasErr || !partes?.length) return;
+
+  const pastaPorArea = new Map<string, string>();
+  for (const row of pastas ?? []) {
+    const pasta = String(row.pasta ?? "").replace(/\D/g, "");
+    const chave = chaveArea(row.area);
+    if (chave && pasta) pastaPorArea.set(chave, pasta);
+  }
+  if (pastaPorArea.size === 0) return;
 
   const vistos = new Set<string>();
   const casos = [];
@@ -434,7 +444,8 @@ async function enfileirarCompromissosDaReuniao(
       ? parte.colaborador[0]
       : parte.colaborador;
     const nome = colab?.nome?.trim();
-    if (!nome || !departamentoEhReestruturacao(colab?.departamento)) continue;
+    const pasta = pastaPorArea.get(chaveArea(colab?.departamento));
+    if (!nome || !pasta) continue;
     vistos.add(colaboradorId);
     const texto = titulo.trim() || "Reunião";
     casos.push({
@@ -442,7 +453,7 @@ async function enfileirarCompromissosDaReuniao(
       tarefa: TAREFA_REUNIAO_ATENDIMENTO,
       observacao: texto,
       data,
-      pasta: PASTA_ATENDIMENTO_REUNIAO,
+      pasta,
       pastaTipo: "Atendimento" as const,
       colaboradorId,
       responsavelVios: nome,
@@ -454,13 +465,12 @@ async function enfileirarCompromissosDaReuniao(
   await enfileirarCasosVios(reuniaoId, criadoPorId, casos);
 }
 
-function departamentoEhReestruturacao(valor: string | null | undefined): boolean {
-  const chave = String(valor ?? "")
+function chaveArea(valor: string | null | undefined): string {
+  return String(valor ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
-  return chave === "reestruturacao" || chave.startsWith("reestruturacao ");
 }
 
 

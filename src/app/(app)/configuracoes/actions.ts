@@ -197,3 +197,58 @@ export async function contarUsoDosTipos(
   }
   return uso;
 }
+
+export async function salvarPastasAtendimento(
+  linhas: { area: string; pasta: string }[]
+): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+
+  for (const linha of linhas) {
+    const area = linha.area.trim();
+    const pasta = linha.pasta.replace(/\D/g, "");
+    if (!area || area.length > 80) {
+      return { ok: false, error: "Área inválida." };
+    }
+    if (!pasta) {
+      const { error } = await supabase
+        .from("reuniao_pastas_area")
+        .delete()
+        .eq("area", area);
+      if (error) {
+        if (error.code === "42P01") {
+          return {
+            ok: false,
+            error: "A tabela de pastas ainda não existe. Aplique a migration 0051.",
+          };
+        }
+        if (error.message.includes("row-level security")) {
+          return { ok: false, error: "Só administradores podem alterar estas pastas." };
+        }
+        return { ok: false, error: error.message };
+      }
+      continue;
+    }
+    if (!/^[0-9]{1,12}$/.test(pasta)) {
+      return { ok: false, error: `A pasta de ${area} deve ser o número do CI.` };
+    }
+    const { error } = await supabase
+      .from("reuniao_pastas_area")
+      .upsert({ area, pasta }, { onConflict: "area" });
+    if (error) {
+      if (error.code === "42P01") {
+        return {
+          ok: false,
+          error: "A tabela de pastas ainda não existe. Aplique a migration 0051.",
+        };
+      }
+      if (error.message.includes("row-level security")) {
+        return { ok: false, error: "Só administradores podem alterar estas pastas." };
+      }
+      return { ok: false, error: error.message };
+    }
+  }
+
+  revalidar();
+  return { ok: true };
+}
