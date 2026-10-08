@@ -148,7 +148,11 @@ export const RESPONSAVEIS_EXTRA_INSOLVENCIA = [
 ] as const;
 
 export function demandaIncluiInsolvencia(demanda?: string | null): boolean {
-  return demanda === "INSOLVENCIA" || demanda === "INSOLVENCIA_CIVEL";
+  return (
+    demanda === "INSOLVENCIA" ||
+    demanda === "CIVEL" ||
+    demanda === "INSOLVENCIA_CIVEL"
+  );
 }
 
 function nomeViosIgual(a: string, b: string): boolean {

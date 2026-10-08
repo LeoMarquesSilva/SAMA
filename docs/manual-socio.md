@@ -237,7 +237,7 @@ Está errado no SAMA? Corrija no **Outlook** e clique em **Atualizar** no Calend
 | **Cliente** | Busque o cliente no cadastro (obrigatório na maioria dos tipos) |
 | **Participantes** | Confira quem veio do Outlook; ajuste se precisar |
 | **Modalidade** | Online, Presencial no escritório ou Externo |
-| **Demanda** | Insolvência, Cível ou Insolvência e Cível. Pode ficar em branco. Define quem entra na providência do VIOS |
+| **Demanda** | Insolvência, Cível-Insolvência, Insolvência e Cível-Insolvência ou Não definida. Define quem entra na providência do VIOS |
 | **Status** | **Agendada** (vai acontecer) ou **Realizada** (já aconteceu) |
 
 [PRINT: Formulário de reunião parcialmente preenchido — Leonardo, tipo Gestão Operacional]
@@ -398,14 +398,14 @@ Em pasta de **processo**, o número CNJ consulta as pastas com situação **Ativ
 
 | Situação | Responsáveis no VIOS |
 |----------|----------------------|
-| Demanda **Insolvência** ou **Insolvência e Cível**, etiqueta **Providência** | O responsável escolhido e quem estiver na lista (Lavínia e Lígia já vêm marcadas; dá para tirar ou incluir outra pessoa) |
-| Demanda **Insolvência** ou **Insolvência e Cível**, **2. REVISAR** do fluxo | O revisor escolhido e a mesma lista |
-| Demanda **Cível**, ou demanda em branco | Só a pessoa escolhida |
+| Demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência**, etiqueta **Providência** | O responsável escolhido e quem estiver na lista (Lavínia e Lígia já vêm marcadas; dá para tirar ou incluir outra pessoa) |
+| Demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência**, **2. REVISAR** do fluxo | O revisor escolhido e a mesma lista |
+| Demanda **Não definida** | Só a pessoa escolhida |
 | Etiqueta **Prazo** (a tarefa ENVIAR) | Só o responsável escolhido, em qualquer demanda |
 
 Se a pessoa escolhida já estiver na lista, o nome não se repete. Tirar todo mundo da lista manda só o responsável ou o revisor.
 
-A demanda é a da reunião, no campo **Demanda**. Se estiver em branco, Lavínia e Lígia não entram.
+A demanda é a da reunião, no campo **Demanda**. Em **Não definida**, Lavínia e Lígia não entram.
 
 #### Status que volta para o SAMA
 

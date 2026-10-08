@@ -103,17 +103,20 @@ export function cargoPessoaLabel(
 /** Classificação da demanda tratada na reunião (ECOA). */
 export const DEMANDA_REUNIAO = {
   INSOLVENCIA: "Insolvência",
-  CIVEL: "Cível",
-  INSOLVENCIA_CIVEL: "Insolvência e Cível",
+  CIVEL: "Cível-Insolvência",
+  INSOLVENCIA_CIVEL: "Insolvência e Cível-Insolvência",
 } as const;
 
 export type DemandaReuniaoKey = keyof typeof DEMANDA_REUNIAO;
 
 export function demandaReuniaoOptions() {
-  return (Object.keys(DEMANDA_REUNIAO) as DemandaReuniaoKey[]).map((k) => ({
-    value: k,
-    label: DEMANDA_REUNIAO[k],
-  }));
+  return [
+    ...(Object.keys(DEMANDA_REUNIAO) as DemandaReuniaoKey[]).map((k) => ({
+      value: k,
+      label: DEMANDA_REUNIAO[k],
+    })),
+    { value: "", label: "Não definida" },
+  ];
 }
 
 export const STATUS_CLIENTE = {

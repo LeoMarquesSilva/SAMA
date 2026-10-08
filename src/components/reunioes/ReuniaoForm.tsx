@@ -1159,7 +1159,6 @@ export function ReuniaoForm({
               name="demanda"
               value={demanda}
               onChange={(v) => setDemanda(v as DemandaReuniao | "")}
-              emptyOption="Não definida"
               options={demandaReuniaoOptions()}
             />
           </div>

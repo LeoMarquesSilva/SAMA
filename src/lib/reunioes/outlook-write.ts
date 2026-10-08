@@ -272,6 +272,17 @@ export async function agendarReuniaoViaB(values: unknown): Promise<ActionResult>
     organizadorEmail: pessoa.email,
   });
 
+  try {
+    await enfileirarCompromissosDaReuniao(
+      saved.id,
+      pessoa.id,
+      parsed.data.titulo,
+      parsed.data.data_hora_inicio
+    );
+  } catch {
+    // A reunião e o convite já existem. A falha da fila não desfaz o agendamento.
+  }
+
   return { ok: true, id: saved.id };
 }
 
@@ -389,6 +400,69 @@ export async function consultarAgendaLivre(opts: {
 }
 
 const VIOS_LIMITE_TODOS = 20;
+const PASTA_ATENDIMENTO_REUNIAO = "52091";
+const TAREFA_REUNIAO_ATENDIMENTO = "REUNIÃO / ATENDIMENTO AO CLIENTE";
+const ETIQUETA_ECOA_ATENDIMENTO = "ECOA - ATENDIMENTO";
+
+/**
+ * Reunião nova: um prazo no VIOS para cada participante da Reestruturação.
+ * A pasta 52091 é só dessa área. As outras pessoas da reunião não entram.
+ */
+async function enfileirarCompromissosDaReuniao(
+  reuniaoId: string,
+  criadoPorId: string,
+  titulo: string,
+  inicioLocal: string
+): Promise<void> {
+  const data = dataFatalBr(inicioLocal);
+  if (!data) return;
+
+  const admin = createAdminClient();
+  const { data: partes, error } = await admin
+    .from("reuniao_participantes")
+    .select("colaborador_id, colaborador:colaboradores(nome, departamento)")
+    .eq("reuniao_id", reuniaoId)
+    .not("colaborador_id", "is", null);
+  if (error || !partes?.length) return;
+
+  const vistos = new Set<string>();
+  const casos = [];
+  for (const parte of partes) {
+    const colaboradorId = parte.colaborador_id;
+    if (!colaboradorId || vistos.has(colaboradorId)) continue;
+    const colab = Array.isArray(parte.colaborador)
+      ? parte.colaborador[0]
+      : parte.colaborador;
+    const nome = colab?.nome?.trim();
+    if (!nome || !departamentoEhReestruturacao(colab?.departamento)) continue;
+    vistos.add(colaboradorId);
+    const texto = titulo.trim() || "Reunião";
+    casos.push({
+      tipo: "Providências",
+      tarefa: TAREFA_REUNIAO_ATENDIMENTO,
+      observacao: texto,
+      data,
+      pasta: PASTA_ATENDIMENTO_REUNIAO,
+      pastaTipo: "Atendimento" as const,
+      colaboradorId,
+      responsavelVios: nome,
+      etiqueta: ETIQUETA_ECOA_ATENDIMENTO,
+      textoChecklist: texto,
+    });
+  }
+  if (casos.length === 0) return;
+  await enfileirarCasosVios(reuniaoId, criadoPorId, casos);
+}
+
+function departamentoEhReestruturacao(valor: string | null | undefined): boolean {
+  const chave = String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  return chave === "reestruturacao" || chave.startsWith("reestruturacao ");
+}
+
 
 function dataFatalBr(valor: string | null | undefined): string {
   const iso = (valor ?? "").trim();

@@ -35,7 +35,7 @@ export const FAQ_ECOA: FaqItem[] = [
   {
     question: "Quando Lavínia e Lígia entram na providência?",
     answer:
-      "Quando a demanda é Insolvência ou Insolvência e Cível, Lavínia e Lígia já vêm marcadas na providência e na 2. REVISAR do fluxo. Dá para tirar uma das duas ou incluir outra pessoa antes de enviar. A tarefa ENVIAR do prazo fica só com o responsável. Demanda Cível ou em branco não sugere as duas.",
+      "Quando a demanda é Insolvência, Cível-Insolvência ou Insolvência e Cível-Insolvência, Lavínia e Lígia já vêm marcadas na providência e na 2. REVISAR do fluxo. Dá para tirar uma das duas ou incluir outra pessoa antes de enviar. A tarefa ENVIAR do prazo fica só com o responsável. Demanda Não definida não sugere as duas.",
   },
   {
     question: "Como cancelo uma reunião que eu criei no SAMA?",
