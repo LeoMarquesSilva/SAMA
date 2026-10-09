@@ -7,7 +7,11 @@ import {
   type ChecklistItem,
 } from "@/lib/proximos-passos-checklist";
 import { proximosPassosUnificados } from "@/lib/reuniao-todos";
-import type { ReuniaoComRelacoes, TipoReuniao } from "@/types/database";
+import type {
+  OutlookEventoComPessoa,
+  ReuniaoComRelacoes,
+  TipoReuniao,
+} from "@/types/database";
 
 export const PROXIMOS_PASSOS_PATH = "/proximos-passos";
 
@@ -112,36 +116,39 @@ export async function countPassosPendentes(
   const pessoaId = opts.pessoaId;
   if (!pessoaId) return 0;
 
-  const { data: outlookRaw } = await supabase
-    .from("outlook_eventos")
-    .select("reuniao_id, pessoa_id, status")
-    .eq("pessoa_id", pessoaId)
-    .in("status", ["CATEGORIZADO_REUNIAO", "CATEGORIZADO_ATIVIDADE"])
-    .not("reuniao_id", "is", null);
+  type ReuniaoPassos = { id: string; criado_por_id: string | null; proximos_passos: string | null };
 
-  const idsVinculados = [
-    ...new Set(
-      (outlookRaw ?? [])
-        .map((e) => e.reuniao_id)
-        .filter((id): id is string => Boolean(id))
-    ),
-  ];
-  let reunioesQuery = supabase
-    .from("reunioes")
-    .select("id, criado_por_id, proximos_passos")
-    .not("proximos_passos", "is", null)
-    .neq("proximos_passos", "");
-  reunioesQuery =
-    idsVinculados.length > 0
-      ? reunioesQuery.or(
-          `criado_por_id.eq.${pessoaId},id.in.(${idsVinculados.join(",")})`
-        )
-      : reunioesQuery.eq("criado_por_id", pessoaId);
-  const { data: reunioesRaw } = await reunioesQuery;
+  // Roda em toda tela (layout): as duas consultas vão juntas — a reunião vinculada
+  // vem embutida no evento, sem esperar a lista de ids para buscar as reuniões.
+  const [{ data: outlookRaw }, { data: criadasRaw }] = await Promise.all([
+    supabase
+      .from("outlook_eventos")
+      .select(
+        "reuniao_id, pessoa_id, status, reuniao:reunioes!outlook_eventos_reuniao_id_fkey(id, criado_por_id, proximos_passos)"
+      )
+      .eq("pessoa_id", pessoaId)
+      .in("status", ["CATEGORIZADO_REUNIAO", "CATEGORIZADO_ATIVIDADE"])
+      .not("reuniao_id", "is", null),
+    supabase
+      .from("reunioes")
+      .select("id, criado_por_id, proximos_passos")
+      .eq("criado_por_id", pessoaId)
+      .not("proximos_passos", "is", null)
+      .neq("proximos_passos", ""),
+  ]);
 
-  const outlook = outlookRaw ?? [];
+  const outlook = (outlookRaw ?? []) as unknown as (Pick<
+    OutlookEventoComPessoa,
+    "reuniao_id" | "pessoa_id" | "status"
+  > & { reuniao: ReuniaoPassos | null })[];
+  const reunioesPorId = new Map<string, ReuniaoPassos>();
+  for (const r of (criadasRaw ?? []) as ReuniaoPassos[]) reunioesPorId.set(r.id, r);
+  for (const e of outlook) {
+    if (e.reuniao?.proximos_passos) reunioesPorId.set(e.reuniao.id, e.reuniao);
+  }
+
   let total = 0;
-  for (const row of reunioesRaw ?? []) {
+  for (const row of reunioesPorId.values()) {
     if (!reuniaoMinhaClassificada(row, pessoaId, outlook)) continue;
     total += contarProximosPassosPendentes(row.proximos_passos);
   }

@@ -56,15 +56,38 @@ export default async function CalendarioPage({
       pessoa?.onboarding_proximos_passos_concluido ?? true,
   };
   const verAgendaTodos = canViewAgendaTodos(pessoa);
-  const tiposReuniao = await listarTiposReuniao();
   const { start, end } = calendarioEventQueryRange();
 
-  // Desativado sai das seleções; quem só não tem login continua na lista.
-  const { data: pessoasRaw, error: pessoasErr } = await supabase
-    .from("usuarios")
-    .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
-    .is("desativado_em", null)
-    .order("nome");
+  const reunioesQuery = supabase
+    .from("reunioes")
+    .select(REUNIAO_CALENDARIO_LIST_SELECT)
+    .gte("data_hora_inicio", start)
+    .lte("data_hora_inicio", end)
+    .order("data_hora_inicio", { ascending: true });
+
+  // Tudo que não depende do escopo de pessoa sai junto, numa única ida ao banco.
+  const [
+    tiposReuniao,
+    { data: pessoasRaw, error: pessoasErr },
+    { data: reunioesRaw },
+    { data: colaboradores },
+    avatares,
+  ] = await Promise.all([
+    listarTiposReuniao(),
+    // Desativado sai das seleções; quem só não tem login continua na lista.
+    supabase
+      .from("usuarios")
+      .select("id, nome, email, avatar_url, departamento, cargo, is_admin")
+      .is("desativado_em", null)
+      .order("nome"),
+    reunioesQuery,
+    supabase
+      .from("colaboradores")
+      .select("id, nome, email, departamento, avatar_url, usuario_id")
+      .eq("ativo", true)
+      .order("nome"),
+    mapaAvatarColaboradorPorEmail(supabase),
+  ]);
   // Sem log, um erro aqui some e a lista de agendas fica vazia sem explicação.
   if (pessoasErr) {
     console.error("[calendario] falha ao listar usuarios:", pessoasErr.message);
@@ -88,13 +111,6 @@ export default async function CalendarioPage({
     outlookQuery = outlookQuery.eq("pessoa_id", pessoaScope.pessoaId);
   }
 
-  let reunioesQuery = supabase
-    .from("reunioes")
-    .select(REUNIAO_CALENDARIO_LIST_SELECT)
-    .gte("data_hora_inicio", start)
-    .lte("data_hora_inicio", end)
-    .order("data_hora_inicio", { ascending: true });
-
   let atividadesQuery = supabase
     .from("atividades_internas")
     .select(
@@ -109,22 +125,9 @@ export default async function CalendarioPage({
     atividadesQuery = atividadesQuery.eq("pessoa_id", pessoaScope.pessoaId);
   }
 
-  const [
-    { data: eventos },
-    { data: reunioesRaw },
-    { data: atividadesRaw },
-    { data: colaboradores },
-    avatares,
-  ] = await Promise.all([
+  const [{ data: eventos }, { data: atividadesRaw }] = await Promise.all([
     outlookQuery,
-    reunioesQuery,
     atividadesQuery,
-    supabase
-      .from("colaboradores")
-      .select("id, nome, email, departamento, avatar_url, usuario_id")
-      .eq("ativo", true)
-      .order("nome"),
-    mapaAvatarColaboradorPorEmail(supabase),
   ]);
   const pessoas = pessoasBase.map((p) => ({
     ...p,

@@ -2,18 +2,16 @@
 
 import {
   useRealtimeRefresh,
-  type RealtimeTable,
+  type RealtimeSubscription,
 } from "@/hooks/useRealtimeRefresh";
 
 export function RealtimeRefresh({
-  tables,
-  filter,
+  subscriptions,
   enabled = true,
 }: {
-  tables: RealtimeTable[];
-  filter?: string;
+  subscriptions: RealtimeSubscription[];
   enabled?: boolean;
 }) {
-  useRealtimeRefresh({ tables, filter, enabled });
+  useRealtimeRefresh({ subscriptions, enabled });
   return null;
 }

@@ -13,6 +13,48 @@ type EventoNoBanco = {
   atividade_id: string | null;
 };
 
+const CAMPOS_DATA = new Set(["inicio", "fim"]);
+
+/** JSON com chaves ordenadas: o jsonb do Postgres não preserva a ordem do objeto enviado. */
+function jsonEstavel(v: unknown): string {
+  if (v === undefined || v === null) return "null";
+  if (Array.isArray(v)) return `[${v.map(jsonEstavel).join(",")}]`;
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${jsonEstavel(o[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v);
+}
+
+function mesmoValor(campo: string, a: unknown, b: unknown): boolean {
+  if (CAMPOS_DATA.has(campo) && a && b) {
+    return new Date(a as string).getTime() === new Date(b as string).getTime();
+  }
+  return jsonEstavel(a) === jsonEstavel(b);
+}
+
+/**
+ * Mantém só os eventos do Graph que são novos ou mudaram em relação ao banco.
+ * Regravar linhas idênticas gera eventos Realtime (recarregando a tela de
+ * outros usuários) e escrita em disco sem necessidade.
+ */
+export function eventosNovosOuAlterados<T extends { outlook_event_id: string }>(
+  doGraph: T[],
+  noBanco: Record<string, unknown>[]
+): T[] {
+  const porId = new Map(noBanco.map((e) => [e.outlook_event_id as string, e]));
+  return doGraph.filter((novo) => {
+    const atual = porId.get(novo.outlook_event_id);
+    if (!atual) return true;
+    return Object.entries(novo).some(
+      ([campo, valor]) => !mesmoValor(campo, valor, atual[campo])
+    );
+  });
+}
+
 /** IDs de eventos no SAMA que não voltaram do Graph na janela sincronizada. */
 export function idsEventosOrfaos(
   noBanco: Pick<EventoNoBanco, "id" | "outlook_event_id">[],

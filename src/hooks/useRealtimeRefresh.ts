@@ -14,10 +14,11 @@ export type RealtimeTable =
   | "usuarios"
   | "vios_tarefas";
 
+/** Tabela assinada; `filter` segue o formato postgres_changes, ex.: `pessoa_id=eq.uuid`. */
+export type RealtimeSubscription = { table: RealtimeTable; filter?: string };
+
 type Options = {
-  tables: RealtimeTable[];
-  /** Filtro postgres_changes, ex.: `pessoa_id=eq.uuid` */
-  filter?: string;
+  subscriptions: RealtimeSubscription[];
   enabled?: boolean;
 };
 
@@ -30,22 +31,39 @@ const MIN_REFRESH_GAP_MS = 8_000;
  * Assina postgres_changes e chama router.refresh() quando há alterações.
  * RLS do Supabase filtra o que o usuário pode receber.
  * Debounce + cooldown evitam recarregar a página inteira várias vezes seguidas
- * (ex.: após categorizar evento no calendário).
+ * (ex.: após categorizar evento no calendário). Com a aba oculta o refresh fica
+ * pendente e só roda quando o usuário volta para ela.
  */
-export function useRealtimeRefresh({
-  tables,
-  filter,
-  enabled = true,
-}: Options) {
+export function useRealtimeRefresh({ subscriptions, enabled = true }: Options) {
   const router = useRouter();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRefreshAt = useRef(0);
+  const pendingWhileHidden = useRef(false);
+
+  // O array chega novo a cada render do layout (inclusive após router.refresh);
+  // depender dele direto recriaria o canal a cada refresh.
+  const subsKey = JSON.stringify(subscriptions);
 
   useEffect(() => {
-    if (!enabled || tables.length === 0) return;
+    const subs = JSON.parse(subsKey) as RealtimeSubscription[];
+    if (!enabled || subs.length === 0) return;
 
     const supabase = createClient();
-    const channel = supabase.channel(`sama-realtime-${tables.join("-")}`);
+    const channel = supabase.channel(
+      `sama-realtime-${subs.map((s) => s.table).join("-")}`
+    );
+
+    const refreshNow = () => {
+      if (calendarioPageRefreshedRecently()) return;
+      const t = Date.now();
+      if (t - lastRefreshAt.current < MIN_REFRESH_GAP_MS) return;
+      if (document.hidden) {
+        pendingWhileHidden.current = true;
+        return;
+      }
+      lastRefreshAt.current = t;
+      router.refresh();
+    };
 
     const requestRefresh = () => {
       if (calendarioPageRefreshedRecently()) return;
@@ -54,16 +72,17 @@ export function useRealtimeRefresh({
       if (now - lastRefreshAt.current < MIN_REFRESH_GAP_MS) return;
 
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(() => {
-        if (calendarioPageRefreshedRecently()) return;
-        const t = Date.now();
-        if (t - lastRefreshAt.current < MIN_REFRESH_GAP_MS) return;
-        lastRefreshAt.current = t;
-        router.refresh();
-      }, REALTIME_DEBOUNCE_MS);
+      debounceTimer.current = setTimeout(refreshNow, REALTIME_DEBOUNCE_MS);
     };
 
-    for (const table of tables) {
+    const onVisibility = () => {
+      if (document.hidden || !pendingWhileHidden.current) return;
+      pendingWhileHidden.current = false;
+      refreshNow();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    for (const { table, filter } of subs) {
       channel.on(
         "postgres_changes",
         {
@@ -80,7 +99,8 @@ export function useRealtimeRefresh({
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      document.removeEventListener("visibilitychange", onVisibility);
       void supabase.removeChannel(channel);
     };
-  }, [tables, filter, enabled, router]);
+  }, [subsKey, enabled, router]);
 }

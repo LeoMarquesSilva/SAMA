@@ -14,7 +14,8 @@ import { AlertasPendentesOverlay } from "@/components/layout/AlertasPendentesOve
 import { CALENDARIO_PATH, countEventosPendentes, agendaPendentesQueryOpts } from "@/lib/calendario";
 import { countPassosPendentes, PROXIMOS_PASSOS_PATH } from "@/lib/proximos-passos";
 import { shouldShowAlertasLoginBanner } from "@/lib/alertas-login";
-import type { CargoPessoa } from "@/lib/constants";
+import { canViewAgendaTodos, type CargoPessoa } from "@/lib/constants";
+import type { RealtimeSubscription } from "@/hooks/useRealtimeRefresh";
 import { getModulosAtuais, getPessoaAtual } from "@/lib/currentPessoa";
 import { urlDeFotoUtil } from "@/lib/avatar-url";
 import { variantesEmailEscritorio } from "@/lib/email-escritorio";
@@ -50,6 +51,19 @@ export default async function AppLayout({
     modulos,
   };
 
+  // Sem filtro, qualquer alteração de qualquer usuário (ex.: o sync do Outlook de
+  // outra pessoa) recarregava a tela de todos. Só quem vê todas as agendas
+  // precisa das mudanças alheias; os demais escutam apenas os próprios registros.
+  const minhas = canViewAgendaTodos(pessoa) ? undefined : `pessoa_id=eq.${pessoa.id}`;
+  const realtimeSubscriptions: RealtimeSubscription[] = [
+    { table: "outlook_eventos", filter: minhas },
+    { table: "reunioes" },
+    { table: "reuniao_participantes" },
+    { table: "atividades_internas", filter: minhas },
+    { table: "timesheet_entradas", filter: minhas },
+    { table: "usuarios", filter: minhas && `id=eq.${pessoa.id}` },
+  ];
+
   const badges: Record<string, number> = {};
   if (pendentes) badges[CALENDARIO_PATH] = pendentes;
   if (passosPendentes) badges[PROXIMOS_PASSOS_PATH] = passosPendentes;
@@ -57,16 +71,7 @@ export default async function AppLayout({
   return (
     <ToastProvider>
       <ConfirmProvider>
-        <RealtimeRefresh
-          tables={[
-            "outlook_eventos",
-            "reunioes",
-            "reuniao_participantes",
-            "atividades_internas",
-            "timesheet_entradas",
-            "usuarios",
-          ]}
-        />
+        <RealtimeRefresh subscriptions={realtimeSubscriptions} />
         <Suspense fallback={null}>
           <NavegacaoProgresso />
         </Suspense>

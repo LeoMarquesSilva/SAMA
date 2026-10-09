@@ -130,6 +130,8 @@ export default async function DashboardPage({
     { data: proximasReunioesRaw },
     { data: proximasOutlookRaw },
     pendentes,
+    tiposReuniao,
+    avatares,
   ] = await Promise.all([
     reunioesQ,
     outlookDonoQ,
@@ -145,6 +147,9 @@ export default async function DashboardPage({
       pessoaId: pendentesPessoaId ?? undefined,
       verAgendaTodos: verAgendaTodos && !pendentesPessoaId,
     }),
+    // Tipos vêm de Configurações; inclui os desativados que ainda têm histórico.
+    listarTiposReuniao(),
+    mapaAvatarColaboradorPorEmail(supabase),
   ]);
 
   type RRow = {
@@ -185,8 +190,6 @@ export default async function DashboardPage({
   const reunioesRealizadas = reunioes.filter((r) => r.status === "REALIZADA");
   const atividadesRealizadas = atividades.filter((a) => a.status === "REALIZADA");
 
-  // Tipos vêm de Configurações; inclui os desativados que ainda têm histórico.
-  const tiposReuniao = await listarTiposReuniao();
   const reunioesPorTipo = tiposReuniao
     .map((t) => ({
       key: t.chave,
@@ -195,7 +198,6 @@ export default async function DashboardPage({
     }))
     .filter((t) => t.value > 0 || tiposReuniao.find((x) => x.chave === t.key)?.ativo);
 
-  const avatares = await mapaAvatarColaboradorPorEmail(supabase);
   const pessoasComFoto = (pessoas ?? []).map((p) => ({
     ...p,
     avatar_url: avatarDaPessoa(p.email, p.avatar_url, avatares),

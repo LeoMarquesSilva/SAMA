@@ -8,7 +8,10 @@ import { clearAlertasLoginCookie } from "@/lib/alertas-login";
 import { CALENDARIO_PATH, calendarioSyncRange } from "@/lib/calendario";
 import { canViewAgendaTodos, podeVerAgendaDe } from "@/lib/constants";
 import { alinharRegistrosComOutlook } from "@/lib/outlook-sync-horarios";
-import { removerEventosOrfaosOutlook } from "@/lib/outlook-sync-cleanup";
+import {
+  eventosNovosOuAlterados,
+  removerEventosOrfaosOutlook,
+} from "@/lib/outlook-sync-cleanup";
 
 export type ActionResult = { ok: boolean; error?: string };
 export type SyncResult = {
@@ -103,10 +106,23 @@ async function syncPessoaInterna(
     }));
 
     if (rows.length > 0) {
-      const { error } = await supabase.from("outlook_eventos").upsert(rows, {
-        onConflict: "pessoa_id,outlook_event_id",
-      });
-      if (error) throw new Error(error.message);
+      const { data: noBanco, error: lerErr } = await supabase
+        .from("outlook_eventos")
+        .select(
+          "outlook_event_id, pessoa_id, titulo, inicio, fim, duracao_minutos, local, online, link_online, organizador_nome, organizador_email, participantes, corpo_preview"
+        )
+        .eq("pessoa_id", p.id)
+        .gte("inicio", start)
+        .lte("inicio", end);
+      if (lerErr) throw new Error(lerErr.message);
+
+      const alterados = eventosNovosOuAlterados(rows, noBanco ?? []);
+      if (alterados.length > 0) {
+        const { error } = await supabase.from("outlook_eventos").upsert(alterados, {
+          onConflict: "pessoa_id,outlook_event_id",
+        });
+        if (error) throw new Error(error.message);
+      }
     }
 
     const cleanup = await removerEventosOrfaosOutlook(supabase, {
