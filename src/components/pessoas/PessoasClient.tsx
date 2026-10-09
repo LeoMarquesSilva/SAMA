@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { Plus, Pencil, Trash2, Power, PowerOff, ShieldCheck, LayoutGrid, Search, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Power, PowerOff, ShieldCheck, LayoutGrid, Search, X, Globe } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SelectMenu } from "@/components/ui/SelectMenu";
 import { Badge } from "@/components/ui/Badge";
@@ -41,6 +41,20 @@ function ModulosResumo({ p, modulos }: { p: Pessoa; modulos: string[] }) {
     <span className="text-xs text-slate-600" title={nomes.join(", ")}>
       {nomes.length} de {MODULOS.length}
       <span className="ml-1 hidden text-slate-400 xl:inline">· {nomes.slice(0, 3).join(", ")}{nomes.length > 3 ? "…" : ""}</span>
+    </span>
+  );
+}
+
+/** Visão 360º: vê agendas de todos. Sócio e admin já veem tudo, então o selo não se aplica. */
+function VisaoGlobalSelo({ p }: { p: Pessoa }) {
+  if (!p.visao_global || p.is_admin || p.cargo === "SOCIO") return null;
+  return (
+    <span
+      title="Visão 360º: vê a agenda de todos"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700"
+    >
+      <Globe size={11} />
+      360º
     </span>
   );
 }
@@ -171,6 +185,7 @@ export function PessoasClient({
       if (cargo && p.cargo !== cargo) return false;
       if (perfil === "admin" && !p.is_admin) return false;
       if (perfil === "comum" && p.is_admin) return false;
+      if (perfil === "360" && !(p.visao_global && !p.is_admin && p.cargo !== "SOCIO")) return false;
       if (modulo && !p.is_admin && !(modulosPorUsuario[p.id] ?? []).includes(modulo)) return false;
       return true;
     });
@@ -377,6 +392,7 @@ export function PessoasClient({
             options={[
               { value: "admin", label: "Administradores" },
               { value: "comum", label: "Não administradores" },
+              { value: "360", label: "Com Visão 360º" },
             ]}
             className="w-full sm:w-48"
           />
@@ -447,6 +463,7 @@ export function PessoasClient({
                   {p.is_admin && (
                     <ShieldCheck size={14} className="shrink-0 text-brand-600" />
                   )}
+                  <VisaoGlobalSelo p={p} />
                 </div>
                 <p className="truncate text-xs text-slate-400">{p.email}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
@@ -512,6 +529,7 @@ export function PessoasClient({
                         {p.is_admin && (
                           <ShieldCheck size={14} className="text-brand-600" />
                         )}
+                        <VisaoGlobalSelo p={p} />
                       </div>
                       <div className="text-xs text-slate-400">{p.email}</div>
                     </div>

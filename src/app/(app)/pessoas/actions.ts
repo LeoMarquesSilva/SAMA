@@ -22,6 +22,8 @@ function parse(formData: FormData) {
     departamento: formData.get("departamento"),
     is_admin:
       formData.get("is_admin") === "on" || formData.get("is_admin") === "true",
+    visao_global:
+      formData.get("visao_global") === "on" || formData.get("visao_global") === "true",
   });
 }
 
@@ -55,6 +57,7 @@ export async function createPessoa(formData: FormData): Promise<ActionResult> {
     cargo: parsed.data.cargo,
     departamento: parsed.data.departamento ?? null,
     is_admin: parsed.data.is_admin,
+    visao_global: parsed.data.visao_global,
     ativo: false, // novas pessoas começam desativadas (sem login)
   });
 
@@ -91,6 +94,7 @@ export async function updatePessoa(
       cargo: parsed.data.cargo,
       departamento: parsed.data.departamento ?? null,
       is_admin: parsed.data.is_admin,
+      visao_global: parsed.data.visao_global,
     })
     .eq("id", id);
 

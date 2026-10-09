@@ -18,6 +18,8 @@ export const pessoaSchema = z.object({
     .trim()
     .min(1, "Selecione um departamento."),
   is_admin: z.boolean(),
+  /** Visão 360º: vê agendas, reuniões e atividades de todos, sem ser admin. */
+  visao_global: z.boolean(),
 });
 
 export type PessoaFormValues = z.infer<typeof pessoaSchema>;

@@ -119,10 +119,23 @@ export function PessoaForm({
           />
           Acesso total ao sistema (administrador)
         </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            name="visao_global"
+            defaultChecked={pessoa?.visao_global ?? false}
+            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          Visão 360º (vê a agenda de todos)
+        </label>
         <p className="text-xs text-slate-500">
           Marque <span className="font-medium text-slate-600">Acesso total</span>{" "}
           apenas para quem administra o sistema (Usuários, Clientes, Relatórios
-          etc.). Demais usuários veem só os próprios dados.
+          etc.).{" "}
+          <span className="font-medium text-slate-600">Visão 360º</span> libera
+          agendas, reuniões e atividades de todos, sem dar acesso administrativo.
+          Sem nenhum dos dois, a pessoa vê os próprios dados e a agenda dos
+          colegas da mesma área. Sócios e administradores já veem tudo.
         </p>
         <p className="text-xs text-slate-400">
           <span className="font-medium text-slate-500">Sócio fundador</span> é
