@@ -30,7 +30,10 @@ import {
 } from "@/lib/proximos-passos-checklist";
 import { revalidatePath } from "next/cache";
 import { CALENDARIO_PATH } from "@/lib/calendario";
-import type { ViosPassoEnvio } from "@/lib/vios-agendamento";
+import {
+  TAREFA_COMPROMISSO_REUNIAO,
+  type ViosPassoEnvio,
+} from "@/lib/vios-agendamento";
 import {
   enviarCasosAgendamento,
   type CasoAgendamentoVios,
@@ -400,8 +403,7 @@ export async function consultarAgendaLivre(opts: {
 }
 
 const VIOS_LIMITE_TODOS = 20;
-const TAREFA_REUNIAO_ATENDIMENTO = "REUNIÃO / ATENDIMENTO AO CLIENTE";
-const ETIQUETA_ECOA_ATENDIMENTO = "ECOA - ATENDIMENTO";
+const ETIQUETA_ECOA_ATENDIMENTO = "SAMA - ECOA - ATENDIMENTO";
 
 /**
  * Reunião nova: um prazo no VIOS para cada participante cuja área tem pasta
@@ -485,7 +487,7 @@ function casoCompromisso(
   const texto = titulo.trim() || "Reunião";
   return {
     tipo: "Providências",
-    tarefa: TAREFA_REUNIAO_ATENDIMENTO,
+    tarefa: TAREFA_COMPROMISSO_REUNIAO,
     observacao: texto,
     data,
     pasta,

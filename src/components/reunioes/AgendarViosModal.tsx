@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import {
   coparticipantesPadraoInsolvencia,
   demandaIncluiInsolvencia,
+  ehCompromissoDeReuniao,
   juntarResponsaveis,
   VIOS_PASTA_TIPOS,
   type PastaProcessoOpcao,
@@ -466,7 +467,9 @@ export function AgendarViosModal({
       .map((t) => normalizarTexto(t))
       .filter(Boolean);
     if (chaves.length === 0) return undefined;
-    return agendamentosVios.find((a) =>
+    return agendamentosVios
+      .filter((a) => !ehCompromissoDeReuniao(a.tarefa))
+      .find((a) =>
       chaves.includes(normalizarTexto(a.passo_texto ?? a.observacao))
     );
   }

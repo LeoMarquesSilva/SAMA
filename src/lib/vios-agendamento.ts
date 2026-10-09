@@ -1,3 +1,10 @@
+/** Compromisso criado ao agendar a reunião. Não entra nos prazos dos próximos passos. */
+export const TAREFA_COMPROMISSO_REUNIAO = "REUNIÃO / ATENDIMENTO AO CLIENTE";
+
+export function ehCompromissoDeReuniao(tarefa: string | null | undefined): boolean {
+  return (tarefa ?? "").trim() === TAREFA_COMPROMISSO_REUNIAO;
+}
+
 export const VIOS_TIPOS_AGENDAMENTO = [
   "Agendamento Processual",
   "Providências",
@@ -72,7 +79,7 @@ export const VIOS_TAREFAS_PROVIDENCIA = [
   "SUBSÍDIOS E PROCURAÇÃO",
   "ANALISAR E RESPONDER - E-MAIL DE CONTATO",
   "VERIFICAR DOCUMENTOS",
-  "REUNIÃO / ATENDIMENTO AO CLIENTE",
+  TAREFA_COMPROMISSO_REUNIAO,
   "REUNIÃO DE GESTÃO",
   "ATUALIZAR PLANILHA",
   "ATUALIZAR PLANILHA MENSAL",

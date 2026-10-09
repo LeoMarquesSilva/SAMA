@@ -23,6 +23,7 @@ import {
   separarPessoaDoPasso,
 } from "@/components/reunioes/PassoResponsavel";
 import { StatusVios } from "@/components/reunioes/ProximosPassosChecklist";
+import { ehCompromissoDeReuniao } from "@/lib/vios-agendamento";
 import type { AgendamentoViosStatus } from "@/lib/vios-status-actions";
 
 function chaveTexto(t: string | null | undefined): string {
@@ -249,7 +250,9 @@ export function ProximosPassosClient({
                   const busy = pending && togglingKey === key;
                   const citado = separarPessoaDoPasso(item.text, colaboradores);
                   const texto = citado.pessoas.length ? citado.resto : item.text;
-                  const agendamento = (agendamentosPorReuniao[item.reuniaoId] ?? []).find(
+                  const agendamento = (agendamentosPorReuniao[item.reuniaoId] ?? [])
+                    .filter((a) => !ehCompromissoDeReuniao(a.tarefa))
+                    .find(
                     (a) => {
                       const chave = chaveTexto(a.passo_texto ?? a.observacao);
                       return (

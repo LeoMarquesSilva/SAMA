@@ -28,6 +28,7 @@ import {
   type ChecklistItem,
 } from "@/lib/proximos-passos-checklist";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
+import { ehCompromissoDeReuniao } from "@/lib/vios-agendamento";
 import type { AgendamentoViosStatus } from "@/lib/vios-status-actions";
 
 const VIOS_TAREFA_URL = "https://bp.vios.com.br/index.php?pag=sys/processos/pxe.php&pxe_id=";
@@ -190,6 +191,7 @@ export function ProximosPassosChecklist({
   const [items, setItems] = useState<ChecklistItem[]>(() => initItems(value));
   const [rascunhos, setRascunhos] = useState<Record<number, string>>({});
   const lastEmitted = useRef(value);
+  const prazosVios = agendamentosVios.filter((a) => !ehCompromissoDeReuniao(a.tarefa));
 
   useEffect(() => {
     if (value !== lastEmitted.current) {
@@ -250,7 +252,7 @@ export function ProximosPassosChecklist({
           const textoCampo = citado.pessoas.length ? citado.resto : item.text;
           const rotuloEnvio = rotuloEnviadoAgendamento(item);
           const agendamento = item.text.trim()
-            ? agendamentosVios.find(
+            ? prazosVios.find(
                 (a) =>
                   chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(item.text) ||
                   chaveTexto(a.passo_texto ?? a.observacao) === chaveTexto(textoCampo)
@@ -336,7 +338,7 @@ export function ProximosPassosChecklist({
       </ul>
 
       {(() => {
-        const soltos = agendamentosVios.filter((a) => {
+        const soltos = prazosVios.filter((a) => {
           const chave = chaveTexto(a.passo_texto ?? a.observacao);
           if (!chave) return true;
           return !items.some((item) => {
@@ -350,9 +352,6 @@ export function ProximosPassosChecklist({
         if (soltos.length === 0) return null;
         return (
           <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-            <p className="text-xs font-medium text-slate-500">
-              Agendado no VIOS e ainda sem linha correspondente
-            </p>
             {soltos.map((a) => (
               <StatusVios key={a.id} a={a} colaboradores={colaboradores} />
             ))}
