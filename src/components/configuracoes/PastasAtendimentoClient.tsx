@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { salvarPastasAtendimento } from "@/app/(app)/configuracoes/actions";
 import type { PastaAtendimentoArea } from "@/lib/reuniao-pastas";
@@ -21,6 +22,8 @@ export function PastasAtendimentoClient({
   const [pastas, setPastas] = useState<Record<string, string>>(() =>
     Object.fromEntries(areas.map((a) => [a.area, a.pasta]))
   );
+  const [areaAberta, setAreaAberta] = useState<string | null>(null);
+  const aberta = areas.find((a) => a.area === areaAberta) ?? null;
 
   const comPasta = areas.filter((a) => (pastas[a.area] ?? "").replace(/\D/g, "")).length;
 
@@ -75,9 +78,13 @@ export function PastasAtendimentoClient({
           >
             <div className="min-w-0">
               <p className="text-sm font-medium text-slate-800">{a.area}</p>
-              <p className="text-xs text-slate-500">
+              <button
+                type="button"
+                onClick={() => setAreaAberta(a.area)}
+                className="text-xs text-brand-700 hover:underline"
+              >
                 {a.pessoas === 1 ? "1 pessoa" : `${a.pessoas} pessoas`}
-              </p>
+              </button>
             </div>
             <label className="flex items-center gap-2 text-xs text-slate-500">
               Pasta
@@ -98,6 +105,24 @@ export function PastasAtendimentoClient({
           </li>
         ))}
       </ul>
+
+      <Modal
+        open={aberta !== null}
+        onClose={() => setAreaAberta(null)}
+        title={aberta?.area ?? "Área"}
+      >
+        {aberta && aberta.nomes.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhuma pessoa nesta área.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {aberta?.nomes.map((nome) => (
+              <li key={nome} className="py-2 text-sm text-slate-800">
+                {nome}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 }
