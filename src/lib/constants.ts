@@ -14,16 +14,19 @@ export const CARGO_PESSOA = {
 } as const;
 export type CargoPessoa = keyof typeof CARGO_PESSOA;
 
-/** Áreas/departamentos do escritório (cadastro de usuários). */
+/**
+ * Áreas do escritório — os mesmos nomes do ORQESTRAI (departamento dos
+ * colaboradores), que é o que o agendamento usa para achar a pasta da área.
+ * O sync de colaboradores copia a área do ORQESTRAI para o usuário vinculado.
+ */
 export const DEPARTAMENTO_USUARIO = [
   "Cível",
-  "Distressed Deals - Special Situations",
+  "Contratos",
   "Geral",
   "Operações Legais",
-  "Reestruturação e Insolvência",
-  "Societário e Contratos",
+  "Recuperação de Crédito",
+  "Reestruturação",
   "Sócio",
-  "T.I",
   "Trabalhista",
   "Tributário",
 ] as const;
@@ -34,11 +37,21 @@ function chaveDepartamento(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 }
 
+/** Nomes antigos do cadastro de usuários → nome da área no ORQESTRAI. */
+const DEPARTAMENTO_ALIAS: Record<string, DepartamentoUsuario> = {
+  [chaveDepartamento("Reestruturação e Insolvência")]: "Reestruturação",
+  [chaveDepartamento("Societário e Contratos")]: "Contratos",
+};
+
 /** Nome oficial da área, ignorando acento/maiúsculas (ex.: "Operacoes Legais" → "Operações Legais"). */
 export function departamentoCanonico(d: string | null | undefined): string | null {
   if (!d?.trim()) return null;
   const k = chaveDepartamento(d);
-  return DEPARTAMENTO_USUARIO.find((o) => chaveDepartamento(o) === k) ?? d.trim();
+  return (
+    DEPARTAMENTO_ALIAS[k] ??
+    DEPARTAMENTO_USUARIO.find((o) => chaveDepartamento(o) === k) ??
+    d.trim()
+  );
 }
 
 export function departamentoUsuarioOptions(): { value: string; label: string }[] {
@@ -84,11 +97,8 @@ export function podeVerAgendaDe(
   if (!viewer) return false;
   if (canViewAgendaTodos(viewer)) return true;
   if (viewer.id && target.id && viewer.id === target.id) return true;
-  return Boolean(
-    viewer.departamento &&
-      target.departamento &&
-      viewer.departamento === target.departamento
-  );
+  const areaViewer = departamentoCanonico(viewer.departamento);
+  return Boolean(areaViewer && areaViewer === departamentoCanonico(target.departamento));
 }
 
 /** Rótulo de cargo na UI — distingue Sócio fundador dos demais cargos Sócio. */

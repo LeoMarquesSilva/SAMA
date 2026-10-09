@@ -158,6 +158,7 @@ export function AtualizarColaboradoresButton() {
             `${r.total ?? 0} no ORQESTRAI`,
             r.criados ? `${r.criados} novo(s)` : null,
             r.desligados ? `${r.desligados} desligado(s)` : null,
+            r.areasAtualizadas ? `${r.areasAtualizadas} área(s) de usuário ajustada(s)` : null,
             r.divergencias ? `${r.divergencias} divergência(s)` : null,
             r.falhas ? `${r.falhas} não gravado(s)` : null,
           ].filter(Boolean);

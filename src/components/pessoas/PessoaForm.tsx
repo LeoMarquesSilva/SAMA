@@ -143,6 +143,11 @@ export function PessoaForm({
           acesso administrativo acima.
         </p>
         <p className="text-xs text-slate-400">
+          A área de quem está no ORQESTRAI é atualizada automaticamente pela
+          sincronização de colaboradores (é a mesma usada no agendamento).
+          Sócio fundador mantém o departamento Sócio.
+        </p>
+        <p className="text-xs text-slate-400">
           A ativação do login (com senha padrão) é feita pelo botão{" "}
           <span className="font-medium">Ativar</span> na listagem.
         </p>

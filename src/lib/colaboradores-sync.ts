@@ -8,6 +8,7 @@ import {
   variantesEmailEscritorio,
 } from "@/lib/email-escritorio";
 import { urlDeFotoUtil } from "@/lib/avatar-url";
+import { departamentoCanonico, isSocioFundador, type CargoPessoa } from "@/lib/constants";
 import {
   listarFuncionariosOrquestrai,
   type FuncionarioOrquestrai,
@@ -27,6 +28,8 @@ export type ResultadoSyncColaboradores = {
   criados?: number;
   atualizados?: number;
   desligados?: number;
+  /** Usuários cuja área foi alinhada à do ORQESTRAI. */
+  areasAtualizadas?: number;
   divergencias?: number;
   falhas?: number;
   responsum?: boolean;
@@ -111,7 +114,7 @@ export async function sincronizarColaboradoresOrquestrai(): Promise<ResultadoSyn
   const [responsumRaw, { data: locaisRaw, error: locaisErr }, { data: usuarios }] = await Promise.all([
     lerResponsum(),
     admin.from("colaboradores").select("id, nome, orqestrai_id, responsum_id, email, avatar_url, ativo, usuario_id"),
-    admin.from("usuarios").select("id, email"),
+    admin.from("usuarios").select("id, email, cargo, departamento"),
   ]);
   if (locaisErr) return { ok: false, error: "Falha ao ler colaboradores do SAMA." };
 
@@ -251,6 +254,24 @@ export async function sincronizarColaboradoresOrquestrai(): Promise<ResultadoSyn
   if (externosAtivos.length > 0) {
     await admin.from("colaboradores").update({ ativo: false }).in("id", externosAtivos);
   }
+
+  // A área do usuário segue a do ORQESTRAI — é por ela que o agendamento acha a
+  // pasta da área e que a agenda dos colegas da mesma área fica visível.
+  // Sócio fundador fica com "Sócio": é o departamento que o identifica.
+  const areasUsuario = new Map<string, string>();
+  for (const f of funcionarios) {
+    if (!f.ativo) continue;
+    const area = departamentoCanonico(f.departamento);
+    const u = buscar(usuarioPorEmail, f.email);
+    if (!area || !u || isSocioFundador(u.cargo as CargoPessoa, u.departamento)) continue;
+    if (u.departamento !== area) areasUsuario.set(u.id, area);
+  }
+  let areasAtualizadas = 0;
+  for (const [id, departamento] of areasUsuario) {
+    const { error } = await admin.from("usuarios").update({ departamento }).eq("id", id);
+    if (error) falhas.push(`área do usuário ${id}: ${error.message}`);
+    else areasAtualizadas += 1;
+  }
   if (falhas.length > 0) console.error("[sync colaboradores] falhas:", falhas);
 
   await admin.from("colaboradores_divergencias").delete().not("id", "is", null);
@@ -267,6 +288,7 @@ export async function sincronizarColaboradoresOrquestrai(): Promise<ResultadoSyn
     criados,
     atualizados,
     desligados,
+    areasAtualizadas,
     divergencias: divergencias.length,
     falhas: falhas.length,
     responsum: Boolean(responsum),
