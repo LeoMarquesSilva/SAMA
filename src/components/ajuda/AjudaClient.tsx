@@ -24,6 +24,7 @@ import {
 type Tab = "manual" | "faq" | "glossario";
 
 const ATALHOS = [
+  { label: "Agendar reunião (ECOA)", id: "ecoa-agendar-e-acompanhar-reunioes" },
   { label: "Classificar reunião", id: "classificar-um-compromisso-registrar-como-reuniao" },
   { label: "Sincronizar Outlook", id: "calendario-seu-fluxo-principal-sincronizar-com-o-outlook" },
   { label: "Desfazer classificação", id: "classificar-um-compromisso-desfazer-a-classificacao" },

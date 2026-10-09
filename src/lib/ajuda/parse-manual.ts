@@ -124,7 +124,7 @@ export function buildManualToc(
 
 export function parseFaq(markdown: string): FaqItem[] {
   const match = markdown.match(
-    /## 8\. Dúvidas frequentes\n\n([\s\S]*?)\n---\n\n## 9\./
+    /## \d+\. Dúvidas frequentes\n\n([\s\S]*?)\n---\n\n## \d+\./
   );
   if (!match?.[1]) return [];
 
@@ -140,7 +140,7 @@ export function parseFaq(markdown: string): FaqItem[] {
 }
 
 export function parseGlossary(markdown: string): GlossaryItem[] {
-  const match = markdown.match(/## 9\. Glossário\n\n([\s\S]*?)$/);
+  const match = markdown.match(/## \d+\. Glossário\n\n([\s\S]*?)$/);
   if (!match?.[1]) return [];
 
   const rows = match[1]
@@ -164,7 +164,8 @@ export function parseGlossary(markdown: string): GlossaryItem[] {
 
 export function parseManualForApp(markdown: string): ManualAppContent {
   const withImages = injectManualPrintImages(markdown);
-  const main = withImages.split("## 8. Dúvidas frequentes")[0] ?? withImages;
+  // As seções são numeradas; o FAQ e o glossário saem do manual pelo título.
+  const main = withImages.split(/## \d+\. Dúvidas frequentes/)[0] ?? withImages;
   const introEnd = main.indexOf("## 1.");
   const intro =
     introEnd >= 0

@@ -69,7 +69,6 @@ import { ReunioesAnterioresPanel } from "@/components/reunioes/ReunioesAnteriore
 import { parsePauta, pautaVazia, type PautaReuniao } from "@/lib/pauta";
 import { enviarAtaParaCliente } from "@/lib/reunioes/pauta-email";
 import {
-  checklistTemItens,
   marcarPassosEnviadosVios,
   mesclarChecklists,
   removerDoChecklist,
@@ -309,19 +308,6 @@ export function ReuniaoForm({
     };
   }, [open, reuniao?.id, viosRecarregar]);
   const [viosAberto, setViosAberto] = useState(false);
-  const reuniaoJaPassou = Boolean(
-    editing &&
-      reuniao?.id &&
-      (status === "REALIZADA" ||
-        (src?.data_hora_fim
-          ? new Date(src.data_hora_fim).getTime() < Date.now()
-          : src?.data_hora_inicio
-            ? new Date(src.data_hora_inicio).getTime() < Date.now()
-            : false))
-  );
-  const podeAgendarVios =
-    reuniaoJaPassou && checklistTemItens(proximosPassos);
-
   const participantesIniciais = (src?.participantes ?? [])
     .filter((p) => p.colaborador_id)
     .map((p) => p.colaborador_id as string);
@@ -1343,17 +1329,15 @@ export function ReuniaoForm({
             ) : null
           }
           rodape={
-            (podeAgendarVios || tourDestaque === "agenda-passos") && (
-              <Button
-                type="button"
-                size="sm"
-                disabled={pending || !podeAgendarVios}
-                onClick={() => podeAgendarVios && setViosAberto(true)}
-              >
-                <Send size={14} />
-                Enviar para Agendamento
-              </Button>
-            )
+            <Button
+              type="button"
+              size="sm"
+              disabled={pending}
+              onClick={() => setViosAberto(true)}
+            >
+              <Send size={14} />
+              Enviar para Agendamento
+            </Button>
           }
         />
         )}
@@ -1431,7 +1415,13 @@ export function ReuniaoForm({
       areaPadrao={undefined}
       demanda={demanda}
       onEnviar={async (passos) => {
-        const r = await enviarReuniaoAoVios(reuniao!.id, passos, proximosPassos);
+        if (!reuniao?.id) {
+          return {
+            ok: false,
+            error: "Salve a reunião antes de enviar ao agendamento.",
+          };
+        }
+        const r = await enviarReuniaoAoVios(reuniao.id, passos, proximosPassos);
         if (r.ok) {
           setProximosPassos((atual) =>
             r.proximosPassos ??

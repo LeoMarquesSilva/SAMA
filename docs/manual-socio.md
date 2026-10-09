@@ -9,6 +9,7 @@ Este manual mostra, passo a passo, como usar o **SAMA** no dia a dia: sincroniza
 
 - Como entrar e navegar no sistema
 - Calendário — onde você passa a maior parte do tempo
+- ECOA — agendar reunião pelo SAMA, pauta, ata e envio ao VIOS
 - Próximos passos — ações pendentes das reuniões
 - Dashboard — visão geral do seu período
 
@@ -280,6 +281,8 @@ No Calendário, **Agendar** abre uma reunião nova e manda o convite ao Outlook.
 - **Próximos passos não aparecem** na reunião nova. Eles ficam para depois, quando o status for Realizada.
 - Dá para trazer a **pauta** de uma reunião anterior do mesmo cliente. Os passos dessa reunião anterior não entram no agendamento novo.
 
+O passo a passo completo do agendamento está na seção **6. ECOA**.
+
 #### Cancelar reunião criada no SAMA
 
 Reunião criada pelo SAMA que ainda está **Agendada** ou **Reagendada** tem o botão **Cancelar reunião**. Informe o motivo e confirme. O SAMA grava o cancelamento e cancela o convite no Outlook.
@@ -335,11 +338,132 @@ Quando você e um colega estão no **mesmo convite**, cada um tem **seu próprio
 
 ---
 
-## 6. Próximos passos
+## 6. ECOA — agendar e acompanhar reuniões
+
+O **ECOA** é o ciclo completo da reunião dentro do SAMA: **agendar**, mandar o convite ao Outlook com a pauta, registrar a **ata** depois e enviar os **próximos passos** ao VIOS.
+
+```
+Agendar no SAMA (pessoas, horário, sala, cliente e pauta)
+        ↓
+O SAMA cria o convite no Outlook, com a pauta e o link do Teams
+        ↓
+A reunião acontece
+        ↓
+Status Realizada: a ata chega do Fellow e pode ir ao cliente
+        ↓
+Os próximos passos viram tarefas no VIOS
+```
+
+### 6.1 Duas formas de registrar uma reunião
+
+| Forma | Quando usar | Título e horário |
+|-------|-------------|------------------|
+| **Agendar pelo SAMA** (via B) | Reunião nova, que ainda não está no Outlook | Você define no SAMA, e o SAMA cria o convite no Outlook |
+| **Classificar do Outlook** (via A) | O convite já existe no Outlook (alguém mandou, ou você criou por lá) | Vêm do Outlook e ficam bloqueados no SAMA (veja a seção 5.2) |
+
+> **Não faça as duas coisas.** Se agendou pelo SAMA, não crie o mesmo convite no Outlook. A reunião já aparece no Calendário como Reunião.
+
+### 6.2 Agendar uma reunião, passo a passo
+
+1. Abra **Calendário** e clique em **Agendar**.
+2. Escreva o **Título** da reunião.
+3. Em **Pessoas**, escolha a equipe interna e informe os **E-mails do cliente**.
+4. Escolha **início**, **fim** e **Sala**. Confira se todos estão livres na faixa de disponibilidade.
+5. Em **Classificação**, escolha o **cliente**, o **Tipo**, a **Demanda** e a **Modalidade**.
+6. Preencha a **Pauta**.
+7. Clique em **Agendar e enviar ao Outlook**.
+
+Na primeira vez, o SAMA mostra um tour rápido apontando cada um desses campos.
+
+### 6.3 Pessoas e e-mails do cliente
+
+- **Participantes internos:** busque por nome, e-mail ou área. Dá para filtrar por departamento.
+- **Participante externo:** em **Adicionar participante externo**, informe nome e, se tiver, e-mail.
+- **E-mails do cliente:** digite cada e-mail e pressione **Enter**. Esses e-mails recebem o convite.
+
+Ao escolher o cliente, o SAMA busca os e-mails de quem **já participou de reuniões daquele grupo** e coloca no convite. Confira e tire quem não deve ser convidado.
+
+### 6.4 Horário, disponibilidade e sala
+
+O horário funciona como no Outlook: **início**, **fim** e **duração**, sempre no fuso de Brasília.
+
+Abaixo do horário, cada participante interno ganha uma **faixa de disponibilidade**, junto com a sala:
+
+- **Rosa** é horário ocupado.
+- Clique num **trecho livre** para preencher início e fim de uma vez.
+- **Agenda não encontrada** quer dizer que o SAMA não conseguiu ler a agenda daquela pessoa ou sala. Confirme por fora.
+
+| Sala | O que acontece |
+|------|----------------|
+| **Sala 1**, **Sala 2**, **Biblioteca**, **Outback** | A sala é convidada no Outlook e fica reservada |
+| **Somente online** | Nenhuma sala física é reservada |
+
+Mudar a **Modalidade** para **Online** escolhe **Somente online** na sala. Voltar para **Presencial – Escritório** coloca a **Sala 1**, que você pode trocar.
+
+### 6.5 Cliente, classificação e pauta
+
+| Campo | Como preencher |
+|-------|----------------|
+| **Cliente** | Obrigatório. Começa vazio na reunião nova. Em **Captação**, dá para criar o contato com **+ Captação** |
+| **Tipo** | Captação, Fidelização, Gestão de Equipe etc. Passe o mouse no ícone para ver a descrição |
+| **Demanda** | Insolvência, Cível-Insolvência, as duas ou Não definida. Define quem entra na providência do VIOS (seção 7.5) |
+| **Modalidade** | Presencial – Escritório, Presencial – Externo (pede o endereço) ou Online |
+| **Trancar a visualização** | A reunião e a ata ficam visíveis só para os gestores da área e para quem registrou |
+
+A **Pauta** tem três partes e vai no corpo do convite:
+
+1. **Objetivo da reunião**
+2. **Assuntos a serem tratados** — use **Adicionar assunto** para cada tema, com título e descrição
+3. **Pendências / pontos para decisão**
+
+> Reunião nova **não tem** ata nem próximos passos. Eles aparecem depois que a reunião acontece.
+
+### 6.6 Aproveitar a pauta de uma reunião anterior
+
+Depois de escolher o cliente, aparece o painel **Reuniões anteriores deste cliente**, acima da pauta.
+
+1. Clique numa reunião para ver o objetivo, os assuntos e as pendências dela.
+2. Use **Trazer pauta** para copiar essa pauta para a reunião nova. Dá para desfazer.
+
+No agendamento, os próximos passos da reunião anterior **não entram**: eles ficam para depois que a nova reunião acontecer.
+
+### 6.7 O que acontece ao agendar
+
+Ao clicar em **Agendar e enviar ao Outlook**, o SAMA:
+
+- cria o **convite no Outlook** para os participantes, os e-mails do cliente e a sala;
+- coloca a **pauta** no corpo do convite e o **link do Teams**, inclusive nas reuniões presenciais;
+- registra a reunião como **Agendada**, já classificada no seu Calendário;
+- cria um **compromisso no VIOS**, com a etiqueta **SAMA - ECOA - ATENDIMENTO** e a data da reunião, para cada participante cuja área tenha pasta de atendimento cadastrada em **Configurações**. Quem agendou também recebe.
+
+> Se a área de alguém não tem pasta de atendimento, essa pessoa só recebe o convite. As pastas por área são cadastradas pelo administrador.
+
+### 6.8 Remarcar ou cancelar
+
+**Reunião agendada pelo SAMA**
+
+- **Remarcar ou mudar sala, título ou pessoas:** abra a reunião no Calendário, altere e **Salvar**. O SAMA atualiza o convite no Outlook.
+- **Cancelar:** abra a reunião (status Agendada ou Reagendada), clique em **Cancelar reunião**, escreva o **motivo** e clique em **Confirmar cancelamento**. O convite também é cancelado no Outlook.
+
+**Reunião que veio do Outlook**
+
+Remarque ou cancele no **Outlook** e depois clique em **Atualizar** no Calendário.
+
+### 6.9 Depois da reunião: ata e próximos passos
+
+1. Abra a reunião e mude o status para **Realizada**.
+2. A seção **Ata** recebe o texto do **Fellow**. Use **Buscar novamente** se ainda estiver vazia.
+3. **Enviar ata para cliente** manda a ata (não a pauta) aos e-mails do cliente. O botão só habilita com a ata preenchida e ao menos um e-mail do cliente.
+4. Preencha os **Próximos passos**.
+5. Use **Enviar para Agendamento** para transformar os passos em tarefas no VIOS (seção 7.5). O botão aparece em qualquer reunião, sem esperar o status Realizada.
+
+---
+
+## 7. Próximos passos
 
 Aqui ficam as **ações** que você registrou nas reuniões **já realizadas**, agrupadas por reunião.
 
-### 6.1 Visão geral
+### 7.1 Visão geral
 
 [PRINT: Tela Próximos passos — Leonardo, com contagem de pendentes]
 
@@ -349,7 +473,7 @@ No topo você vê:
 - **Busca** por reunião, cliente ou texto da ação
 - Filtro: **Pendentes**, **Realizadas** ou **Todos**
 
-### 6.2 Marcar como feito
+### 7.2 Marcar como feito
 
 1. Encontre a ação.
 2. Marque a **caixinha** ao lado.
@@ -357,7 +481,7 @@ No topo você vê:
 
 [PRINT: Checkbox marcado em uma ação concluída]
 
-### 6.3 Voltar na reunião
+### 7.3 Voltar na reunião
 
 Para reler o contexto ou editar o resumo:
 
@@ -366,16 +490,16 @@ Para reler o contexto ou editar o resumo:
 
 [PRINT: Grupo de passos expandido com link para editar reunião]
 
-### 6.4 Lista vazia?
+### 7.4 Lista vazia?
 
 Pode ser que:
 
 - Nenhuma reunião realizada tenha próximos passos preenchidos, ou
 - Tudo já foi concluído — teste o filtro **Pendentes**.
 
-### 6.5 Enviar um passo ao VIOS
+### 7.5 Enviar um passo ao VIOS
 
-Na reunião **realizada**, abra **Enviar para Agendamento**. Cada passo escolhido vira uma tarefa no VIOS.
+Em qualquer reunião, abra **Enviar para Agendamento** nos próximos passos. Cada passo escolhido vira uma tarefa no VIOS.
 
 Antes de enviar, a reunião precisa estar salva. Em cada passo, escolha pasta, etiqueta, tipo de tarefa, responsável e data.
 
@@ -415,13 +539,13 @@ Se o VIOS abrir um questionário de justificativa no meio do agendamento, o rob�
 
 ---
 
-## 7. Dashboard
+## 8. Dashboard
 
 O **Dashboard** é o **resumo** das suas reuniões e atividades no período que você escolher.
 
 > Funciona melhor depois que você já **classificou** os compromissos no Calendário.
 
-### 7.1 O que aparece
+### 8.1 O que aparece
 
 - **Cards por tipo** de reunião (Captação, Gestão Operacional etc.)
 - **Lista recente** com data, cliente e participantes
@@ -429,7 +553,7 @@ O **Dashboard** é o **resumo** das suas reuniões e atividades no período que 
 
 [PRINT: Dashboard de Leonardo — período "Este mês"]
 
-### 7.2 Escolher o período
+### 8.2 Escolher o período
 
 | Opção | Mostra |
 |-------|--------|
@@ -442,13 +566,13 @@ O **Dashboard** é o **resumo** das suas reuniões e atividades no período que 
 
 Em **Dia**, escolha a data no campo ao lado.
 
-### 7.3 Filtrar por tipo
+### 8.3 Filtrar por tipo
 
 No campo **Tipo**, escolha um tipo de reunião ou deixe em branco para ver tudo.
 
 [PRINT: Filtro de tipo — ex.: Gestão Operacional]
 
-### 7.4 Ir para o Calendário
+### 8.4 Ir para o Calendário
 
 Clique em um **card** ou em uma reunião da lista — o SAMA abre o **Calendário** já filtrado.
 
@@ -458,7 +582,7 @@ Clique em um **card** ou em uma reunião da lista — o SAMA abre o **Calendári
 
 ---
 
-## 8. Dúvidas frequentes
+## 9. Dúvidas frequentes
 
 **Por que ainda aparece "Não categorizado"?**  
 Você ainda não classificou, ou o Outlook não foi atualizado. Vá em **Calendário** → **Atualizar**.
@@ -498,7 +622,7 @@ Sim. Dashboard, Calendário e Passos ficam na barra inferior. Dá para **Adicion
 
 ---
 
-## 9. Glossário
+## 10. Glossário
 
 | Termo | Significado |
 |-------|-------------|
@@ -511,4 +635,8 @@ Sim. Dashboard, Calendário e Passos ficam na barra inferior. Dá para **Adicion
 | **Ata** | Texto da reunião coletado pelo Fellow, depois que ela aconteceu |
 | **Demanda** | Insolvência, Cível ou as duas. Define quem entra na providência do VIOS |
 | **Pauta** | Objetivo, assuntos e pendências. Vai no convite da reunião nova |
+| **ECOA** | Ciclo da reunião no SAMA: agendar, pauta, ata e próximos passos no VIOS |
+| **Via A** | Reunião que já estava no Outlook e foi classificada no SAMA |
+| **Via B** | Reunião agendada pelo SAMA, que cria o convite no Outlook |
+| **Pasta de atendimento** | Pasta do VIOS de cada área, onde entra o compromisso SAMA - ECOA - ATENDIMENTO ao agendar |
 | **Atualizar** | Sincronizar com o Outlook (inclui, atualiza e remove itens) |
