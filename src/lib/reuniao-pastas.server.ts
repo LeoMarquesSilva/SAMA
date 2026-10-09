@@ -31,7 +31,7 @@ export async function listarPastasAtendimento(): Promise<PastaAtendimentoArea[]>
     const nome = row.nome?.trim();
     if (!area || !nome) continue;
     const chave = chaveArea(area);
-    const atual = contagem.get(chave) ?? { area, nomes: [] };
+    const atual = contagem.get(chave) ?? { area, nomes: [] as string[] };
     atual.nomes.push(nome);
     contagem.set(chave, atual);
   }
@@ -43,7 +43,7 @@ export async function listarPastasAtendimento(): Promise<PastaAtendimentoArea[]>
     if (!area || !pasta) continue;
     pastaPorChave.set(chaveArea(area), pasta);
     if (!contagem.has(chaveArea(area))) {
-      contagem.set(chaveArea(area), { area, nomes: [] });
+      contagem.set(chaveArea(area), { area, nomes: [] as string[] });
     }
   }
 
