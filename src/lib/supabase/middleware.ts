@@ -10,6 +10,12 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 const PUBLIC_PATHS = ["/login", "/trocar-senha", "/redefinir-senha", "/auth/signout", "/auth/callback"];
 
 /**
+ * Rotas que abrem sem sessão. O link de "Esqueci minha senha" chega deslogado:
+ * mandar essas rotas para o /login perdia o link antes de virar sessão.
+ */
+const SEM_LOGIN_PATHS = ["/login", "/redefinir-senha", "/auth/callback"];
+
+/**
  * Atualiza a sessão Supabase a cada requisição e protege rotas autenticadas.
  */
 export async function updateSession(request: NextRequest) {
@@ -49,8 +55,11 @@ export async function updateSession(request: NextRequest) {
   );
   const isPublicAsset =
     pathname.startsWith("/_next") || pathname === "/favicon.ico";
+  const abreSemLogin = SEM_LOGIN_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
 
-  if (!user && !isAuthRoute && !isPublicAsset) {
+  if (!user && !abreSemLogin && !isPublicAsset) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

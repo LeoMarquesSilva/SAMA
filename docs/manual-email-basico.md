@@ -27,7 +27,7 @@ Na primeira entrada, o SAMA pede uma **senha nova**:
 2. Escolha uma senha segura (mínimo exigido na tela).
 3. Salve e continue.
 
-> **Esqueceu a senha?** Peça ao administrador do SAMA para redefinir seu acesso.
+> **Esqueceu a senha?** Na tela de login, clique em **Esqueci minha senha** e informe seu e-mail. O SAMA manda um link para criar uma nova senha (vale por 1 hora).
 
 ### Tour guiado (opcional)
 

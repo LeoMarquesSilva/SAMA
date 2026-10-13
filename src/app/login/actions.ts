@@ -9,6 +9,9 @@ import {
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 import { countPassosPendentes } from "@/lib/proximos-passos";
 import { setAlertasLoginCookie } from "@/lib/alertas-login";
+import { variantesEmailEscritorio } from "@/lib/email-escritorio";
+import { emailRecuperacaoSenha } from "@/lib/email-recuperacao-senha";
+import { outlookConfigurado, sendMail } from "@/lib/graph";
 
 export type LoginState = { error?: string; redirectTo?: string };
 
@@ -17,9 +20,24 @@ export type RecuperarSenhaState = { error?: string; success?: string };
 const MENSAGEM_RECUPERACAO_ENVIADA =
   "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha em alguns minutos. Verifique também a caixa de spam.";
 
-function recuperacaoRedirectUrl() {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}/auth/callback?next=/redefinir-senha`;
+/** Pedido repetido dentro desse intervalo não manda outro e-mail. */
+const INTERVALO_RECUPERACAO_MS = 60_000;
+
+/**
+ * Endereço do SAMA para o link do e-mail. Vem da configuração, nunca do pedido
+ * (um cabeçalho forjado mandaria o link para outro site). Na Vercel, sem
+ * NEXT_PUBLIC_APP_URL de produção, usa o domínio de produção do projeto.
+ */
+function urlBaseApp(): string {
+  const configurada = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configurada && !/localhost|127\.0\.0\.1/.test(configurada)) {
+    return configurada.replace(/\/$/, "");
+  }
+  const producao = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (process.env.VERCEL_ENV === "production" && producao) return `https://${producao}`;
+  const deploy = process.env.VERCEL_URL?.trim();
+  if (deploy) return `https://${deploy}`;
+  return (configurada || "http://localhost:3000").replace(/\/$/, "");
 }
 
 export async function login(
@@ -108,31 +126,65 @@ export async function solicitarRecuperacaoSenha(
     return { error: "Informe seu e-mail corporativo." };
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !outlookConfigurado()) {
     return {
       error:
         "Recuperação de senha indisponível no momento. Contate o administrador.",
     };
   }
 
+  // O cadastro pode estar no outro domínio do escritório (bpplaw ↔ bismarchipires).
   const admin = createAdminClient();
-  const { data: pessoa } = await admin
+  const { data: pessoas } = await admin
     .from("usuarios")
-    .select("ativo, auth_user_id")
-    .eq("email", email)
-    .maybeSingle();
+    .select("email, ativo, auth_user_id")
+    .or(variantesEmailEscritorio(email).map((e) => `email.ilike.${e}`).join(","))
+    .limit(5);
+  const pessoa = pessoas?.find((p) => p.ativo && p.auth_user_id);
 
-  if (!pessoa?.ativo || !pessoa.auth_user_id) {
+  // Mesma resposta para quem não tem acesso: não revela quais e-mails existem.
+  if (!pessoa?.auth_user_id) {
     return { success: MENSAGEM_RECUPERACAO_ENVIADA };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: recuperacaoRedirectUrl(),
-  });
+  try {
+    const { data: conta } = await admin.auth.admin.getUserById(pessoa.auth_user_id);
+    const emailLogin = conta.user?.email;
+    if (!emailLogin) return { success: MENSAGEM_RECUPERACAO_ENVIADA };
 
-  if (error) {
-    console.error("[recuperar-senha]", error.message);
+    const ultimo = conta.user?.recovery_sent_at ? Date.parse(conta.user.recovery_sent_at) : 0;
+    if (Date.now() - ultimo < INTERVALO_RECUPERACAO_MS) {
+      return { success: MENSAGEM_RECUPERACAO_ENVIADA };
+    }
+
+    // O link é gerado aqui e o e-mail sai pelo Graph. O token só é usado quando
+    // a pessoa salva a nova senha: abre em qualquer navegador e o antivírus de
+    // links do Outlook não consegue gastá-lo antes.
+    const { data: link, error } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: emailLogin,
+    });
+    const tokenHash = link?.properties?.hashed_token;
+    if (error || !tokenHash) {
+      console.error("[recuperar-senha] generateLink:", error?.message);
+      return { success: MENSAGEM_RECUPERACAO_ENVIADA };
+    }
+
+    const url = `${urlBaseApp()}/redefinir-senha?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
+    await sendMail({
+      // Sem caixa própria configurada, sai da caixa da própria pessoa (a mesma
+      // que o SAMA já usa para pauta e ata) e não fica nos Itens Enviados.
+      remetenteEmail: process.env.SAMA_EMAIL_REMETENTE?.trim() || pessoa.email,
+      assunto: "Redefinir senha do SAMA",
+      corpoHtml: emailRecuperacaoSenha(url),
+      para: [emailLogin],
+      salvarEnviados: false,
+    });
+  } catch (err) {
+    console.error(
+      "[recuperar-senha]",
+      err instanceof Error ? err.message : String(err)
+    );
   }
 
   return { success: MENSAGEM_RECUPERACAO_ENVIADA };

@@ -8,41 +8,66 @@ import {
 } from "@/lib/calendario";
 import { getOnboardingFlags } from "@/lib/onboarding/state";
 
-export type RedefinirSenhaState = { error?: string; redirectTo?: string };
+export type RedefinirSenhaState = {
+  error?: string;
+  redirectTo?: string;
+  /** O token do e-mail já virou sessão; os próximos envios vão sem ele. */
+  tokenUsado?: boolean;
+};
+
+const LINK_INVALIDO =
+  "Este link expirou ou já foi usado. Volte ao login e peça um novo e-mail em “Esqueci minha senha”.";
 
 export async function redefinirSenha(
-  _prev: RedefinirSenhaState,
+  prev: RedefinirSenhaState,
   formData: FormData
 ): Promise<RedefinirSenhaState> {
   const senha = String(formData.get("senha") ?? "");
   const confirmacao = String(formData.get("confirmacao") ?? "");
+  const tokenHash = String(formData.get("token_hash") ?? "").trim();
+  const tokenUsado = Boolean(prev.tokenUsado);
 
   if (senha.length < 6) {
-    return { error: "A nova senha deve ter ao menos 6 caracteres." };
+    return { error: "A nova senha deve ter ao menos 6 caracteres.", tokenUsado };
   }
   if (senha === "123456") {
-    return { error: "Escolha uma senha diferente da padrão (123456)." };
+    return { error: "Escolha uma senha diferente da padrão (123456).", tokenUsado };
   }
   if (senha !== confirmacao) {
-    return { error: "As senhas não conferem." };
+    return { error: "As senhas não conferem.", tokenUsado };
   }
 
   const supabase = await createClient();
+
+  // O link do e-mail traz o token: ele só vira sessão aqui, ao salvar.
+  if (tokenHash) {
+    const { error: otpError } = await supabase.auth.verifyOtp({
+      type: "recovery",
+      token_hash: tokenHash,
+    });
+    if (otpError) {
+      console.error("[redefinir-senha] verifyOtp:", otpError.message);
+      return { error: LINK_INVALIDO };
+    }
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return {
-      error:
-        "Link expirado ou inválido. Volte ao login e solicite um novo e-mail de recuperação.",
-      redirectTo: "/login",
-    };
+    return { error: LINK_INVALIDO, redirectTo: "/login?erro=recuperacao" };
   }
 
   const { error } = await supabase.auth.updateUser({ password: senha });
   if (error) {
-    return { error: "Não foi possível definir a nova senha. Tente novamente." };
+    const motivo =
+      error.code === "same_password"
+        ? "A nova senha precisa ser diferente da atual."
+        : error.code === "weak_password"
+          ? "Essa senha é fraca demais. Escolha outra."
+          : "Não foi possível definir a nova senha. Tente novamente.";
+    return { error: motivo, tokenUsado: true };
   }
 
   await supabase.rpc("clear_senha_provisoria");

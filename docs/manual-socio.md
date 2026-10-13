@@ -59,7 +59,7 @@ Na primeira vez, o SAMA pode pedir para você **criar uma senha nova** antes de 
 
 [PRINT: Tela "Trocar senha"]
 
-> **Esqueceu a senha?** Peça ao administrador do SAMA para redefinir seu acesso.
+> **Esqueceu a senha?** Na tela de login, clique em **Esqueci minha senha** e informe seu e-mail. O SAMA manda um link para criar uma nova senha (vale por 1 hora).
 
 ### 2.3 Avisos ao entrar
 
@@ -615,7 +615,7 @@ Confira a lista ao lado do responsável: Lavínia e Lígia vêm marcadas, mas d�
 Ainda há itens pendentes seus. Filtre por **Não categorizados**.
 
 **Esqueci a senha.**  
-Peça ao administrador do SAMA.
+Na tela de login, clique em **Esqueci minha senha** e informe seu e-mail. O SAMA manda um link para criar uma nova senha (vale por 1 hora).
 
 **Funciona no celular?**  
 Sim. Dashboard, Calendário e Passos ficam na barra inferior. Dá para **Adicionar à tela inicial** e usar como app.
