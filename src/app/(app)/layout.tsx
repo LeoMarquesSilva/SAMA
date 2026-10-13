@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/Confirm";
+import { ReportarErroProvider } from "@/components/layout/ReportarErro";
 
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { Suspense } from "react";
@@ -70,6 +71,7 @@ export default async function AppLayout({
 
   return (
     <ToastProvider>
+      <ReportarErroProvider>
       <ConfirmProvider>
         <RealtimeRefresh subscriptions={realtimeSubscriptions} />
         <Suspense fallback={null}>
@@ -109,6 +111,7 @@ export default async function AppLayout({
           />
         </div>
       </ConfirmProvider>
+      </ReportarErroProvider>
     </ToastProvider>
   );
 }

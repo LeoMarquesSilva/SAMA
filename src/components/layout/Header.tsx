@@ -1,5 +1,6 @@
 import { LogOut, Target } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { ReportarErroButton } from "@/components/layout/ReportarErro";
 
 export function Header({
   nome,
@@ -22,6 +23,7 @@ export function Header({
         <span className="text-sm font-bold text-slate-800">SAMA</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <ReportarErroButton />
         <div className="flex items-center gap-2">
           <Avatar nome={label} src={avatarUrl} size={32} />
           <span className="hidden text-sm text-slate-600 sm:inline">
