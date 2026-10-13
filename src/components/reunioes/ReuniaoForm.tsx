@@ -303,7 +303,8 @@ export function ReuniaoForm({
       );
       if (!vivo) return;
       setAgendamentosVios(lista);
-      if (lista.some((a) => a.status !== "concluido" && a.status !== "erro")) {
+      const emAndamento = (s: string | undefined) => s !== undefined && s !== "concluido" && s !== "erro";
+      if (lista.some((a) => emAndamento(a.status) || emAndamento(a.prorrogacao?.status))) {
         timer = setTimeout(carregar, 15_000);
       }
     };
@@ -1341,6 +1342,7 @@ export function ReuniaoForm({
           simples
           colaboradores={colaboradores}
           agendamentosVios={agendamentosVios}
+          onAgendamentoAlterado={() => setViosRecarregar((n) => n + 1)}
           labelAdornment={
             status === "REALIZADA" && fellowAtivo ? (
               <FellowImportLabelActions

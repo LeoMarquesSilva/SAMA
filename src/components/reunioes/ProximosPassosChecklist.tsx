@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ListChecks,
   Loader2,
+  Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import {
   ResponsaveisSugeridos,
 } from "@/components/reunioes/PassoResponsavel";
 import { SelectMenu } from "@/components/ui/SelectMenu";
+import { DateBrInput } from "@/components/ui/DateBrInput";
 import {
   parseChecklist,
   rotuloEnviadoAgendamento,
@@ -29,7 +31,10 @@ import {
 } from "@/lib/proximos-passos-checklist";
 import type { ColaboradorOpt } from "@/lib/colaboradores";
 import { ehCompromissoDeReuniao } from "@/lib/vios-agendamento";
-import type { AgendamentoViosStatus } from "@/lib/vios-status-actions";
+import {
+  alterarDataAgendamentoVios,
+  type AgendamentoViosStatus,
+} from "@/lib/vios-status-actions";
 
 const VIOS_TAREFA_URL = "https://bp.vios.com.br/index.php?pag=sys/processos/pxe.php&pxe_id=";
 
@@ -45,12 +50,134 @@ function tomStatusTarefa(status: string): "green" | "amber" | "red" | "gray" {
   return "gray";
 }
 
+function brParaIso(br: string): string {
+  const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+
+function isoParaBr(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
+/** Situação da última mudança de data pedida ao VIOS depois da criação. */
+function ProrrogacaoVios({ a }: { a: AgendamentoViosStatus }) {
+  const p = a.prorrogacao;
+  if (!p) return null;
+  if (p.status === "erro") {
+    return (
+      <span className="inline-flex items-center gap-1 text-red-700" title={p.erro ?? undefined}>
+        <AlertTriangle size={13} />
+        Data não mudou no VIOS{p.erro ? `: ${p.erro.slice(0, 120)}` : ""}
+      </span>
+    );
+  }
+  if (p.status !== "concluido") {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-700">
+        <Loader2 size={13} className="animate-spin" />
+        Nova data indo para o VIOS…
+      </span>
+    );
+  }
+  return a.data !== a.data_original ? (
+    <span className="text-emerald-700">Data alterada no VIOS (era {a.data_original})</span>
+  ) : null;
+}
+
+/**
+ * Data do agendamento. Num próximo passo enviado, dá para mudar aqui: o SAMA
+ * pede sozinho ao robô para prorrogar a tarefa no VIOS.
+ */
+function DataVios({
+  a,
+  onAlterado,
+}: {
+  a: AgendamentoViosStatus;
+  onAlterado?: () => void;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [iso, setIso] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string>();
+  const podeMudar = Boolean(onAlterado) && !ehCompromissoDeReuniao(a.tarefa) && a.status !== "erro";
+
+  async function salvar() {
+    const br = isoParaBr(iso);
+    if (!br) return setErro("Informe a data.");
+    setSalvando(true);
+    setErro(undefined);
+    const r = await alterarDataAgendamentoVios(a.id, br).catch(() => ({
+      ok: false,
+      error: "Falha de conexão.",
+    }));
+    setSalvando(false);
+    if (!r.ok) return setErro(r.error ?? "Não foi possível mudar a data.");
+    setEditando(false);
+    onAlterado?.();
+  }
+
+  if (editando) {
+    return (
+      <span className="inline-flex flex-wrap items-end gap-2">
+        <span className="w-40">
+          <DateBrInput value={iso} onChange={setIso} />
+        </span>
+        <Button type="button" size="sm" disabled={salvando} onClick={() => void salvar()}>
+          {salvando ? "Salvando…" : "Salvar data"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={salvando}
+          onClick={() => setEditando(false)}
+        >
+          Cancelar
+        </Button>
+        {erro && <span className="text-red-700">{erro}</span>}
+      </span>
+    );
+  }
+
+  const data = (
+    <>
+      <CalendarDays size={13} className="text-slate-400" />
+      {a.data}
+    </>
+  );
+  return (
+    <>
+      {podeMudar ? (
+        <button
+          type="button"
+          onClick={() => {
+            setIso(brParaIso(a.data));
+            setErro(undefined);
+            setEditando(true);
+          }}
+          className="inline-flex items-center gap-1 rounded tabular-nums text-slate-600 hover:text-brand-700"
+          title="Mudar a data: o robô prorroga a tarefa no VIOS"
+        >
+          {data}
+          <Pencil size={12} className="text-slate-400" />
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1 tabular-nums text-slate-600">{data}</span>
+      )}
+      <ProrrogacaoVios a={a} />
+    </>
+  );
+}
+
 function DetalheVios({
   a,
   colaboradores,
+  onAlterado,
 }: {
   a: AgendamentoViosStatus;
   colaboradores: ColaboradorOpt[];
+  onAlterado?: () => void;
 }) {
   const colab = colaboradorPorNome(a.responsavel, colaboradores);
   return (
@@ -71,12 +198,7 @@ function DetalheVios({
           {colab?.nome ?? a.responsavel}
         </span>
       )}
-      {a.data && (
-        <span className="inline-flex items-center gap-1 tabular-nums text-slate-600">
-          <CalendarDays size={13} className="text-slate-400" />
-          {a.data}
-        </span>
-      )}
+      {a.data && <DataVios a={a} onAlterado={onAlterado} />}
     </>
   );
 }
@@ -85,9 +207,12 @@ function DetalheVios({
 export function StatusVios({
   a,
   colaboradores,
+  onAlterado,
 }: {
   a: AgendamentoViosStatus;
   colaboradores: ColaboradorOpt[];
+  /** Com ele, a data de um passo enviado pode ser mudada (o robô prorroga no VIOS). */
+  onAlterado?: () => void;
 }) {
   const tom = a.status_tarefa ? tomStatusTarefa(a.status_tarefa) : "gray";
   const statusTarefa = a.ci_vios ? (
@@ -124,7 +249,7 @@ export function StatusVios({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
         {statusTarefa}
         {linkCi}
-        <DetalheVios a={a} colaboradores={colaboradores} />
+        <DetalheVios a={a} colaboradores={colaboradores} onAlterado={onAlterado} />
         {!a.ci_vios && (
           <span className="inline-flex items-center gap-1 text-amber-700">
             <AlertTriangle size={13} />
@@ -151,7 +276,7 @@ export function StatusVios({
         <Loader2 size={13} className="animate-spin" />
         {a.status === "processando" ? "Enviando ao VIOS…" : "Na fila de envio…"}
       </span>
-      <DetalheVios a={a} colaboradores={colaboradores} />
+      <DetalheVios a={a} colaboradores={colaboradores} onAlterado={onAlterado} />
     </div>
   );
 }
@@ -174,6 +299,7 @@ export function ProximosPassosChecklist({
   colaboradores = [],
   simples = true,
   agendamentosVios = [],
+  onAgendamentoAlterado,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -187,6 +313,8 @@ export function ProximosPassosChecklist({
   simples?: boolean;
   /** Situação na fila do VIOS dos itens já enviados (mais recente primeiro). */
   agendamentosVios?: AgendamentoViosStatus[];
+  /** Data de um passo enviado mudou: recarregar a situação no VIOS. */
+  onAgendamentoAlterado?: () => void;
 }) {
   const [items, setItems] = useState<ChecklistItem[]>(() => initItems(value));
   const [rascunhos, setRascunhos] = useState<Record<number, string>>({});
@@ -293,7 +421,7 @@ export function ProximosPassosChecklist({
                 <ResponsaveisSugeridos pessoas={citado.pessoas} />
               )}
               {agendamento ? (
-                <StatusVios a={agendamento} colaboradores={colaboradores} />
+                <StatusVios a={agendamento} colaboradores={colaboradores} onAlterado={onAgendamentoAlterado} />
               ) : (
                 rotuloEnvio && <Badge tone="green">{rotuloEnvio}</Badge>
               )}
@@ -353,7 +481,7 @@ export function ProximosPassosChecklist({
         return (
           <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
             {soltos.map((a) => (
-              <StatusVios key={a.id} a={a} colaboradores={colaboradores} />
+              <StatusVios key={a.id} a={a} colaboradores={colaboradores} onAlterado={onAgendamentoAlterado} />
             ))}
           </div>
         );

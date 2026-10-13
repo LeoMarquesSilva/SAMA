@@ -2,6 +2,8 @@
 
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
+import { ehCompromissoDeReuniao } from "@/lib/vios-agendamento";
+import { pedirProrrogacaoVios } from "@/lib/vios-prorrogacao";
 
 type OpcaoVios = { id: string; nome: string };
 
@@ -192,11 +194,21 @@ export type AgendamentoViosStatus = {
   avisos: string[];
   criado_em: string;
   atualizado_em: string;
+  /** Data com que a tarefa foi criada (`data` já traz a última data pedida no SAMA). */
+  data_original: string;
+  /** Última mudança de data pedida ao VIOS depois da criação. */
+  prorrogacao: {
+    status: AgendamentoViosStatus["status"];
+    data: string;
+    erro: string | null;
+  } | null;
 };
 
 type AgendamentoViosRow = {
   id: string;
   reuniao_id: string | null;
+  operacao: string;
+  origem_id: string | null;
   observacao: string;
   passo_texto: string | null;
   status: AgendamentoViosStatus["status"];
@@ -242,9 +254,13 @@ async function comStatusTarefa(
 }
 
 function linhaAgendamento(
-  r: AgendamentoViosRow
+  r: AgendamentoViosRow,
+  prorrogacoes: AgendamentoViosRow[]
 ): Omit<AgendamentoViosStatus, "status_tarefa"> & { status_gravado: string | null } {
   const res = r.resultado ?? {};
+  // Mais recente primeiro (a lista vem por criado_em desc).
+  const ultima = prorrogacoes[0] ?? null;
+  const vigente = prorrogacoes.find((p) => p.status !== "erro") ?? null;
   return {
     id: r.id,
     observacao: r.observacao,
@@ -253,7 +269,11 @@ function linhaAgendamento(
     erro: r.erro,
     tarefa: r.tarefa,
     responsavel: r.responsavel,
-    data: r.data,
+    data: vigente?.data ?? r.data,
+    data_original: r.data,
+    prorrogacao: ultima
+      ? { status: ultima.status, data: ultima.data, erro: ultima.erro }
+      : null,
     pasta: r.pasta,
     ci_vios: res.ci_vios != null ? String(res.ci_vios) : null,
     status_gravado: res.vios_status?.trim() || null,
@@ -298,19 +318,70 @@ export async function listarAgendamentosViosPorReunioes(
     const { data } = await admin
       .from("vios_agendamentos")
       .select(
-        "id, reuniao_id, observacao, passo_texto, status, erro, tarefa, responsavel, data, pasta, resultado, criado_em, atualizado_em"
+        "id, reuniao_id, operacao, origem_id, observacao, passo_texto, status, erro, tarefa, responsavel, data, pasta, resultado, criado_em, atualizado_em"
       )
       .in("reuniao_id", fatia)
       .order("criado_em", { ascending: false });
     bruto.push(...((data ?? []) as AgendamentoViosRow[]));
   }
 
-  const completos = await comStatusTarefa(bruto.map(linhaAgendamento));
+  // Prorrogações não são tarefas novas: entram como data atual da criação.
+  const prorrogacoesPorOrigem = new Map<string, AgendamentoViosRow[]>();
+  for (const row of bruto) {
+    if (row.operacao !== "prorrogar" || !row.origem_id) continue;
+    const lista = prorrogacoesPorOrigem.get(row.origem_id) ?? [];
+    lista.push(row);
+    prorrogacoesPorOrigem.set(row.origem_id, lista);
+  }
+  const criacoes = bruto.filter((row) => row.operacao !== "prorrogar");
+
+  const completos = await comStatusTarefa(
+    criacoes.map((row) => linhaAgendamento(row, prorrogacoesPorOrigem.get(row.id) ?? []))
+  );
   const mapa: Record<string, AgendamentoViosStatus[]> = {};
-  bruto.forEach((row, index) => {
+  criacoes.forEach((row, index) => {
     const reuniaoId = row.reuniao_id;
     if (!reuniaoId) return;
     (mapa[reuniaoId] ??= []).push(completos[index]);
   });
   return mapa;
+}
+
+/**
+ * Muda no SAMA a data de um próximo passo já enviado ao VIOS. A mudança vai
+ * sozinha para a fila: o robô prorroga a tarefa que já existe no VIOS.
+ * O compromisso da reunião segue a data da reunião, não muda por aqui.
+ */
+export async function alterarDataAgendamentoVios(
+  agendamentoId: string,
+  novaData: string
+): Promise<{ ok: boolean; error?: string; acao?: string }> {
+  const pessoa = await getPessoaAtual();
+  if (!pessoa) return { ok: false, error: "Não autenticado." };
+  const data = novaData.trim();
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(data)) return { ok: false, error: "Informe a data em DD/MM/AAAA." };
+
+  const admin = createAdminClient();
+  const { data: linha } = await admin
+    .from("vios_agendamentos")
+    .select("id, operacao, reuniao_id, criado_por_id, tarefa")
+    .eq("id", agendamentoId)
+    .maybeSingle();
+  if (!linha || linha.operacao !== "criar") return { ok: false, error: "Agendamento não encontrado." };
+  if (ehCompromissoDeReuniao(linha.tarefa)) {
+    return { ok: false, error: "O compromisso segue a data da reunião: mude a data da reunião." };
+  }
+
+  if (!pessoa.is_admin && linha.criado_por_id !== pessoa.id) {
+    const supabase = await createClient();
+    const { data: reuniao } = linha.reuniao_id
+      ? await supabase.from("reunioes").select("criado_por_id").eq("id", linha.reuniao_id).maybeSingle()
+      : { data: null };
+    if (!reuniao || reuniao.criado_por_id !== pessoa.id) {
+      return { ok: false, error: "Sem permissão para mudar a data deste agendamento." };
+    }
+  }
+
+  const r = await pedirProrrogacaoVios(linha.id, data, pessoa.id);
+  return r.ok ? { ok: true, acao: r.acao } : { ok: false, error: r.error };
 }

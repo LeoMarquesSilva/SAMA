@@ -24,6 +24,7 @@ import {
 } from "@/lib/fellow-assignees";
 import { proximosPassosUnificados } from "@/lib/reuniao-todos";
 import { compactChecklist, parseChecklist } from "@/lib/proximos-passos-checklist";
+import { prorrogarCompromissosDaReuniao } from "@/lib/vios-prorrogacao";
 
 export type ActionResult = {
   ok: boolean;
@@ -305,6 +306,14 @@ export async function updateReuniao(
     orgUsuarioId
   );
   if (partErr) return { ok: false, error: partErr };
+
+  // Data da reunião mudou depois do agendamento: o robô muda a data dos
+  // compromissos no VIOS. Falha aqui não desfaz o que foi salvo.
+  try {
+    await prorrogarCompromissosDaReuniao(id, parsed.data.data_hora_inicio, pessoa.id);
+  } catch (err) {
+    console.error("[updateReuniao] prorrogar compromissos:", err);
+  }
 
   revalidateReunioes();
   return { ok: true, id };
