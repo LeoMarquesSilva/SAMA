@@ -2,6 +2,7 @@ import "server-only";
 
 import { limparCorpoOutlook } from "@/lib/outlook";
 import { SP_UTC_OFFSET } from "@/lib/datetime-br";
+import { anexarBlocoTeams, extrairBlocoTeams } from "@/lib/teams-bloco";
 
 // Credenciais do app no Azure (reaproveita o registro "Legis-app").
 const TENANT = process.env.MICROSOFT_TENANT_ID!;
@@ -319,18 +320,27 @@ export async function updateCalendarEvent(
   outlookEventId: string,
   input: Omit<GraphEventInput, "organizerEmail">
 ): Promise<GraphEventCreated> {
+  const url = `/users/${encodeURIComponent(organizerEmail)}/events/${encodeURIComponent(outlookEventId)}`;
+
+  // Corpo novo sem o bloco do Teams desliga a reunião online: guarda o bloco atual.
+  let bodyHtml = input.bodyHtml;
+  if (bodyHtml && input.isOnlineMeeting) {
+    const atual = await graphJson<{ body?: { content?: string } }>(
+      `${url}?$select=body`,
+      { method: "GET" }
+    );
+    bodyHtml = anexarBlocoTeams(bodyHtml, extrairBlocoTeams(atual.body?.content));
+  }
+
   const data = await graphJson<{
     id: string;
     onlineMeeting?: { joinUrl?: string } | null;
-  }>(
-    `/users/${encodeURIComponent(organizerEmail)}/events/${encodeURIComponent(outlookEventId)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(
-        eventPayload({ ...input, organizerEmail })
-      ),
-    }
-  );
+  }>(url, {
+    method: "PATCH",
+    body: JSON.stringify(
+      eventPayload({ ...input, bodyHtml, organizerEmail })
+    ),
+  });
   return {
     outlookEventId: data.id,
     joinUrl: data.onlineMeeting?.joinUrl ?? null,
@@ -434,6 +444,13 @@ export async function sendMail(input: {
   para: string[];
   cc?: string[];
   salvarEnviados?: boolean;
+  /** Imagens referenciadas no corpo por `cid:<contentId>` (ex.: o logo). */
+  anexosInline?: {
+    nome: string;
+    contentType: string;
+    contentId: string;
+    base64: string;
+  }[];
 }): Promise<void> {
   const destinatarios = (lista: string[]) =>
     lista
@@ -456,6 +473,18 @@ export async function sendMail(input: {
           body: { contentType: "HTML", content: input.corpoHtml },
           toRecipients,
           ccRecipients: destinatarios(input.cc ?? []),
+          ...(input.anexosInline?.length
+            ? {
+                attachments: input.anexosInline.map((a) => ({
+                  "@odata.type": "#microsoft.graph.fileAttachment",
+                  name: a.nome,
+                  contentType: a.contentType,
+                  contentId: a.contentId,
+                  contentBytes: a.base64,
+                  isInline: true,
+                })),
+              }
+            : {}),
         },
         saveToSentItems: input.salvarEnviados ?? true,
       }),

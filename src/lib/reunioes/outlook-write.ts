@@ -13,7 +13,9 @@ import {
   type GraphAttendee,
   type GraphScheduleSlot,
 } from "@/lib/graph";
-import { parsePauta, pautaParaHtmlConvite } from "@/lib/pauta";
+import { parsePauta } from "@/lib/pauta";
+import { emailConviteHtml, imagensPublicas } from "@/lib/email/templates";
+import { urlBaseApp } from "@/lib/app-url";
 import {
   mailboxDaSala,
   isSalaPresencial,
@@ -21,7 +23,6 @@ import {
   prefixosBuscaSala,
   salaNomeMatch,
 } from "@/lib/salas";
-import { formatDateTime } from "@/lib/format";
 import { datetimeLocalSpToIso } from "@/lib/datetime-br";
 import { createReuniao, updateReuniao, type ActionResult } from "@/lib/reunioes/actions";
 import {
@@ -114,15 +115,18 @@ async function montarAttendees(values: {
   return attendees;
 }
 
+/** Corpo do convite no Outlook: modelo do escritório com a pauta. */
 async function htmlPauta(
   values: {
     titulo: string;
     cliente_id: string;
     data_hora_inicio: string;
+    data_hora_fim?: string | null;
     participantes: string[];
     pauta?: unknown;
   },
-  responsavelNome: string
+  responsavelNome: string,
+  local: string | null | undefined
 ): Promise<string> {
   const supabase = await createClient();
   const { data: cliente } = await supabase
@@ -138,13 +142,18 @@ async function htmlPauta(
         .in("id", values.participantes)
     : { data: [] as { nome: string }[] };
 
-  return pautaParaHtmlConvite({
+  return emailConviteHtml({
     titulo: values.titulo,
     cliente: cliente?.grupo_cliente || cliente?.nome,
-    dataHora: formatDateTime(datetimeLocalSpToIso(values.data_hora_inicio) ?? values.data_hora_inicio),
+    inicio: datetimeLocalSpToIso(values.data_hora_inicio) ?? values.data_hora_inicio,
+    fim: datetimeLocalSpToIso(values.data_hora_fim),
+    local,
+    online: true,
     participantes: (cols ?? []).map((c) => c.nome),
-    responsavel: responsavelNome,
+    organizador: responsavelNome,
     pauta: parsePauta(values.pauta),
+    // O corpo do evento não leva anexo inline: as imagens vêm do próprio SAMA.
+    imagens: imagensPublicas(urlBaseApp()),
   });
 }
 
@@ -216,10 +225,10 @@ export async function agendarReuniaoViaB(values: unknown): Promise<ActionResult>
     sala,
   });
 
-  const bodyHtml = await htmlPauta(parsed.data, pessoa.nome);
   const localLabel = isSalaPresencial(sala)
     ? SALA_LABEL[sala as keyof typeof SALA_LABEL]
     : parsed.data.local || null;
+  const bodyHtml = await htmlPauta(parsed.data, pessoa.nome, localLabel);
   let created;
   try {
     created = await createCalendarEvent({
@@ -336,7 +345,11 @@ export async function sincronizarReuniaoNoOutlook(
       emails_cliente: parsed.data.emails_cliente,
       sala: parsed.data.sala,
     });
-    const bodyHtml = await htmlPauta(parsed.data, pessoa?.nome ?? "");
+    const bodyHtml = await htmlPauta(
+      parsed.data,
+      pessoa?.nome ?? "",
+      parsed.data.local
+    );
     const patched = await updateCalendarEvent(orgEmail, reuniao.outlook_event_id, {
       titulo: parsed.data.titulo,
       inicioLocal: parsed.data.data_hora_inicio,

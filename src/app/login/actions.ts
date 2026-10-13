@@ -12,6 +12,7 @@ import { setAlertasLoginCookie } from "@/lib/alertas-login";
 import { variantesEmailEscritorio } from "@/lib/email-escritorio";
 import { emailRecuperacaoSenha } from "@/lib/email-recuperacao-senha";
 import { outlookConfigurado, sendMail } from "@/lib/graph";
+import { urlBaseApp } from "@/lib/app-url";
 
 export type LoginState = { error?: string; redirectTo?: string };
 
@@ -22,23 +23,6 @@ const MENSAGEM_RECUPERACAO_ENVIADA =
 
 /** Pedido repetido dentro desse intervalo não manda outro e-mail. */
 const INTERVALO_RECUPERACAO_MS = 60_000;
-
-/**
- * Endereço do SAMA para o link do e-mail. Vem da configuração, nunca do pedido
- * (um cabeçalho forjado mandaria o link para outro site). Na Vercel, sem
- * NEXT_PUBLIC_APP_URL de produção, usa o domínio de produção do projeto.
- */
-function urlBaseApp(): string {
-  const configurada = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configurada && !/localhost|127\.0\.0\.1/.test(configurada)) {
-    return configurada.replace(/\/$/, "");
-  }
-  const producao = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (process.env.VERCEL_ENV === "production" && producao) return `https://${producao}`;
-  const deploy = process.env.VERCEL_URL?.trim();
-  if (deploy) return `https://${deploy}`;
-  return (configurada || "http://localhost:3000").replace(/\/$/, "");
-}
 
 export async function login(
   _prev: LoginState,

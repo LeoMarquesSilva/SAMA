@@ -3,15 +3,18 @@
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { createClient } from "@/lib/supabase/server";
 import { outlookConfigurado, sendMail } from "@/lib/graph";
-import { isEmailEscritorio } from "@/lib/email-escritorio";
-import { formatDateTime } from "@/lib/format";
 import { datetimeLocalSpToIso } from "@/lib/datetime-br";
+import { parsePauta, pautaTemConteudo, type PautaReuniao } from "@/lib/pauta";
 import {
-  parsePauta,
-  pautaParaHtmlConvite,
-  pautaTemConteudo,
-  type PautaReuniao,
-} from "@/lib/pauta";
+  assuntoAta,
+  assuntoPauta,
+  destinatariosAta,
+  emailAtaHtml,
+  emailConviteHtml,
+  imagensInline,
+  separarDestinatarios,
+} from "@/lib/email/templates";
+import { IMAGENS_INLINE } from "@/lib/email/imagens";
 
 export type EnvioPautaResult = {
   ok: boolean;
@@ -20,22 +23,26 @@ export type EnvioPautaResult = {
   enviadosPara?: string[];
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+async function nomeCliente(clienteId: string | null | undefined): Promise<string | null> {
+  if (!clienteId?.trim()) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("pessoas")
+    .select("nome, grupo_cliente")
+    .eq("ci", clienteId.trim())
+    .maybeSingle();
+  return data?.grupo_cliente || data?.nome || null;
+}
 
-/** Clientes primeiro; a equipe interna entra em cópia. */
-function separarDestinatarios(emails: string[]) {
-  const vistos = new Set<string>();
-  const para: string[] = [];
-  const cc: string[] = [];
-  for (const bruto of emails) {
-    const email = bruto.trim();
-    if (!EMAIL_RE.test(email)) continue;
-    const chave = email.toLowerCase();
-    if (vistos.has(chave)) continue;
-    vistos.add(chave);
-    (isEmailEscritorio(email) ? cc : para).push(email);
-  }
-  return { para, cc };
+function inicioIso(valor: string | null | undefined): string | null {
+  return valor?.trim() ? (datetimeLocalSpToIso(valor) ?? valor) : null;
+}
+
+function erroEnvio(err: unknown): string {
+  const msg = err instanceof Error ? err.message : "Falha ao enviar o e-mail.";
+  return /403/.test(msg)
+    ? `O Graph recusou o envio (${msg}). Confirme a permissão de aplicativo Mail.Send no registro do Azure.`
+    : msg;
 }
 
 /**
@@ -73,68 +80,45 @@ export async function enviarPautaParaCliente(input: {
   }
 
   const titulo = input.titulo?.trim() || "Reunião";
-
-  let cliente: string | null = null;
-  if (input.clienteId?.trim()) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("pessoas")
-      .select("nome, grupo_cliente")
-      .eq("ci", input.clienteId.trim())
-      .maybeSingle();
-    cliente = data?.grupo_cliente || data?.nome || null;
-  }
-
-  const iso = input.dataHoraInicio?.trim()
-    ? (datetimeLocalSpToIso(input.dataHoraInicio) ?? input.dataHoraInicio)
-    : null;
-
-  const corpoHtml = pautaParaHtmlConvite({
+  const corpoHtml = emailConviteHtml({
     titulo,
-    cliente,
-    dataHora: iso ? formatDateTime(iso) : null,
-    responsavel: pessoa.nome,
+    cliente: await nomeCliente(input.clienteId),
+    inicio: inicioIso(input.dataHoraInicio),
+    organizador: pessoa.nome,
     pauta,
+    imagens: imagensInline(),
   });
 
   try {
     await sendMail({
       remetenteEmail: pessoa.email,
-      assunto: `Pauta da reunião — ${titulo}`,
+      assunto: assuntoPauta(titulo),
       corpoHtml,
       para,
       cc,
+      anexosInline: IMAGENS_INLINE,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Falha ao enviar o e-mail.";
-    return {
-      ok: false,
-      error: /403/.test(msg)
-        ? `O Graph recusou o envio (${msg}). Confirme a permissão de aplicativo Mail.Send no registro do Azure.`
-        : msg,
-    };
+    return { ok: false, error: erroEnvio(err) };
   }
 
   return { ok: true, enviadosPara: [...para, ...cc] };
 }
 
-function escHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-/** Ata em markdown simples (negrito do Fellow) para o corpo do e-mail. */
-function ataParaHtml(texto: string): string {
-  const linhas = texto.split(/\n/).map((linha) => {
-    const segura = escHtml(linha).replace(
-      /\*\*(.+?)\*\*/g,
-      "<strong>$1</strong>"
-    );
-    return segura || "&nbsp;";
-  });
-  return linhas.join("<br/>");
+/** Nome do cliente e de quem envia, para a prévia da ata bater com o envio. */
+export async function contextoEmailAta(
+  clienteId?: string | null
+): Promise<{
+  cliente: string | null;
+  remetente: string | null;
+  remetenteEmail: string | null;
+}> {
+  const pessoa = await getPessoaAtual();
+  return {
+    cliente: await nomeCliente(clienteId),
+    remetente: pessoa?.nome ?? null,
+    remetenteEmail: pessoa?.email ?? null,
+  };
 }
 
 /**
@@ -158,54 +142,33 @@ export async function enviarAtaParaCliente(input: {
     return { ok: false, error: "A ata ainda está vazia." };
   }
 
-  const separados = separarDestinatarios(input.emails ?? []);
-  // Só gente do escritório na lista: ela vira o destinatário principal.
-  const { para, cc } =
-    separados.para.length > 0 ? separados : { para: separados.cc, cc: [] };
+  const { para, cc } = destinatariosAta(input.emails ?? []);
   if (para.length === 0) {
     return { ok: false, error: "Informe ao menos um e-mail para enviar a ata." };
   }
 
   const titulo = input.titulo?.trim() || "Reunião";
-  let cliente: string | null = null;
-  if (input.clienteId?.trim()) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("pessoas")
-      .select("nome, grupo_cliente")
-      .eq("ci", input.clienteId.trim())
-      .maybeSingle();
-    cliente = data?.grupo_cliente || data?.nome || null;
-  }
-  const iso = input.dataHoraInicio?.trim()
-    ? (datetimeLocalSpToIso(input.dataHoraInicio) ?? input.dataHoraInicio)
-    : null;
-
-  const corpoHtml = `<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1e293b">
-<h2 style="margin:0 0 12px">Ata de reunião</h2>
-<p><strong>Título:</strong> ${escHtml(titulo)}</p>
-${cliente ? `<p><strong>Cliente:</strong> ${escHtml(cliente)}</p>` : ""}
-${iso ? `<p><strong>Data/horário:</strong> ${escHtml(formatDateTime(iso))}</p>` : ""}
-<hr/>
-<div>${ataParaHtml(ata)}</div>
-</div>`;
+  const corpoHtml = emailAtaHtml({
+    titulo,
+    cliente: await nomeCliente(input.clienteId),
+    inicio: inicioIso(input.dataHoraInicio),
+    remetente: pessoa.nome,
+    remetenteEmail: pessoa.email,
+    ata,
+    imagens: imagensInline(),
+  });
 
   try {
     await sendMail({
       remetenteEmail: pessoa.email,
-      assunto: `Ata da reunião — ${titulo}`,
+      assunto: assuntoAta(titulo),
       corpoHtml,
       para,
       cc,
+      anexosInline: IMAGENS_INLINE,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Falha ao enviar o e-mail.";
-    return {
-      ok: false,
-      error: /403/.test(msg)
-        ? `O Graph recusou o envio (${msg}). Confirme a permissão de aplicativo Mail.Send no registro do Azure.`
-        : msg,
-    };
+    return { ok: false, error: erroEnvio(err) };
   }
 
   return { ok: true, enviadosPara: [...para, ...cc] };

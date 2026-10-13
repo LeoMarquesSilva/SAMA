@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -69,7 +69,14 @@ import {
 import { PautaFields } from "@/components/reunioes/PautaFields";
 import { ReunioesAnterioresPanel } from "@/components/reunioes/ReunioesAnterioresPanel";
 import { parsePauta, pautaVazia, type PautaReuniao } from "@/lib/pauta";
-import { enviarAtaParaCliente } from "@/lib/reunioes/pauta-email";
+import { contextoEmailAta, enviarAtaParaCliente } from "@/lib/reunioes/pauta-email";
+import {
+  assuntoAta,
+  destinatariosAta,
+  emailAtaHtml,
+  imagensPublicas,
+} from "@/lib/email/templates";
+import { EmailPreview } from "@/components/reunioes/EmailPreview";
 import {
   marcarPassosEnviadosVios,
   mesclarChecklists,
@@ -326,6 +333,14 @@ export function ReuniaoForm({
   const [ataAberta, setAtaAberta] = useState(false);
   const [ataRascunho, setAtaRascunho] = useState("");
   const [emailsAta, setEmailsAta] = useState<string[]>([]);
+  const [ataTitulo, setAtaTitulo] = useState("");
+  const [ataContexto, setAtaContexto] = useState<{
+    cliente: string | null;
+    remetente: string | null;
+    remetenteEmail: string | null;
+  }>({ cliente: null, remetente: null, remetenteEmail: null });
+  /** No celular, editor e prévia dividem a tela em abas. */
+  const [ataAba, setAtaAba] = useState<"editar" | "previa">("editar");
   const participantesIniciais = (src?.participantes ?? [])
     .filter((p) => p.colaborador_id)
     .map((p) => p.colaborador_id as string);
@@ -869,6 +884,13 @@ export function ReuniaoForm({
 
   function abrirAta() {
     setAtaRascunho(resultadoTexto);
+    setAtaTitulo(tituloRef.current?.value?.trim() || src?.titulo || "");
+    setAtaAba("editar");
+    void contextoEmailAta(clienteIdAtual || null)
+      .then(setAtaContexto)
+      .catch(() =>
+        setAtaContexto({ cliente: null, remetente: null, remetenteEmail: null })
+      );
     // Já traz quem participou de fora do escritório, além dos e-mails do cliente.
     const vistos = new Set<string>();
     setEmailsAta(
@@ -887,7 +909,7 @@ export function ReuniaoForm({
     setPautaMsg(undefined);
     startPautaTransition(async () => {
       const r = await enviarAtaParaCliente({
-        titulo: tituloRef.current?.value?.trim() || src?.titulo || "",
+        titulo: ataTitulo,
         clienteId: clienteIdAtual || null,
         dataHoraInicio: slotInicio || src?.data_hora_inicio || null,
         emails: emailsAta,
@@ -909,6 +931,27 @@ export function ReuniaoForm({
       }
     });
   }
+
+  const inicioAta = slotInicio || src?.data_hora_inicio || null;
+  // Mesmo template do envio; mudam só as imagens, que no e-mail vão como anexo inline.
+  const ataEmailHtml = useMemo(
+    () =>
+      ataAberta
+        ? emailAtaHtml({
+            titulo: ataTitulo,
+            cliente: ataContexto.cliente,
+            inicio: datetimeLocalSpToIso(inicioAta),
+            remetente: ataContexto.remetente,
+            remetenteEmail: ataContexto.remetenteEmail,
+            ata: ataRascunho,
+            imagens: imagensPublicas(
+              typeof window === "undefined" ? "" : window.location.origin
+            ),
+          })
+        : "",
+    [ataAberta, ataTitulo, ataContexto, inicioAta, ataRascunho]
+  );
+  const destinatariosPrevia = destinatariosAta(emailsAta);
 
   const acoesAta = (
     <Button
@@ -1489,26 +1532,80 @@ export function ReuniaoForm({
         if (!pautaEnviando) setAtaAberta(false);
       }}
       title="Enviar ata para o cliente"
-      size="lg"
+      size="2xl"
       stacked
       closeDisabled={pautaEnviando}
     >
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
           Revise o texto e os destinatários antes de enviar. Com e-mail do cliente na lista,
-          quem é do escritório vai em cópia.
+          quem é do escritório vai em cópia. A prévia mostra o e-mail como o cliente vai
+          receber.
         </p>
-        <EmailChips
-          label="E-mails do cliente"
-          value={emailsAta}
-          onChange={setEmailsAta}
-        />
-        <MarkdownTextarea
-          label="Ata"
-          value={ataRascunho}
-          onChange={setAtaRascunho}
-          rows={12}
-        />
+        <div
+          role="tablist"
+          aria-label="Ata"
+          className="flex rounded-lg bg-slate-100 p-1 text-sm font-medium lg:hidden"
+        >
+          {(
+            [
+              ["editar", "Editar"],
+              ["previa", "Prévia do e-mail"],
+            ] as const
+          ).map(([aba, rotulo]) => (
+            <button
+              key={aba}
+              type="button"
+              role="tab"
+              aria-selected={ataAba === aba}
+              onClick={() => setAtaAba(aba)}
+              className={clsx(
+                "flex-1 rounded-md px-3 py-1.5 transition",
+                ataAba === aba
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div
+            className={clsx(
+              "min-w-0 space-y-4",
+              ataAba === "previa" && "hidden lg:block"
+            )}
+          >
+            <EmailChips
+              label="E-mails do cliente"
+              value={emailsAta}
+              onChange={setEmailsAta}
+            />
+            <MarkdownTextarea
+              label="Ata"
+              value={ataRascunho}
+              onChange={setAtaRascunho}
+              rows={16}
+            />
+          </div>
+          <div
+            className={clsx(
+              "min-w-0 flex-col gap-1.5",
+              ataAba === "editar" ? "hidden lg:flex" : "flex"
+            )}
+          >
+            <p className="text-sm font-medium text-slate-700">Prévia do e-mail</p>
+            <EmailPreview
+              html={ataEmailHtml}
+              assunto={assuntoAta(ataTitulo)}
+              de={ataContexto.remetente}
+              para={destinatariosPrevia.para}
+              cc={destinatariosPrevia.cc}
+              className="h-[62vh] lg:h-[min(64vh,640px)]"
+            />
+          </div>
+        </div>
         {pautaMsg && !pautaMsg.ok && (
           <p className="text-sm text-red-600">{pautaMsg.texto}</p>
         )}
