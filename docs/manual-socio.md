@@ -270,7 +270,7 @@ Com status **Realizada**, aparecem dois campos importantes:
 
 Com status **Realizada**, a seção **Ata** mostra o texto que o Fellow coletou depois da reunião. **Buscar novamente** atualiza esse texto.
 
-**Enviar ata para cliente** fica nessa seção. O e-mail leva a ata, não a pauta. O botão só habilita quando a ata tem texto e existe ao menos um e-mail do cliente. E-mail do escritório vai em cópia.
+**Enviar ata para cliente** fica nessa seção. O e-mail leva a ata, não a pauta. O botão abre um modal para revisar o texto e os destinatários antes do envio. E-mail do escritório vai em cópia.
 
 #### Reunião criada no SAMA
 
@@ -453,7 +453,7 @@ Remarque ou cancele no **Outlook** e depois clique em **Atualizar** no Calendár
 
 1. Abra a reunião e mude o status para **Realizada**.
 2. A seção **Ata** recebe o texto do **Fellow**. Use **Buscar novamente** se ainda estiver vazia.
-3. **Enviar ata para cliente** manda a ata (não a pauta) aos e-mails do cliente. O botão só habilita com a ata preenchida e ao menos um e-mail do cliente.
+3. **Enviar ata para cliente** abre um modal para revisar a ata (não a pauta) e os e-mails do cliente antes de enviar.
 4. Preencha os **Próximos passos**.
 5. Use **Enviar para Agendamento** para transformar os passos em tarefas no VIOS (seção 7.5). O botão aparece em qualquer reunião, sem esperar o status Realizada.
 

@@ -37,12 +37,16 @@ function inlineMarkdownToHtml(text: string): string {
     .replace(/\*(.+?)\*/g, "<em>$1</em>");
 }
 
-/** Markdown simples → HTML seguro para contenteditable. */
+/**
+ * Markdown simples → HTML seguro para contenteditable. Cada `\n` vira um `<br>`;
+ * a linha vazia fica entre dois `<br>` seguidos. Gerar um `<br>` a mais por
+ * linha vazia fazia as quebras se multiplicarem a cada ida e volta.
+ */
 export function markdownToHtml(markdown: string): string {
   if (!markdown) return "";
   return normalizarMarkdown(markdown)
     .split("\n")
-    .map((line) => (line ? inlineMarkdownToHtml(line) : "<br>"))
+    .map((line) => inlineMarkdownToHtml(line))
     .join("<br>");
 }
 
@@ -62,6 +66,38 @@ function inlineNodesToMarkdown(node: Node): string {
   return Array.from(node.childNodes).map(inlineNodesToMarkdown).join("");
 }
 
+/** Blocos que o navegador cria no contenteditable (o Chrome põe um <div> a cada Enter). */
+const BLOCOS = new Set([
+  "DIV", "P", "LI", "UL", "OL", "BLOCKQUOTE", "PRE", "H1", "H2", "H3", "H4", "H5", "H6",
+]);
+
+/** Linhas de um nó: `<br>` fecha a linha e cada bloco começa outra. */
+function linhasDoNo(node: Node): string[] {
+  const lines: string[] = [];
+  let current = "";
+  let pendente = false;
+
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeName === "BR") {
+      lines.push(current);
+      current = "";
+      pendente = false;
+      continue;
+    }
+    if (BLOCOS.has(child.nodeName)) {
+      if (pendente) lines.push(current);
+      current = "";
+      pendente = false;
+      lines.push(...linhasDoNo(child));
+      continue;
+    }
+    current += inlineNodesToMarkdown(child).replace(/\u00a0/g, " ");
+    pendente = true;
+  }
+  if (pendente) lines.push(current);
+  return lines;
+}
+
 /** HTML do contenteditable → markdown simples. */
 export function htmlToMarkdown(html: string): string {
   const root = document.createElement("div");
@@ -69,20 +105,7 @@ export function htmlToMarkdown(html: string): string {
 
   if (!root.childNodes.length) return "";
 
-  const lines: string[] = [];
-  let current = "";
-
-  for (const child of root.childNodes) {
-    if (child.nodeName === "BR") {
-      lines.push(current);
-      current = "";
-      continue;
-    }
-    current += inlineNodesToMarkdown(child).replace(/\u00a0/g, " ");
-  }
-  lines.push(current);
-
-  return lines.join("\n").replace(/\n+$/, "");
+  return linhasDoNo(root).join("\n").replace(/\n+$/, "");
 }
 
 export function getCaretTextOffset(container: HTMLElement): number {

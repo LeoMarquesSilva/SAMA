@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea } from "@/components/ui/Input";
 import { EmailChips } from "@/components/ui/EmailChips";
 import { MarkdownTextarea } from "@/components/ui/MarkdownTextarea";
+import { isEmailEscritorio } from "@/lib/email-escritorio";
 import {
   OutlookDateTimeRange,
   proximoSlotLocal,
@@ -283,6 +284,11 @@ export function ReuniaoForm({
     (pessoas: { nome: string; email: string }[]) => setPessoasAgenda(pessoas),
     []
   );
+  const [emailsExternos, setEmailsExternos] = useState<string[]>([]);
+  const avisarEmailsExternos = useCallback(
+    (emails: string[]) => setEmailsExternos(emails),
+    []
+  );
   const [viosRecarregar, setViosRecarregar] = useState(0);
 
   // Situação no VIOS de cada passo enviado (atualiza sozinho enquanto há itens na fila)
@@ -308,6 +314,9 @@ export function ReuniaoForm({
     };
   }, [open, reuniao?.id, viosRecarregar]);
   const [viosAberto, setViosAberto] = useState(false);
+  const [ataAberta, setAtaAberta] = useState(false);
+  const [ataRascunho, setAtaRascunho] = useState("");
+  const [emailsAta, setEmailsAta] = useState<string[]>([]);
   const participantesIniciais = (src?.participantes ?? [])
     .filter((p) => p.colaborador_id)
     .map((p) => p.colaborador_id as string);
@@ -849,6 +858,22 @@ export function ReuniaoForm({
     });
   }
 
+  function abrirAta() {
+    setAtaRascunho(resultadoTexto);
+    // Já traz quem participou de fora do escritório, além dos e-mails do cliente.
+    const vistos = new Set<string>();
+    setEmailsAta(
+      [...emailsCliente, ...emailsExternos].filter((email) => {
+        const chave = email.trim().toLowerCase();
+        if (!chave || vistos.has(chave)) return false;
+        vistos.add(chave);
+        return true;
+      })
+    );
+    setPautaMsg(undefined);
+    setAtaAberta(true);
+  }
+
   function handleEnviarAta() {
     setPautaMsg(undefined);
     startPautaTransition(async () => {
@@ -856,8 +881,8 @@ export function ReuniaoForm({
         titulo: tituloRef.current?.value?.trim() || src?.titulo || "",
         clienteId: clienteIdAtual || null,
         dataHoraInicio: slotInicio || src?.data_hora_inicio || null,
-        emails: emailsCliente,
-        ata: resultadoTexto,
+        emails: emailsAta,
+        ata: ataRascunho,
       });
       setPautaMsg(
         r.ok
@@ -867,26 +892,22 @@ export function ReuniaoForm({
             }
           : { ok: false, texto: r.error ?? "Falha ao enviar a ata." }
       );
+      if (r.ok) {
+        setResultadoTexto(ataRascunho);
+        // Guarda só os e-mails do cliente; quem é do escritório não entra nessa lista.
+        setEmailsCliente(emailsAta.filter((email) => !isEmailEscritorio(email)));
+        setAtaAberta(false);
+      }
     });
   }
-
-  const podeEnviarAta =
-    resultadoTexto.trim().length > 0 && emailsCliente.length > 0 && !pautaEnviando;
 
   const acoesAta = (
     <Button
       type="button"
       variant="secondary"
       size="sm"
-      disabled={!podeEnviarAta}
-      onClick={handleEnviarAta}
-      title={
-        emailsCliente.length === 0
-          ? "Informe os e-mails do cliente para enviar a ata."
-          : !resultadoTexto.trim()
-            ? "A ata ainda está vazia."
-            : undefined
-      }
+      disabled={pautaEnviando}
+      onClick={abrirAta}
     >
       {pautaEnviando ? (
         <Loader2 size={14} className="animate-spin" />
@@ -1236,6 +1257,7 @@ export function ReuniaoForm({
                 defaultExternos={externosIniciais}
                 error={fieldErrors.participantes}
                 onPessoasChange={avisarPessoasAgenda}
+                onEmailsExternosChange={avisarEmailsExternos}
               />
               <EmailChips
                 label="E-mails do cliente"
@@ -1277,6 +1299,7 @@ export function ReuniaoForm({
             defaultExternos={externosIniciais}
             error={fieldErrors.participantes}
             onPessoasChange={avisarPessoasAgenda}
+            onEmailsExternosChange={avisarEmailsExternos}
           />
           {modoViaB && (
             <EmailChips
@@ -1436,6 +1459,54 @@ export function ReuniaoForm({
         return r;
       }}
     />
+    <Modal
+      open={ataAberta}
+      onClose={() => {
+        if (!pautaEnviando) setAtaAberta(false);
+      }}
+      title="Enviar ata para o cliente"
+      size="lg"
+      stacked
+      closeDisabled={pautaEnviando}
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">
+          Revise o texto e os destinatários antes de enviar. Com e-mail do cliente na lista,
+          quem é do escritório vai em cópia.
+        </p>
+        <EmailChips
+          label="E-mails do cliente"
+          value={emailsAta}
+          onChange={setEmailsAta}
+        />
+        <MarkdownTextarea
+          label="Ata"
+          value={ataRascunho}
+          onChange={setAtaRascunho}
+          rows={12}
+        />
+        {pautaMsg && !pautaMsg.ok && (
+          <p className="text-sm text-red-600">{pautaMsg.texto}</p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pautaEnviando}
+            onClick={() => setAtaAberta(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            disabled={pautaEnviando || !ataRascunho.trim() || emailsAta.length === 0}
+            onClick={handleEnviarAta}
+          >
+            {pautaEnviando ? "Enviando…" : "Enviar ata"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
     </>
   );
 }

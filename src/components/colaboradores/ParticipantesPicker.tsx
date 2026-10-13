@@ -46,6 +46,7 @@ export function ParticipantesPicker({
   externosName = "participantes_externos",
   error,
   onPessoasChange,
+  onEmailsExternosChange,
 }: {
   colaboradores: ColaboradorOpt[];
   usuarios?: UsuarioRef[];
@@ -56,6 +57,8 @@ export function ParticipantesPicker({
   error?: string;
   /** Participantes internos, para consultar a agenda no horário. */
   onPessoasChange?: (pessoas: { nome: string; email: string }[]) => void;
+  /** E-mails dos participantes de fora do escritório (cliente), para a ata. */
+  onEmailsExternosChange?: (emails: string[]) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultSelected)
@@ -117,6 +120,22 @@ export function ParticipantesPicker({
     pessoasAvisadas.current = chave;
     onPessoasChange(pessoas);
   }, [colaboradores, externos, onPessoasChange, selected, usuarioPorEmail]);
+
+  const externosAvisados = useRef("");
+  useEffect(() => {
+    if (!onEmailsExternosChange) return;
+    const emails = [
+      ...new Set(
+        externos
+          .map((e) => e.email.trim().toLowerCase())
+          .filter((email) => email && !isEmailEscritorio(email))
+      ),
+    ];
+    const chave = JSON.stringify(emails);
+    if (chave === externosAvisados.current) return;
+    externosAvisados.current = chave;
+    onEmailsExternosChange(emails);
+  }, [externos, onEmailsExternosChange]);
 
   const departamentos = useMemo(() => {
     const set = new Set<string>();

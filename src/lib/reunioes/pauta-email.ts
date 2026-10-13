@@ -158,13 +158,12 @@ export async function enviarAtaParaCliente(input: {
     return { ok: false, error: "A ata ainda está vazia." };
   }
 
-  const { para, cc } = separarDestinatarios(input.emails ?? []);
+  const separados = separarDestinatarios(input.emails ?? []);
+  // Só gente do escritório na lista: ela vira o destinatário principal.
+  const { para, cc } =
+    separados.para.length > 0 ? separados : { para: separados.cc, cc: [] };
   if (para.length === 0) {
-    return {
-      ok: false,
-      error:
-        "Informe ao menos um e-mail do cliente em “E-mails do cliente” para enviar a ata.",
-    };
+    return { ok: false, error: "Informe ao menos um e-mail para enviar a ata." };
   }
 
   const titulo = input.titulo?.trim() || "Reunião";

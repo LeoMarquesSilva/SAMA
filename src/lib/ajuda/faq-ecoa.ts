@@ -25,7 +25,7 @@ export const FAQ_ECOA: FaqItem[] = [
   {
     question: "Como envio a ata ao cliente?",
     answer:
-      "Na reunião realizada, a seção Ata mostra o texto do Fellow. Enviar ata para cliente manda esse texto. O botão só habilita com a ata preenchida e ao menos um e-mail do cliente. A pauta não é o que esse botão envia.",
+      "Na reunião realizada, a seção Ata mostra o texto do Fellow. Enviar ata para cliente abre um modal para revisar o texto e os e-mails antes de mandar. A pauta não é o que esse botão envia.",
   },
   {
     question: "Como envio próximos passos ao VIOS?",
