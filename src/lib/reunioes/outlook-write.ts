@@ -34,6 +34,7 @@ import {
   TAREFA_COMPROMISSO_REUNIAO,
   type ViosPassoEnvio,
 } from "@/lib/vios-agendamento";
+import { ETIQUETA_SAMA_ECOA_ATENDIMENTO } from "@/lib/vios-depara-etiqueta";
 import {
   enviarCasosAgendamento,
   type CasoAgendamentoVios,
@@ -403,7 +404,6 @@ export async function consultarAgendaLivre(opts: {
 }
 
 const VIOS_LIMITE_TODOS = 20;
-const ETIQUETA_ECOA_ATENDIMENTO = "SAMA - ECOA - ATENDIMENTO";
 
 /**
  * Reunião nova: um prazo no VIOS para cada participante cuja área tem pasta
@@ -494,7 +494,7 @@ function casoCompromisso(
     pastaTipo: "Atendimento" as const,
     colaboradorId,
     responsavelVios: nome,
-    etiqueta: ETIQUETA_ECOA_ATENDIMENTO,
+    etiqueta: ETIQUETA_SAMA_ECOA_ATENDIMENTO,
     textoChecklist: texto,
   };
 }

@@ -15,8 +15,8 @@ export const ETIQUETAS_VISUAIS = [
   { value: "PRAZO", label: "Prazo" },
 ] as const;
 
-/** Sempre gravada junto no VIOS: o agendamento saiu do SAMA. */
-export const ETIQUETA_PROVIDENCIA_REUNIAO = "PROVIDÊNCIA DE REUNIÃO";
+/** Etiqueta do agendamento feito pelo SAMA, no compromisso da reunião e nas tarefas. */
+export const ETIQUETA_SAMA_ECOA_ATENDIMENTO = "SAMA - ECOA - ATENDIMENTO";
 
 export type EtiquetaEscolha = (typeof ETIQUETAS_VISUAIS)[number]["value"];
 /** Etiquetas do de-para da planilha (Providência de reunião reaproveita a lista de Providência). */
@@ -350,23 +350,19 @@ export const TAREFAS_POR_ETIQUETA: Record<EtiquetaVisual, readonly string[]> = {
 };
 
 /**
- * Tipos de tarefa da etiqueta, filtrados pelo tipo de pasta e, se informado, pelos
- * tipos que o VIOS aceita na pasta (lista carregada com a pasta).
- */
-/**
  * Nome e id da etiqueta principal no select do VIOS. Prazo na tela é ENVIAR.
- * PROVIDÊNCIA DE REUNIÃO entra sempre junto, resolvida pelo nome no catálogo.
+ * SAMA - ECOA - ATENDIMENTO entra sempre junto, resolvida pelo nome no catálogo.
  */
 export function etiquetaViosDaEscolha(escolha: string): { nome: string; id: string } {
   if (escolha === "PRAZO") return { nome: "ENVIAR", id: "1" };
   return { nome: "PROVIDÊNCIA", id: "204" };
 }
 
-/** Etiquetas marcadas no VIOS: a escolhida na tela e PROVIDÊNCIA DE REUNIÃO. */
+/** Etiquetas marcadas no VIOS: a escolhida na tela e SAMA - ECOA - ATENDIMENTO. */
 export function etiquetasViosDoEnvio(escolha: string): { nome: string; id: string }[] {
   return [
     etiquetaViosDaEscolha(escolha),
-    { nome: ETIQUETA_PROVIDENCIA_REUNIAO, id: "" },
+    { nome: ETIQUETA_SAMA_ECOA_ATENDIMENTO, id: "" },
   ];
 }
 
@@ -375,7 +371,7 @@ export function tarefasDaEtiqueta(
   pastaTipo?: PastaDepara | string,
   nomesVios?: readonly string[]
 ): string[] {
-  // Providência de reunião oferece os mesmos tipos de tarefa de Providência.
+  // Qualquer escolha que não seja Prazo usa os tipos de Providência.
   const alvo: EtiquetaVisual = etiqueta === "PRAZO" ? "PRAZO" : "PROVIDENCIA";
   const pasta: PastaDepara | undefined =
     pastaTipo === "Atendimento" ? "Atendimento" : pastaTipo ? "Processo" : undefined;

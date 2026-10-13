@@ -509,8 +509,8 @@ Na tela só existem **Providência** e **Prazo**. Providência de reunião não 
 
 | O que você escolhe | O que o VIOS marca |
 |--------------------|--------------------|
-| **Providência** | PROVIDÊNCIA e PROVIDÊNCIA DE REUNIÃO |
-| **Prazo** | ENVIAR e PROVIDÊNCIA DE REUNIÃO |
+| **Providência** | PROVIDÊNCIA e SAMA - ECOA - ATENDIMENTO. Dá para incluir mais de um responsável |
+| **Prazo** | ENVIAR e SAMA - ECOA - ATENDIMENTO. Um responsável e um revisor |
 
 Prazo não vira Providência. No VIOS, a etiqueta de prazo se chama **ENVIAR**.
 
@@ -522,14 +522,14 @@ Em pasta de **processo**, o número CNJ consulta as pastas com situação **Ativ
 
 | Situação | Responsáveis no VIOS |
 |----------|----------------------|
-| Demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência**, etiqueta **Providência** | O responsável escolhido e quem estiver na lista (Lavínia e Lígia já vêm marcadas; dá para tirar ou incluir outra pessoa) |
-| Demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência**, **2. REVISAR** do fluxo | O revisor escolhido e a mesma lista |
-| Demanda **Não definida** | Só a pessoa escolhida |
+| Etiqueta **Providência**, qualquer demanda | O responsável escolhido e quem estiver na lista ao lado dele (dá para incluir ou tirar pessoas) |
+| Etiqueta **Providência**, demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência** | Igual, mas Lavínia e Lígia já vêm marcadas na lista |
 | Etiqueta **Prazo** (a tarefa ENVIAR) | Só o responsável escolhido, em qualquer demanda |
+| **2. REVISAR** do fluxo do prazo | Só o revisor escolhido |
 
-Se a pessoa escolhida já estiver na lista, o nome não se repete. Tirar todo mundo da lista manda só o responsável ou o revisor.
+Se a pessoa escolhida já estiver na lista, o nome não se repete. Tirar todo mundo da lista manda só o responsável.
 
-A demanda é a da reunião, no campo **Demanda**. Em **Não definida**, Lavínia e Lígia não entram.
+A demanda é a da reunião, no campo **Demanda**. Em **Não definida**, Lavínia e Lígia não vêm marcadas, mas dá para incluir pessoas na lista.
 
 #### Status que volta para o SAMA
 
@@ -606,7 +606,7 @@ Deixe **Agendada**. Depois que acontecer, mude para **Realizada** e preencha ata
 O cancelamento valeu. Uma resposta vazia do Outlook não significa que o convite ficou ativo.
 
 **Mandei providência de Insolvência e só foi o responsável.**  
-Confira a lista ao lado do responsável: Lavínia e Lígia vêm marcadas, mas dá para tirá-las antes do envio. Demanda em branco nem mostra essa lista. A tarefa que já foi criada no VIOS não muda sozinha.
+Confira a lista ao lado do responsável: Lavínia e Lígia vêm marcadas, mas dá para tirá-las antes do envio. Em outra demanda a lista começa vazia. A tarefa que já foi criada no VIOS não muda sozinha.
 
 **Meu colega já categorizou a mesma reunião. Preciso também?**  
 **Sim.** Cada participante classifica **o próprio** compromisso no Outlook.

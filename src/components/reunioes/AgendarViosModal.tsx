@@ -88,7 +88,7 @@ function idPorNome(opcoes: OpcaoVios[] | undefined, nome: string): string {
   return opcoes.find((o) => normalizarNome(o.nome) === alvo)?.id ?? "";
 }
 
-/** Ids e nomes que o VIOS deve marcar: a etiqueta da tela e PROVIDÊNCIA DE REUNIÃO. */
+/** Ids e nomes que o VIOS deve marcar: a etiqueta da tela e SAMA - ECOA - ATENDIMENTO. */
 function etiquetasDoPasso(opcoes: OpcaoVios[], escolha: string) {
   const lista = etiquetasViosDoEnvio(escolha);
   const ids = lista
@@ -260,11 +260,13 @@ export function AgendarViosModal({
     setLinhas((atual) =>
       atual.map((l) => {
         const coparticipantes =
-          l.coparticipantes_vios !== undefined
-            ? l.coparticipantes_vios
-            : demandaIncluiInsolvencia(demanda)
-              ? coparticipantesPadraoInsolvencia(usuarios)
-              : undefined;
+          l.grupoEtiqueta === "PRAZO"
+            ? []
+            : l.coparticipantes_vios !== undefined
+              ? l.coparticipantes_vios
+              : demandaIncluiInsolvencia(demanda)
+                ? coparticipantesPadraoInsolvencia(usuarios)
+                : undefined;
         if (l.responsavel_vios && usuarios.some((u) => u.nome === l.responsavel_vios)) {
           return coparticipantes === l.coparticipantes_vios
             ? l
@@ -401,24 +403,17 @@ export function AgendarViosModal({
           tipo: etiqueta.principal,
           tarefa: l.tarefa,
           // O robô em produção marca um id só. Os dois nomes vão em `etiqueta`
-          // (PROVIDÊNCIA ou ENVIAR, mais PROVIDÊNCIA DE REUNIÃO) para a versão
+          // (PROVIDÊNCIA ou ENVIAR, mais SAMA - ECOA - ATENDIMENTO) para a versão
           // nova selecionar as duas no VIOS.
           etiqueta_id: etiqueta.ids.split(",")[0] ?? "",
           etiqueta: etiqueta.nomes,
           responsavel_vios: juntarResponsaveis(
             l.responsavel_vios ?? "",
-            l.grupoEtiqueta === "PRAZO" || !demandaIncluiInsolvencia(demanda)
-              ? []
-              : (l.coparticipantes_vios ?? [])
+            l.grupoEtiqueta === "PRAZO" ? [] : (l.coparticipantes_vios ?? [])
           ),
-          // O VIOS cria a 2. REVISAR no fluxo. Aqui vai só quem deve ficar nela.
+          // Prazo tem um responsável e um revisor. Pessoas extras só na Providência.
           revisor_vios:
-            l.grupoEtiqueta === "PRAZO"
-              ? juntarResponsaveis(
-                  l.revisor_vios ?? "",
-                  demandaIncluiInsolvencia(demanda) ? (l.coparticipantes_vios ?? []) : []
-                )
-              : undefined,
+            l.grupoEtiqueta === "PRAZO" ? l.revisor_vios?.trim() || undefined : undefined,
         });
       }
       const r = await onEnviar(envio);
@@ -802,6 +797,7 @@ export function AgendarViosModal({
                                 const tarefas = tarefasDaEtiqueta(v, tipoPasta);
                                 patch(index, {
                                   grupoEtiqueta: v,
+                                  ...(v === "PRAZO" ? { coparticipantes_vios: [] } : {}),
                                   ...(linha.tarefa && tarefas.includes(linha.tarefa)
                                     ? {}
                                     : { tarefa: "", tarefa_id: "" }),
@@ -864,13 +860,10 @@ export function AgendarViosModal({
                               </p>
                             </div>
                           )}
-                          {demandaIncluiInsolvencia(demanda) && (
+                          {/* Mais responsáveis só na Providência, em qualquer demanda. */}
+                          {linha.grupoEtiqueta !== "PRAZO" && (
                             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                              <p className="text-xs text-slate-500">
-                                {linha.grupoEtiqueta === "PRAZO"
-                                  ? "Na revisão, junto do revisor."
-                                  : "Junto do responsável."}
-                              </p>
+                              <p className="text-xs text-slate-500">Junto do responsável.</p>
                               {(linha.coparticipantes_vios ?? []).map((nome) => (
                                 <span
                                   key={nome}
