@@ -252,8 +252,8 @@ async function comStatusTarefa(
     status_tarefa: l.ci_vios
       ? (statusPorCi.get(l.ci_vios) ||
           status_gravado ||
-          // Tarefa recém-criada ainda não entrou no espelho do VIOS: ela nasce Pendente.
-          (l.status === "concluido" ? "Pendente" : null))
+          // Tarefa recém-criada ainda não entrou no espelho do VIOS: ela nasce Aberta.
+          (l.status === "concluido" ? "Aberta" : null))
       : null,
   }));
 }
@@ -390,7 +390,8 @@ export async function alterarDataAgendamentoVios(
     .select("vios_status")
     .eq("ci", String(ci))
     .maybeSingle();
-  const statusVios = (tarefa?.vios_status ?? "").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
+  // Fora do espelho ainda = recém-criada, que nasce Aberta (mesma regra da tela).
+  const statusVios = (tarefa?.vios_status ?? "Aberta").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
   if (statusVios !== "aberta") {
     return { ok: false, error: "A data só pode ser mudada com a tarefa Aberta no VIOS." };
   }
