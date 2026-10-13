@@ -364,12 +364,37 @@ export async function alterarDataAgendamentoVios(
   const admin = createAdminClient();
   const { data: linha } = await admin
     .from("vios_agendamentos")
-    .select("id, operacao, reuniao_id, criado_por_id, tarefa")
+    .select("id, operacao, status, reuniao_id, criado_por_id, tarefa, resultado")
     .eq("id", agendamentoId)
     .maybeSingle();
   if (!linha || linha.operacao !== "criar") return { ok: false, error: "Agendamento não encontrado." };
   if (ehCompromissoDeReuniao(linha.tarefa)) {
     return { ok: false, error: "O compromisso segue a data da reunião: mude a data da reunião." };
+  }
+
+  // Só depois de criada no VIOS, com a tarefa Aberta e sem outra mudança a caminho.
+  const ci = (linha.resultado as { ci_vios?: string | number | null } | null)?.ci_vios;
+  if (linha.status !== "concluido" || ci == null || ci === "") {
+    return { ok: false, error: "A data só pode ser mudada depois que a tarefa estiver criada no VIOS." };
+  }
+  const { data: tarefa } = await admin
+    .from("vios_tarefas")
+    .select("vios_status")
+    .eq("ci", String(ci))
+    .maybeSingle();
+  const statusVios = (tarefa?.vios_status ?? "").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
+  if (statusVios !== "aberta") {
+    return { ok: false, error: "A data só pode ser mudada com a tarefa Aberta no VIOS." };
+  }
+  const { data: andamento } = await admin
+    .from("vios_agendamentos")
+    .select("id")
+    .eq("origem_id", linha.id)
+    .eq("operacao", "prorrogar")
+    .in("status", ["pendente", "enviado", "processando"])
+    .limit(1);
+  if (andamento?.length) {
+    return { ok: false, error: "Já há uma mudança de data indo para o VIOS. Aguarde terminar." };
   }
 
   if (!pessoa.is_admin && linha.criado_por_id !== pessoa.id) {

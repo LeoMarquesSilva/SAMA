@@ -50,6 +50,11 @@ function tomStatusTarefa(status: string): "green" | "amber" | "red" | "gray" {
   return "gray";
 }
 
+/** Status "Aberta" da tarefa no VIOS (único em que a data pode ser mudada pelo SAMA). */
+function tarefaAberta(status: string | null | undefined): boolean {
+  return (status ?? "").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase() === "aberta";
+}
+
 function brParaIso(br: string): string {
   const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
@@ -100,7 +105,16 @@ function DataVios({
   const [iso, setIso] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string>();
-  const podeMudar = Boolean(onAlterado) && !ehCompromissoDeReuniao(a.tarefa) && a.status !== "erro";
+  // Só depois de criada no VIOS (com CI), com a tarefa Aberta e sem outra
+  // mudança de data a caminho. Na fila de envio, não.
+  const prorrogando = a.prorrogacao != null && a.prorrogacao.status !== "concluido" && a.prorrogacao.status !== "erro";
+  const podeMudar =
+    Boolean(onAlterado) &&
+    !ehCompromissoDeReuniao(a.tarefa) &&
+    a.status === "concluido" &&
+    Boolean(a.ci_vios) &&
+    tarefaAberta(a.status_tarefa) &&
+    !prorrogando;
 
   async function salvar() {
     const br = isoParaBr(iso);
