@@ -202,6 +202,11 @@ export type AgendamentoViosStatus = {
     data: string;
     erro: string | null;
   } | null;
+  /** Cancelamento pedido ao VIOS (reunião cancelada no SAMA). */
+  cancelamento: {
+    status: AgendamentoViosStatus["status"];
+    erro: string | null;
+  } | null;
 };
 
 type AgendamentoViosRow = {
@@ -255,10 +260,12 @@ async function comStatusTarefa(
 
 function linhaAgendamento(
   r: AgendamentoViosRow,
-  prorrogacoes: AgendamentoViosRow[]
+  alteracoes: AgendamentoViosRow[]
 ): Omit<AgendamentoViosStatus, "status_tarefa"> & { status_gravado: string | null } {
   const res = r.resultado ?? {};
   // Mais recente primeiro (a lista vem por criado_em desc).
+  const prorrogacoes = alteracoes.filter((a) => a.operacao === "prorrogar");
+  const cancelamento = alteracoes.find((a) => a.operacao === "cancelar") ?? null;
   const ultima = prorrogacoes[0] ?? null;
   const vigente = prorrogacoes.find((p) => p.status !== "erro") ?? null;
   return {
@@ -274,6 +281,7 @@ function linhaAgendamento(
     prorrogacao: ultima
       ? { status: ultima.status, data: ultima.data, erro: ultima.erro }
       : null,
+    cancelamento: cancelamento ? { status: cancelamento.status, erro: cancelamento.erro } : null,
     pasta: r.pasta,
     ci_vios: res.ci_vios != null ? String(res.ci_vios) : null,
     status_gravado: res.vios_status?.trim() || null,
@@ -325,18 +333,18 @@ export async function listarAgendamentosViosPorReunioes(
     bruto.push(...((data ?? []) as AgendamentoViosRow[]));
   }
 
-  // Prorrogações não são tarefas novas: entram como data atual da criação.
-  const prorrogacoesPorOrigem = new Map<string, AgendamentoViosRow[]>();
+  // Prorrogação e cancelamento não são tarefas novas: entram na linha da criação.
+  const alteracoesPorOrigem = new Map<string, AgendamentoViosRow[]>();
   for (const row of bruto) {
-    if (row.operacao !== "prorrogar" || !row.origem_id) continue;
-    const lista = prorrogacoesPorOrigem.get(row.origem_id) ?? [];
+    if (row.operacao === "criar" || !row.origem_id) continue;
+    const lista = alteracoesPorOrigem.get(row.origem_id) ?? [];
     lista.push(row);
-    prorrogacoesPorOrigem.set(row.origem_id, lista);
+    alteracoesPorOrigem.set(row.origem_id, lista);
   }
-  const criacoes = bruto.filter((row) => row.operacao !== "prorrogar");
+  const criacoes = bruto.filter((row) => row.operacao === "criar");
 
   const completos = await comStatusTarefa(
-    criacoes.map((row) => linhaAgendamento(row, prorrogacoesPorOrigem.get(row.id) ?? []))
+    criacoes.map((row) => linhaAgendamento(row, alteracoesPorOrigem.get(row.id) ?? []))
   );
   const mapa: Record<string, AgendamentoViosStatus[]> = {};
   criacoes.forEach((row, index) => {

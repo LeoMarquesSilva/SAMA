@@ -90,6 +90,29 @@ function ProrrogacaoVios({ a }: { a: AgendamentoViosStatus }) {
   ) : null;
 }
 
+/** Cancelamento do compromisso no VIOS (reunião cancelada no SAMA). */
+function CancelamentoVios({ a }: { a: AgendamentoViosStatus }) {
+  const c = a.cancelamento;
+  if (!c) return null;
+  if (c.status === "erro") {
+    return (
+      <span className="inline-flex items-center gap-1 text-red-700" title={c.erro ?? undefined}>
+        <AlertTriangle size={13} />
+        Não foi cancelada no VIOS{c.erro ? `: ${c.erro.slice(0, 120)}` : ""}
+      </span>
+    );
+  }
+  if (c.status !== "concluido") {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-700">
+        <Loader2 size={13} className="animate-spin" />
+        Cancelando no VIOS…
+      </span>
+    );
+  }
+  return <span className="font-medium text-red-700">Cancelada no VIOS</span>;
+}
+
 /**
  * Data do agendamento. Num próximo passo enviado, dá para mudar aqui: o SAMA
  * pede sozinho ao robô para prorrogar a tarefa no VIOS.
@@ -114,7 +137,8 @@ function DataVios({
     a.status === "concluido" &&
     Boolean(a.ci_vios) &&
     tarefaAberta(a.status_tarefa) &&
-    !prorrogando;
+    !prorrogando &&
+    !(a.cancelamento && a.cancelamento.status !== "erro");
 
   async function salvar() {
     const br = isoParaBr(iso);
@@ -213,6 +237,7 @@ function DetalheVios({
         </span>
       )}
       {a.data && <DataVios a={a} onAlterado={onAlterado} />}
+      <CancelamentoVios a={a} />
     </>
   );
 }

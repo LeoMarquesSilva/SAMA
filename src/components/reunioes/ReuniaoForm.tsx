@@ -304,7 +304,14 @@ export function ReuniaoForm({
       if (!vivo) return;
       setAgendamentosVios(lista);
       const emAndamento = (s: string | undefined) => s !== undefined && s !== "concluido" && s !== "erro";
-      if (lista.some((a) => emAndamento(a.status) || emAndamento(a.prorrogacao?.status))) {
+      if (
+        lista.some(
+          (a) =>
+            emAndamento(a.status) ||
+            emAndamento(a.prorrogacao?.status) ||
+            emAndamento(a.cancelamento?.status)
+        )
+      ) {
         timer = setTimeout(carregar, 15_000);
       }
     };

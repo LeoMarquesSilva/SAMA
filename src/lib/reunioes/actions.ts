@@ -24,6 +24,7 @@ import {
 } from "@/lib/fellow-assignees";
 import { proximosPassosUnificados } from "@/lib/reuniao-todos";
 import { compactChecklist, parseChecklist } from "@/lib/proximos-passos-checklist";
+import { cancelarCompromissosDaReuniao } from "@/lib/vios-cancelamento";
 import { prorrogarCompromissosDaReuniao } from "@/lib/vios-prorrogacao";
 
 export type ActionResult = {
@@ -307,12 +308,17 @@ export async function updateReuniao(
   );
   if (partErr) return { ok: false, error: partErr };
 
-  // Data da reunião mudou depois do agendamento: o robô muda a data dos
-  // compromissos no VIOS. Falha aqui não desfaz o que foi salvo.
+  // Depois do agendamento, o robô leva ao VIOS o que mudou nos compromissos
+  // (REUNIÃO / ATENDIMENTO AO CLIENTE): reunião cancelada cancela; data nova
+  // prorroga. Falha aqui não desfaz o que foi salvo.
   try {
-    await prorrogarCompromissosDaReuniao(id, parsed.data.data_hora_inicio, pessoa.id);
+    if (parsed.data.status === "CANCELADA") {
+      await cancelarCompromissosDaReuniao(id, pessoa.id);
+    } else {
+      await prorrogarCompromissosDaReuniao(id, parsed.data.data_hora_inicio, pessoa.id);
+    }
   } catch (err) {
-    console.error("[updateReuniao] prorrogar compromissos:", err);
+    console.error("[updateReuniao] alterar compromissos no VIOS:", err);
   }
 
   revalidateReunioes();

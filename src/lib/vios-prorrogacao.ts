@@ -58,6 +58,14 @@ export async function pedirProrrogacaoVios(
   if (origem.status === "erro") {
     return { ok: false, error: "A criação desta tarefa no VIOS falhou; não há data para prorrogar." };
   }
+  const { data: cancelada } = await admin
+    .from("vios_agendamentos")
+    .select("id")
+    .eq("origem_id", origem.id)
+    .eq("operacao", "cancelar")
+    .neq("status", "erro")
+    .limit(1);
+  if (cancelada?.length) return { ok: false, error: "Esta tarefa foi cancelada no VIOS." };
 
   // O robô ainda não pegou a criação: basta criar já com a data nova.
   if (origem.status === "pendente") {
