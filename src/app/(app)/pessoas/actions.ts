@@ -43,6 +43,25 @@ async function findAuthUserByEmail(
   return null;
 }
 
+/** Deixa o e-mail do login igual ao do cadastro. Devolve a mensagem de erro, se houver. */
+async function alinharEmailLogin(authUserId: string, email: string): Promise<string | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return "SUPABASE_SERVICE_ROLE_KEY não configurada no .env.local — necessária para atualizar o e-mail do login.";
+  }
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.getUserById(authUserId);
+  if (error || !data.user) {
+    return `Erro ao ler o login: ${error?.message ?? "não encontrado"}`;
+  }
+  if (data.user.email?.toLowerCase() === email.toLowerCase()) return null;
+
+  const { error: updateError } = await admin.auth.admin.updateUserById(authUserId, {
+    email,
+    email_confirm: true,
+  });
+  return updateError ? `Erro ao atualizar o e-mail do login: ${updateError.message}` : null;
+}
+
 export async function createPessoa(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const parsed = parse(formData);
@@ -86,6 +105,12 @@ export async function updatePessoa(
   }
 
   const supabase = await createClient();
+  const { data: atual } = await supabase
+    .from("usuarios")
+    .select("email, auth_user_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("usuarios")
     .update({
@@ -106,6 +131,16 @@ export async function updatePessoa(
           ? "Já existe uma pessoa com este e-mail."
           : "Erro ao atualizar pessoa.",
     };
+  }
+
+  // O login guarda o próprio e-mail: sem acompanhar o cadastro, a pessoa
+  // passa a não conseguir entrar com o e-mail que aparece no SAMA.
+  if (atual?.auth_user_id) {
+    const erroLogin = await alinharEmailLogin(atual.auth_user_id, parsed.data.email);
+    if (erroLogin) {
+      await supabase.from("usuarios").update({ email: atual.email }).eq("id", id);
+      return { ok: false, error: erroLogin };
+    }
   }
 
   revalidatePath("/pessoas");

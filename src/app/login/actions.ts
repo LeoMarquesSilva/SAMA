@@ -52,7 +52,14 @@ export async function login(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  // O login pode ter sido criado no outro domínio do escritório (bpplaw ↔
+  // bismarchipires): se o digitado não bater, tenta a variante.
+  const [digitado, ...outrosDominios] = variantesEmailEscritorio(email);
+  let { error } = await supabase.auth.signInWithPassword({ email: digitado, password });
+  for (const variante of outrosDominios) {
+    if (error?.code !== "invalid_credentials") break;
+    ({ error } = await supabase.auth.signInWithPassword({ email: variante, password }));
+  }
 
   if (error) {
     return { error: "Credenciais inválidas. Verifique e-mail e senha." };
