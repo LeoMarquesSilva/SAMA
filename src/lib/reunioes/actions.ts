@@ -313,7 +313,7 @@ export async function updateReuniao(
   // prorroga. Falha aqui não desfaz o que foi salvo.
   try {
     if (parsed.data.status === "CANCELADA") {
-      await cancelarCompromissosDaReuniao(id, pessoa.id);
+      await cancelarCompromissosDaReuniao(id, pessoa.id, parsed.data.motivo_cancelamento ?? null);
     } else {
       await prorrogarCompromissosDaReuniao(id, parsed.data.data_hora_inicio, pessoa.id);
     }

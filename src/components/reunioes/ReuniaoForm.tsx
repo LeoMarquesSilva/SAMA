@@ -46,6 +46,7 @@ import type { ClienteBusca } from "@/app/(app)/clientes/actions";
 import type { ReuniaoComRelacoes } from "@/types/database";
 import { labelGrupoCliente } from "@/lib/clientes";
 import {
+  AlertTriangle,
   CalendarClock,
   FileText,
   Loader2,
@@ -1219,6 +1220,20 @@ export function ReuniaoForm({
                 error={fieldErrors.local}
                 required
               />
+            </div>
+          )}
+          {status === "CANCELADA" && editing && origemSama && src?.status !== "CANCELADA" && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 sm:col-span-2 lg:col-span-4">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+              <div className="space-y-1">
+                <p className="font-semibold">O cancelamento não pode ser desfeito.</p>
+                <p className="leading-snug">
+                  Ao confirmar, o convite é cancelado no Outlook de todos os participantes e o
+                  compromisso de atendimento é cancelado no VIOS, na agenda de cada responsável, com
+                  o motivo abaixo. Reabrir a reunião depois não refaz o convite nem as tarefas no
+                  VIOS. Para remarcar, agende uma reunião nova.
+                </p>
+              </div>
             </div>
           )}
           {status === "CANCELADA" && (

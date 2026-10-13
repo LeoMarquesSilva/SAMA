@@ -19,10 +19,15 @@ function normalizar(s: string | null | undefined): string {
   return (s ?? "").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
 }
 
-/** Pede ao robô para cancelar no VIOS a tarefa criada pela linha `origemId`. */
+/**
+ * Pede ao robô para cancelar no VIOS a tarefa criada pela linha `origemId`.
+ * O motivo do cancelamento da reunião vai no campo Motivo do VIOS; na linha
+ * da fila ele fica em `observacao`.
+ */
 export async function pedirCancelamentoVios(
   origemId: string,
-  criadoPorId: string | null
+  criadoPorId: string | null,
+  motivo: string | null = null
 ): Promise<ResultadoCancelamento> {
   const admin = createAdminClient();
   const { data: origem, error } = await admin
@@ -83,7 +88,7 @@ export async function pedirCancelamentoVios(
     criado_por_id: criadoPorId,
     tipo: origem.tipo,
     tarefa: origem.tarefa,
-    observacao: origem.observacao,
+    observacao: (motivo ?? "").trim().slice(0, 2000),
     pasta: origem.pasta,
     pasta_tipo: origem.pasta_tipo,
     responsavel: origem.responsavel,
@@ -108,7 +113,8 @@ export async function pedirCancelamentoVios(
  */
 export async function cancelarCompromissosDaReuniao(
   reuniaoId: string,
-  criadoPorId: string | null
+  criadoPorId: string | null,
+  motivo: string | null = null
 ): Promise<void> {
   const admin = createAdminClient();
   const { data: compromissos } = await admin
@@ -119,7 +125,7 @@ export async function cancelarCompromissosDaReuniao(
     .eq("tarefa", TAREFA_COMPROMISSO_REUNIAO)
     .neq("status", "erro");
   for (const c of compromissos ?? []) {
-    const r = await pedirCancelamentoVios(c.id, criadoPorId);
+    const r = await pedirCancelamentoVios(c.id, criadoPorId, motivo);
     if (!r.ok) console.error(`[cancelar] compromisso ${c.id}:`, r.error);
   }
 }
