@@ -611,7 +611,7 @@ O cancelamento valeu. Uma resposta vazia do Outlook não significa que o convite
 Confira a lista ao lado do responsável: Lavínia e Lígia vêm marcadas, mas dá para tirá-las antes do envio. Em outra demanda a lista começa vazia. A tarefa que já foi criada no VIOS não muda sozinha.
 
 **Meu colega já categorizou a mesma reunião. Preciso também?**  
-**Não.** Quando um interno classifica, a reunião entra classificada na agenda dos outros internos do compromisso, com o mesmo tipo e cliente. A **demanda** é de cada um: abra a sua e preencha se precisar. Mudar o tipo depois muda para todos. Quem ignorou o evento continua com ele ignorado.
+**Sim.** Cada participante classifica **o próprio** compromisso, e o **tipo** é de cada um. A **demanda** é compartilhada: se você deixar em branco, entra a que o colega já escolheu. Se escolher ou mudar a demanda, ela muda também na reunião dos outros internos do compromisso.
 
 **O número no Calendário não some.**  
 Ainda há itens pendentes seus. Filtre por **Não categorizados**.

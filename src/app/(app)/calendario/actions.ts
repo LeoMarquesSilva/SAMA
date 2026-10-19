@@ -12,10 +12,7 @@ import {
   eventosNovosOuAlterados,
   removerEventosOrfaosOutlook,
 } from "@/lib/outlook-sync-cleanup";
-import {
-  classificarNovosPelasCopias,
-  compartilharTipoDaReuniao,
-} from "@/lib/reunioes/tipo-compartilhado";
+import { compartilharDemandaDaReuniao } from "@/lib/reunioes/demanda-compartilhada";
 
 export type ActionResult = { ok: boolean; error?: string };
 export type SyncResult = {
@@ -126,19 +123,6 @@ async function syncPessoaInterna(
           onConflict: "pessoa_id,outlook_event_id",
         });
         if (error) throw new Error(error.message);
-      }
-
-      // Compromisso novo que outro interno já classificou entra classificado.
-      const jaNoBanco = new Set((noBanco ?? []).map((r) => r.outlook_event_id));
-      const novosIds = alterados
-        .map((r) => r.outlook_event_id)
-        .filter((id) => !jaNoBanco.has(id));
-      if (admin && novosIds.length > 0) {
-        try {
-          await classificarNovosPelasCopias(admin, p.id, novosIds);
-        } catch (err) {
-          console.error("[sync] classificar pelas cópias:", err);
-        }
       }
     }
 
@@ -650,11 +634,11 @@ export async function vincularCategorizado(
   }
 
   if (tipo === "REUNIAO") {
-    // A classificação vale para a agenda dos outros internos do compromisso.
+    // A demanda é a mesma para os internos do compromisso; o tipo é de cada um.
     try {
-      await compartilharTipoDaReuniao(admin, registroId, { classificarPendentes: true });
+      await compartilharDemandaDaReuniao(admin, registroId, { aoClassificar: true });
     } catch (err) {
-      console.error("[vincularCategorizado] compartilhar tipo:", err);
+      console.error("[vincularCategorizado] compartilhar demanda:", err);
     }
   }
 

@@ -26,7 +26,7 @@ import { proximosPassosUnificados } from "@/lib/reuniao-todos";
 import { compactChecklist, parseChecklist } from "@/lib/proximos-passos-checklist";
 import { cancelarCompromissosDaReuniao } from "@/lib/vios-cancelamento";
 import { prorrogarCompromissosDaReuniao } from "@/lib/vios-prorrogacao";
-import { compartilharTipoDaReuniao } from "@/lib/reunioes/tipo-compartilhado";
+import { compartilharDemandaDaReuniao } from "@/lib/reunioes/demanda-compartilhada";
 
 export type ActionResult = {
   ok: boolean;
@@ -285,7 +285,7 @@ export async function updateReuniao(
 
   const { data: antes } = await adminOrErr
     .from("reunioes")
-    .select("tipo")
+    .select("demanda")
     .eq("id", id)
     .maybeSingle();
 
@@ -296,12 +296,12 @@ export async function updateReuniao(
 
   if (error) return { ok: false, error: mapReuniaoDbError(error) };
 
-  // O tipo é o mesmo na agenda de todos os internos do compromisso.
-  if (antes && antes.tipo !== parsed.data.tipo) {
+  // A demanda é a mesma na agenda de todos os internos do compromisso.
+  if (antes && (antes.demanda ?? null) !== (parsed.data.demanda || null)) {
     try {
-      await compartilharTipoDaReuniao(adminOrErr, id, { classificarPendentes: false });
+      await compartilharDemandaDaReuniao(adminOrErr, id, { aoClassificar: false });
     } catch (err) {
-      console.error("[updateReuniao] compartilhar tipo:", err);
+      console.error("[updateReuniao] compartilhar demanda:", err);
     }
   }
 
