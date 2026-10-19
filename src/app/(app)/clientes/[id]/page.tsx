@@ -60,7 +60,9 @@ export default async function ClienteDetalhePage({
   const reunioes = (reunioesRaw as ReuniaoComRelacoes[]) ?? [];
 
   const realizadas = reunioes.filter((r) => r.status === "REALIZADA").length;
-  const agendadas = reunioes.filter((r) => r.status === "AGENDADA");
+  const agendadas = reunioes.filter(
+    (r) => r.status === "AGENDADA" || r.status === "REAGENDADA"
+  );
   const agora = Date.now();
   const proxima = agendadas
     .filter((r) => new Date(r.data_hora_inicio).getTime() >= agora)

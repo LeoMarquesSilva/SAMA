@@ -308,20 +308,56 @@ export async function sincronizarReuniaoNoOutlook(
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
 
-  const updated = await updateReuniao(reuniaoId, parsed.data);
-  if (!updated.ok) return updated;
-
   const supabase = await createClient();
   const { data: reuniao } = await supabase
     .from("reunioes")
-    .select("outlook_event_id, origem, criado_por_id, status, motivo_cancelamento")
+    .select("outlook_event_id, origem, criado_por_id")
     .eq("id", reuniaoId)
     .maybeSingle();
 
-  if (!reuniao?.outlook_event_id || reuniao.origem !== "SAMA") {
-    return updated;
+  const cancelando = parsed.data.status === "CANCELADA";
+  const noOutlook = Boolean(
+    reuniao?.outlook_event_id && reuniao.origem === "SAMA" && outlookConfigurado()
+  );
+
+  // Sala presencial nova (reagendamento) precisa da mailbox para ser reservada.
+  const sala = parsed.data.sala;
+  if (noOutlook && !cancelando && isSalaPresencial(sala) && !(await resolverMailboxSala(sala))) {
+    return {
+      ok: false,
+      error: `Mailbox da sala não configurada (${sala}). Defina SAMA_SALA_*_EMAIL no ambiente.`,
+    };
   }
-  if (!outlookConfigurado()) return updated;
+  const local = isSalaPresencial(sala)
+    ? SALA_LABEL[sala as keyof typeof SALA_LABEL]
+    : parsed.data.local || null;
+
+  const internosAntes = await colaboradoresDaReuniao(reuniaoId);
+  const updated = await updateReuniao(reuniaoId, { ...parsed.data, local: local ?? "" });
+  if (!updated.ok) return updated;
+
+  if (parsed.data.status === "AGENDADA" || parsed.data.status === "REAGENDADA") {
+    // Quem entrou depois do agendamento recebe o compromisso no VIOS, como os demais.
+    const novos = new Set(
+      [...(await colaboradoresDaReuniao(reuniaoId))].filter((id) => !internosAntes.has(id))
+    );
+    if (novos.size > 0) {
+      try {
+        const pessoa = await getPessoaAtual();
+        await enfileirarCompromissosDaReuniao(
+          reuniaoId,
+          pessoa?.id ?? reuniao?.criado_por_id ?? "",
+          parsed.data.titulo,
+          parsed.data.data_hora_inicio,
+          novos
+        );
+      } catch (err) {
+        console.error("[sincronizarReuniaoNoOutlook] compromisso dos novos participantes:", err);
+      }
+    }
+  }
+
+  if (!noOutlook || !reuniao?.outlook_event_id) return updated;
 
   const orgEmail = reuniao.criado_por_id
     ? await emailDoUsuario(reuniao.criado_por_id)
@@ -329,7 +365,7 @@ export async function sincronizarReuniaoNoOutlook(
   if (!orgEmail) return updated;
 
   try {
-    if (parsed.data.status === "CANCELADA") {
+    if (cancelando) {
       await cancelCalendarEvent(
         orgEmail,
         reuniao.outlook_event_id,
@@ -343,24 +379,37 @@ export async function sincronizarReuniaoNoOutlook(
       participantes: parsed.data.participantes ?? [],
       participantes_externos: parsed.data.participantes_externos ?? [],
       emails_cliente: parsed.data.emails_cliente,
-      sala: parsed.data.sala,
+      sala,
     });
-    const bodyHtml = await htmlPauta(
-      parsed.data,
-      pessoa?.nome ?? "",
-      parsed.data.local
-    );
+    const bodyHtml = await htmlPauta(parsed.data, pessoa?.nome ?? "", local);
     const patched = await updateCalendarEvent(orgEmail, reuniao.outlook_event_id, {
       titulo: parsed.data.titulo,
       inicioLocal: parsed.data.data_hora_inicio,
       fimLocal: parsed.data.data_hora_fim,
       bodyHtml,
       attendees,
-      location: parsed.data.local,
+      location: local,
       isOnlineMeeting: true,
     });
+
+    // A agenda do organizador já mostra o horário novo. Sem isso, o próximo
+    // sync devolveria o horário antigo do evento para a reunião.
+    const admin = createAdminClient();
+    const inicio = datetimeLocalSpToIso(parsed.data.data_hora_inicio);
+    const fim = datetimeLocalSpToIso(parsed.data.data_hora_fim);
+    if (inicio) {
+      await admin
+        .from("outlook_eventos")
+        .update({
+          titulo: parsed.data.titulo,
+          inicio,
+          fim,
+          duracao_minutos: parsed.data.duracao_minutos,
+          local,
+        })
+        .eq("reuniao_id", reuniaoId);
+    }
     if (patched.joinUrl) {
-      const admin = createAdminClient();
       await admin
         .from("reunioes")
         .update({ link_online: patched.joinUrl })
@@ -418,16 +467,36 @@ export async function consultarAgendaLivre(opts: {
 
 const VIOS_LIMITE_TODOS = 20;
 
+/** Colaboradores internos (organizador incluído) gravados na reunião. */
+async function colaboradoresDaReuniao(reuniaoId: string): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("reuniao_participantes")
+    .select("colaborador_id")
+    .eq("reuniao_id", reuniaoId)
+    .not("colaborador_id", "is", null);
+  return new Set((data ?? []).map((p) => p.colaborador_id as string));
+}
+
+function chaveCompromisso(responsavel: string | null | undefined, pasta: string | null | undefined) {
+  return `${(responsavel ?? "").trim().toLowerCase()}|${(pasta ?? "").replace(/\D/g, "")}`;
+}
+
 /**
  * Reunião nova: um prazo no VIOS para cada participante cuja área tem pasta
  * de atendimento em Configurações. Quem agenda também recebe, na pasta da
  * própria área ou, se ela estiver em branco, na pasta de quem participa.
+ *
+ * Com `somenteNovos`, só entram esses colaboradores (pessoas incluídas depois do
+ * agendamento) e o organizador nas pastas que eles trouxeram, sem repetir
+ * compromisso que já está na fila.
  */
 async function enfileirarCompromissosDaReuniao(
   reuniaoId: string,
   criadoPorId: string,
   titulo: string,
-  inicioLocal: string
+  inicioLocal: string,
+  somenteNovos?: Set<string>
 ): Promise<void> {
   const data = dataFatalBr(inicioLocal);
   if (!data) return;
@@ -486,8 +555,31 @@ async function enfileirarCompromissosDaReuniao(
     }
   }
 
-  if (casos.length === 0) return;
-  await enfileirarCasosVios(reuniaoId, criadoPorId, casos);
+  let fila = casos;
+  if (somenteNovos) {
+    const pastasNovas = new Set(
+      casos.filter((c) => somenteNovos.has(c.colaboradorId)).map((c) => c.pasta)
+    );
+    const { data: jaNaFila } = await admin
+      .from("vios_agendamentos")
+      .select("responsavel, pasta")
+      .eq("reuniao_id", reuniaoId)
+      .eq("operacao", "criar")
+      .eq("tarefa", TAREFA_COMPROMISSO_REUNIAO)
+      .neq("status", "erro");
+    const existentes = new Set(
+      (jaNaFila ?? []).map((r) => chaveCompromisso(r.responsavel, r.pasta))
+    );
+    fila = casos.filter(
+      (c) =>
+        (somenteNovos.has(c.colaboradorId) ||
+          (c.colaboradorId === organizadorId && pastasNovas.has(c.pasta))) &&
+        !existentes.has(chaveCompromisso(c.responsavelVios, c.pasta))
+    );
+  }
+
+  if (fila.length === 0) return;
+  await enfileirarCasosVios(reuniaoId, criadoPorId, fila);
 }
 
 function casoCompromisso(

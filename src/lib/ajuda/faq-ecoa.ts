@@ -43,6 +43,11 @@ export const FAQ_ECOA: FaqItem[] = [
       "Abra a reunião Agendada ou Reagendada criada pelo SAMA e use Cancelar reunião. Informe o motivo e confirme. O convite também é cancelado no Outlook.",
   },
   {
+    question: "Como mudo a data ou incluo alguém numa reunião que já agendei?",
+    answer:
+      "Abra a reunião Agendada ou Reagendada criada pelo SAMA. Reagendar libera data, horário e sala: confirme e o convite muda no Outlook de todos, e a data do compromisso de atendimento muda no VIOS. Adicionar pessoas abre a busca de participantes: ao salvar, quem entrou recebe o convite e, se a área tiver pasta de atendimento, o compromisso no VIOS.",
+  },
+  {
     question: "O piloto Ômega / Reestruturação já vale para as outras áreas?",
     answer:
       "Não. Até 30/09 o piloto é só Reestruturação (via A, via B, sala e cliente Ômega). As demais áreas entram depois.",

@@ -55,6 +55,7 @@ import {
   Send,
   Tags,
   Undo2,
+  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -118,16 +119,19 @@ function Secao({
   children,
   destaque,
   acoes,
+  id,
 }: {
   icon: LucideIcon;
   titulo: string;
   children: React.ReactNode;
   destaque?: string;
   acoes?: React.ReactNode;
+  id?: string;
 }) {
   return (
     <section
-      className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+      id={id}
+      className="scroll-mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
       data-onboarding={destaque}
     >
       <h3 className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-800">
@@ -259,6 +263,10 @@ export function ReuniaoForm({
     src?.modalidade ?? "PRESENCIAL_ESCRITORIO"
   );
   const [status, setStatus] = useState(src?.status ?? "AGENDADA");
+  /** Reagendar: libera data, horário e sala e leva o novo horário ao Outlook e ao VIOS. */
+  const [reagendando, setReagendando] = useState(false);
+  /** Cada clique em "Adicionar pessoas" abre a busca de participantes. */
+  const [abrirParticipantes, setAbrirParticipantes] = useState(0);
   const [tipo, setTipo] = useState<string>(src?.tipo ?? tipoReuniaoPadrao(tipos));
   const [demanda, setDemanda] = useState<DemandaReuniao | "">(src?.demanda ?? "");
   const [ataRestrita, setAtaRestrita] = useState(Boolean(src?.ata_restrita));
@@ -445,7 +453,14 @@ export function ReuniaoForm({
     if (!open) return;
     clienteManualRef.current = false;
     setClienteSugerido(false);
+    setReagendando(false);
   }, [open, prefillKey, reuniao?.id]);
+
+  // O ClienteSelect troca a seleção pelo prefill sem chamar onClienteChange: o
+  // cliente do histórico e do e-mail da ata acompanha o que aparece no campo.
+  useEffect(() => {
+    setClienteIdAtual(clientePrefill?.ci ?? "");
+  }, [clientePrefill?.ci]);
 
   function aplicarEmailsDoGrupo(grupo: string | null | undefined, lista: string[]) {
     const autoAntes = new Set(emailsAutoRef.current.map((e) => e.toLowerCase()));
@@ -484,25 +499,32 @@ export function ReuniaoForm({
     preencherEmailsDoGrupo(c.grupo_cliente);
   }
 
+  /** Sem cliente identificado: tipo interno usa o grupo do escritório, os demais ficam vazios. */
+  function semClienteIdentificado() {
+    if (tipoUsaGrupoInterno(tipo, tipos) && !agendarNovo) {
+      aplicarClienteGestaoEquipe();
+      return;
+    }
+    setClientePrefill(null);
+    setClienteSugerido(false);
+  }
+
   function sugerirClienteDoTitulo(titulo: string) {
-    if (clienteManualRef.current || tipoUsaGrupoInterno(tipo, tipos)) return;
+    if (clienteManualRef.current) return;
+    if (agendarNovo && tipoUsaGrupoInterno(tipo, tipos)) return;
     const ci = src?.cliente_id ?? src?.cliente?.ci ?? "";
     if (ci) return;
 
     const t = titulo.trim();
     if (t.length < 3) {
-      setClientePrefill(null);
-      setClienteSugerido(false);
+      semClienteIdentificado();
       return;
     }
 
     void sugerirClientePorTituloReuniao(t).then((c) => {
       if (clienteManualRef.current) return;
       if (c) aplicarClienteSugerido(c);
-      else {
-        setClientePrefill(null);
-        setClienteSugerido(false);
-      }
+      else semClienteIdentificado();
     });
   }
 
@@ -522,27 +544,18 @@ export function ReuniaoForm({
     });
   }
 
-  function handleTipoChange(v: string) {
-    if (!agendarNovo && tipoUsaGrupoInterno(v, tipos)) {
-      clienteManualRef.current = false;
-    }
-    setTipo(v);
-  }
-
+  // O cliente já escolhido (salvo, vindo da tarefa ou do título) nunca é trocado
+  // sozinho. O grupo interno do escritório só entra quando não há cliente.
   useEffect(() => {
     if (!open) return;
 
-    if (tipoUsaGrupoInterno(tipo, tipos)) {
-      // Reunião nova começa sem cliente. O grupo interno só entra ao editar.
-      if (agendarNovo) {
-        if (!clienteManualRef.current) {
-          setClientePrefill(null);
-          setClienteSugerido(false);
-          preencherEmailsDoGrupo(null);
-        }
-        return;
+    // Reunião nova de tipo interno começa sem cliente.
+    if (agendarNovo && tipoUsaGrupoInterno(tipo, tipos)) {
+      if (!clienteManualRef.current) {
+        setClientePrefill(null);
+        setClienteSugerido(false);
+        preencherEmailsDoGrupo(null);
       }
-      aplicarClienteGestaoEquipe();
       return;
     }
 
@@ -555,6 +568,8 @@ export function ReuniaoForm({
       setClienteSugerido(false);
       return;
     }
+
+    if (clienteManualRef.current) return;
 
     if (nome.trim()) {
       let cancelled = false;
@@ -575,8 +590,7 @@ export function ReuniaoForm({
 
     const titulo = src?.titulo?.trim() ?? "";
     if (!titulo) {
-      setClientePrefill(null);
-      setClienteSugerido(false);
+      semClienteIdentificado();
       return;
     }
 
@@ -584,10 +598,7 @@ export function ReuniaoForm({
     void sugerirClientePorTituloReuniao(titulo).then((c) => {
       if (cancelled || clienteManualRef.current) return;
       if (c) aplicarClienteSugerido(c);
-      else {
-        setClientePrefill(null);
-        setClienteSugerido(false);
-      }
+      else semClienteIdentificado();
     });
 
     return () => {
@@ -683,6 +694,17 @@ export function ReuniaoForm({
       values.participantes_externos.length === 0
     ) {
       errs.participantes = "Selecione ao menos um participante.";
+    }
+
+    if (
+      reagendando &&
+      status !== "CANCELADA" &&
+      src?.data_hora_inicio &&
+      slotInicio === toDatetimeLocal(src.data_hora_inicio) &&
+      slotFim === (src.data_hora_fim ? toDatetimeLocal(src.data_hora_fim) : slotFim) &&
+      (sala || "") === (src.sala || "")
+    ) {
+      errs.data_hora_inicio = "Escolha a nova data, horário ou sala.";
     }
 
     setFieldErrors(errs);
@@ -990,6 +1012,20 @@ export function ReuniaoForm({
     document.getElementById(`${formFieldId}-motivo_cancelamento`)?.focus();
   }, [status, formFieldId]);
 
+  useEffect(() => {
+    if (!reagendando) return;
+    document
+      .getElementById(`${formFieldId}-secao-horario`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [reagendando, formFieldId]);
+
+  useEffect(() => {
+    if (!abrirParticipantes) return;
+    document
+      .getElementById(`${formFieldId}-secao-participantes`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [abrirParticipantes, formFieldId]);
+
   function handleReverterOutlook() {
     if (!reuniao?.id || fellowBusy || pending || revertPending) return;
     setError(undefined);
@@ -1137,7 +1173,7 @@ export function ReuniaoForm({
             fieldErrors={fieldErrors}
           />
         ) : (
-          <Secao icon={CalendarClock} titulo="Reunião">
+          <Secao icon={CalendarClock} titulo="Reunião" id={fieldId("secao-horario")}>
             <Input
               id={fieldId("titulo")}
               name="titulo"
@@ -1148,6 +1184,15 @@ export function ReuniaoForm({
               error={fieldErrors.titulo}
               required
             />
+            {reagendando && status !== "CANCELADA" && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm text-brand-900">
+                <CalendarClock size={16} className="mt-0.5 shrink-0 text-brand-600" />
+                <p className="leading-snug">
+                  Escolha a nova data, horário ou sala. Ao confirmar, o convite muda no Outlook
+                  de todos os participantes e a data do compromisso de atendimento muda no VIOS.
+                </p>
+              </div>
+            )}
             <OutlookDateTimeRange
               inicio={slotInicio}
               fim={slotFim}
@@ -1158,8 +1203,8 @@ export function ReuniaoForm({
               errorInicio={fieldErrors.data_hora_inicio}
               errorFim={fieldErrors.data_hora_fim}
               errorDuracao={fieldErrors.duracao_minutos}
-              sala={modoViaB ? sala : undefined}
-              onSalaChange={modoViaB ? setSala : undefined}
+              sala={modoViaB || reagendando ? sala : undefined}
+              onSalaChange={modoViaB || reagendando ? setSala : undefined}
               pessoas={pessoasAgenda}
             />
           </Secao>
@@ -1205,7 +1250,7 @@ export function ReuniaoForm({
             <SelectMenu
               name="tipo"
               value={tipo}
-              onChange={handleTipoChange}
+              onChange={setTipo}
               options={opcoesTipoReuniao(tipos, tipo)}
             />
           </div>
@@ -1242,7 +1287,7 @@ export function ReuniaoForm({
             onChange={(v) => {
               const next = v as typeof modalidade;
               setModalidade(next);
-              if (!modoViaB) return;
+              if (!modoViaB && !reagendando) return;
               if (next === "ONLINE") setSala(SALA_SOMENTE_ONLINE);
               if (next === "PRESENCIAL_ESCRITORIO" && sala === SALA_SOMENTE_ONLINE) {
                 setSala("SALA_1");
@@ -1274,7 +1319,7 @@ export function ReuniaoForm({
                   Ao confirmar, o convite é cancelado no Outlook de todos os participantes e o
                   compromisso de atendimento é cancelado no VIOS, na agenda de cada responsável, com
                   o motivo abaixo. Reabrir a reunião depois não refaz o convite nem as tarefas no
-                  VIOS. Para remarcar, agende uma reunião nova.
+                  VIOS. Para só mudar a data, use Reagendar.
                 </p>
               </div>
             </div>
@@ -1356,7 +1401,18 @@ export function ReuniaoForm({
         )}
 
         {!agendarNovo && (
-        <Secao icon={Users} titulo="Participantes" destaque="agenda-participantes">
+        <Secao
+          icon={Users}
+          titulo="Participantes"
+          destaque="agenda-participantes"
+          id={fieldId("secao-participantes")}
+        >
+          {podeCancelarEcoa && (
+            <p className="text-xs leading-snug text-slate-500">
+              Quem você incluir recebe o convite no Outlook e o compromisso de atendimento no
+              VIOS ao salvar.
+            </p>
+          )}
           <ParticipantesPicker
             key={prefillKey || reuniao?.id || "novo"}
             colaboradores={colaboradores}
@@ -1366,8 +1422,9 @@ export function ReuniaoForm({
             error={fieldErrors.participantes}
             onPessoasChange={avisarPessoasAgenda}
             onEmailsExternosChange={avisarEmailsExternos}
+            abrirSinal={abrirParticipantes}
           />
-          {modoViaB && (
+          {(modoViaB || (editing && origemSama)) && (
             <EmailChips
               label="E-mails do cliente"
               value={emailsCliente}
@@ -1446,18 +1503,46 @@ export function ReuniaoForm({
 
         <div className="sticky bottom-0 z-[1] -mx-5 -mb-4 flex items-center justify-between gap-2 border-t border-slate-100 bg-white/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-5 sm:px-6">
           {podeCancelarEcoa ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={pending || fellowBusy || revertPending}
-              onClick={() => {
-                focarMotivo.current = true;
-                setStatus("CANCELADA");
-              }}
-            >
-              Cancelar reunião
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={pending || fellowBusy || revertPending}
+                onClick={() => {
+                  focarMotivo.current = true;
+                  setReagendando(false);
+                  setStatus("CANCELADA");
+                }}
+              >
+                Cancelar reunião
+              </Button>
+              {!reagendando && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={pending || fellowBusy || revertPending}
+                  onClick={() => {
+                    setReagendando(true);
+                    setStatus("REAGENDADA");
+                  }}
+                >
+                  <CalendarClock size={14} />
+                  Reagendar
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={pending || fellowBusy || revertPending}
+                onClick={() => setAbrirParticipantes((n) => n + 1)}
+              >
+                <UserPlus size={14} />
+                Adicionar pessoas
+              </Button>
+            </div>
           ) : podeReverterOutlook ? (
             <Button
               type="button"
@@ -1487,9 +1572,11 @@ export function ReuniaoForm({
                 ? "Salvando..."
                 : status === "CANCELADA" && editing
                   ? "Confirmar cancelamento"
-                  : modoViaB && !editing
-                    ? "Agendar e enviar ao Outlook"
-                    : "Salvar"}
+                  : reagendando
+                    ? "Confirmar reagendamento"
+                    : modoViaB && !editing
+                      ? "Agendar e enviar ao Outlook"
+                      : "Salvar"}
             </Button>
           </div>
         </div>

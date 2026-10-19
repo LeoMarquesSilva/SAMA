@@ -47,6 +47,7 @@ export function ParticipantesPicker({
   error,
   onPessoasChange,
   onEmailsExternosChange,
+  abrirSinal,
 }: {
   colaboradores: ColaboradorOpt[];
   usuarios?: UsuarioRef[];
@@ -59,6 +60,8 @@ export function ParticipantesPicker({
   onPessoasChange?: (pessoas: { nome: string; email: string }[]) => void;
   /** E-mails dos participantes de fora do escritório (cliente), para a ata. */
   onEmailsExternosChange?: (emails: string[]) => void;
+  /** Cada valor novo (maior que zero) abre a busca de participantes. */
+  abrirSinal?: number;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(defaultSelected)
@@ -69,6 +72,9 @@ export function ParticipantesPicker({
   const [busca, setBusca] = useState("");
   const [dept, setDept] = useState("");
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (abrirSinal) setOpen(true);
+  }, [abrirSinal]);
   const [novoNome, setNovoNome] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
 

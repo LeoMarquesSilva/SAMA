@@ -285,7 +285,7 @@ O passo a passo completo do agendamento está na seção **6. ECOA**.
 
 #### Cancelar reunião criada no SAMA
 
-Reunião criada pelo SAMA que ainda está **Agendada** ou **Reagendada** tem o botão **Cancelar reunião**. Informe o motivo e confirme. O SAMA grava o cancelamento e cancela o convite no Outlook.
+Reunião criada pelo SAMA que ainda está **Agendada** ou **Reagendada** tem os botões **Cancelar reunião**, **Reagendar** e **Adicionar pessoas**. Para cancelar, informe o motivo e confirme. O SAMA grava o cancelamento e cancela o convite no Outlook. Reagendar e adicionar pessoas estão na seção **6.8**.
 
 Reunião que veio só do Outlook continua sendo cancelada no Outlook. Depois, clique em **Atualizar**.
 
@@ -442,7 +442,9 @@ Ao clicar em **Agendar e enviar ao Outlook**, o SAMA:
 
 **Reunião agendada pelo SAMA**
 
-- **Remarcar ou mudar sala, título ou pessoas:** abra a reunião no Calendário, altere e **Salvar**. O SAMA atualiza o convite no Outlook.
+- **Reagendar:** abra a reunião (status Agendada ou Reagendada), clique em **Reagendar**, escolha a nova data, horário ou sala e clique em **Confirmar reagendamento**. A reunião fica **Reagendada**, o convite muda no Outlook de todos e a data do compromisso de atendimento muda no VIOS.
+- **Adicionar pessoas:** clique em **Adicionar pessoas**, inclua quem falta (ou e-mails do cliente) e **Salvar**. Quem entrou recebe o convite no Outlook e, se a área tiver pasta de atendimento, o compromisso no VIOS. Quem você tirar sai do convite, mas o compromisso dele no VIOS continua.
+- **Mudar título:** altere e **Salvar**. O SAMA atualiza o convite no Outlook.
 - **Cancelar:** abra a reunião (status Agendada ou Reagendada), clique em **Cancelar reunião**, escreva o **motivo** e clique em **Confirmar cancelamento**. O convite também é cancelado no Outlook.
 
 **Reunião que veio do Outlook**
@@ -609,7 +611,7 @@ O cancelamento valeu. Uma resposta vazia do Outlook não significa que o convite
 Confira a lista ao lado do responsável: Lavínia e Lígia vêm marcadas, mas dá para tirá-las antes do envio. Em outra demanda a lista começa vazia. A tarefa que já foi criada no VIOS não muda sozinha.
 
 **Meu colega já categorizou a mesma reunião. Preciso também?**  
-**Sim.** Cada participante classifica **o próprio** compromisso no Outlook.
+**Não.** Quando um interno classifica, a reunião entra classificada na agenda dos outros internos do compromisso, com o mesmo tipo e cliente. A **demanda** é de cada um: abra a sua e preencha se precisar. Mudar o tipo depois muda para todos. Quem ignorou o evento continua com ele ignorado.
 
 **O número no Calendário não some.**  
 Ainda há itens pendentes seus. Filtre por **Não categorizados**.

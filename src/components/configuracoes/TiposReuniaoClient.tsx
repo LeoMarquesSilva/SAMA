@@ -341,9 +341,9 @@ export function TiposReuniaoClient({
                 Reunião interna do escritório
               </span>
               <span className="mt-0.5 block text-xs leading-snug text-slate-500">
-                Ao escolher este tipo, o cliente é preenchido automaticamente com
-                o grupo interno e o que estava selecionado é substituído. Deixe
-                desligado para reunião de cliente.
+                Com este tipo, a reunião sem cliente identificado recebe o grupo
+                interno. Um cliente já escolhido nunca é trocado. Deixe desligado
+                para reunião de cliente.
               </span>
             </span>
           </label>

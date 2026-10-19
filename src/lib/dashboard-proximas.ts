@@ -73,7 +73,7 @@ export function buildProximasReunioes(
 
   const reunioesVisiveis = reunioes.filter(
     (r) =>
-      r.status === "AGENDADA" &&
+      (r.status === "AGENDADA" || r.status === "REAGENDADA") &&
       reuniaoVisivelParaUsuario(r, pessoaId, donoPorReuniao)
   );
 

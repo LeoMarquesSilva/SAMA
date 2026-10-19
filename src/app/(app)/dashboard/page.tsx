@@ -105,7 +105,7 @@ export default async function DashboardPage({
     .select(
       "id, titulo, modalidade, status, data_hora_inicio, link_online, criado_por_id, outlook_event_id, cliente:pessoas(nome, grupo_cliente), participantes:reuniao_participantes(colaborador_id, colaborador:colaboradores(nome, avatar_url, usuario_id))"
     )
-    .eq("status", "AGENDADA")
+    .in("status", ["AGENDADA", "REAGENDADA"])
     .gte("data_hora_inicio", agoraIso)
     .lte("data_hora_inicio", ate7dIso);
 
