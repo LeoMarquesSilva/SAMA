@@ -5,7 +5,8 @@
  * supabase/Depara Tarefa x Etiqueta.xlsx (Planilha4), só é usado se a tabela não carregar.
  *
  * - etiqueta: PROVIDÊNCIA → "PROVIDENCIA" (VIOS: PROVIDÊNCIA); ENVIAR → "PRAZO"
- *   (VIOS: ENVIAR). Prazo não pode ser gravado como Providência.
+ *   (VIOS: ENVIAR); COMPROMISSO → "COMPROMISSO" (VIOS: COMPROMISSO). Prazo não pode ser
+ *   gravado como Providência. A planilha não tem Compromisso (estava em Providência).
  * - pastas: coluna C — em que tipo de pasta o VIOS tem esse tipo de tarefa.
  * - Com a pasta carregada, a lista ainda é cortada pelos tipos que o VIOS aceita naquela
  *   pasta (depende da área).
@@ -13,14 +14,15 @@
 export const ETIQUETAS_VISUAIS = [
   { value: "PROVIDENCIA", label: "Providência" },
   { value: "PRAZO", label: "Prazo" },
+  { value: "COMPROMISSO", label: "Compromisso" },
 ] as const;
 
 /** Etiqueta do agendamento feito pelo SAMA, no compromisso da reunião e nas tarefas. */
 export const ETIQUETA_SAMA_ECOA_ATENDIMENTO = "SAMA - ECOA - ATENDIMENTO";
 
 export type EtiquetaEscolha = (typeof ETIQUETAS_VISUAIS)[number]["value"];
-/** Etiquetas do de-para da planilha (Providência de reunião reaproveita a lista de Providência). */
-export type EtiquetaVisual = "PROVIDENCIA" | "PRAZO";
+/** Classes da tarefa, iguais à etiqueta do tipo no VIOS. */
+export type EtiquetaVisual = "PROVIDENCIA" | "PRAZO" | "COMPROMISSO";
 
 /** Tarefa 2. REVISAR que o VIOS cria dentro do fluxo. O revisor é colocado nela. */
 export const TAREFA_REVISAR = "2. REVISAR";
@@ -40,13 +42,14 @@ export type TipoTarefaVios = {
 };
 
 /**
- * Etiquetas do VIOS que entram em cada escolha. COMPROMISSO (205: audiência, reunião,
- * perícia…) entra na Providência, como já estava na planilha. As demais (2. REVISAR,
- * 3. PROTOCOLAR…) o fluxo do VIOS cria sozinho.
+ * Etiqueta do VIOS de cada escolha: ENVIAR (1), PROVIDÊNCIA (204) e COMPROMISSO (205:
+ * audiência, reunião, perícia…). As demais (2. REVISAR, 3. PROTOCOLAR…) o fluxo do VIOS
+ * cria sozinho.
  */
 export const ETIQUETAS_VIOS_DA_ESCOLHA: Record<EtiquetaVisual, readonly number[]> = {
   PRAZO: [1],
-  PROVIDENCIA: [204, 205],
+  PROVIDENCIA: [204],
+  COMPROMISSO: [205],
 };
 
 export const DEPARA_TAREFAS: readonly ItemDepara[] = [
@@ -364,6 +367,7 @@ function chaveNome(s: string): string {
 export const TAREFAS_POR_ETIQUETA: Record<EtiquetaVisual, readonly string[]> = {
   PROVIDENCIA: DEPARA_TAREFAS.filter((t) => t.etiqueta === "PROVIDENCIA").map((t) => t.nome),
   PRAZO: DEPARA_TAREFAS.filter((t) => t.etiqueta === "PRAZO").map((t) => t.nome),
+  COMPROMISSO: DEPARA_TAREFAS.filter((t) => t.etiqueta === "COMPROMISSO").map((t) => t.nome),
 };
 
 /**
@@ -372,6 +376,7 @@ export const TAREFAS_POR_ETIQUETA: Record<EtiquetaVisual, readonly string[]> = {
  */
 export function etiquetaViosDaEscolha(escolha: string): { nome: string; id: string } {
   if (escolha === "PRAZO") return { nome: "ENVIAR", id: "1" };
+  if (escolha === "COMPROMISSO") return { nome: "COMPROMISSO", id: "205" };
   return { nome: "PROVIDÊNCIA", id: "204" };
 }
 
@@ -384,8 +389,9 @@ export function etiquetasViosDoEnvio(escolha: string): { nome: string; id: strin
 }
 
 /**
- * Tipos de tarefa da escolha (Prazo/Providência) para o tipo de pasta. Com `tipos` (do
- * VIOS), vale a etiqueta configurada em cada tipo; sem eles, a planilha (DEPARA_TAREFAS).
+ * Tipos de tarefa da escolha (Prazo/Providência/Compromisso) para o tipo de pasta. Com
+ * `tipos` (do VIOS), vale a etiqueta configurada em cada tipo; sem eles, a planilha
+ * (DEPARA_TAREFAS), que não separa Compromisso.
  */
 export function tarefasDaEtiqueta(
   etiqueta: string,
@@ -393,8 +399,9 @@ export function tarefasDaEtiqueta(
   nomesVios?: readonly string[],
   tipos?: readonly TipoTarefaVios[] | null
 ): string[] {
-  // Qualquer escolha que não seja Prazo usa os tipos de Providência.
-  const alvo: EtiquetaVisual = etiqueta === "PRAZO" ? "PRAZO" : "PROVIDENCIA";
+  // Qualquer escolha que não seja Prazo nem Compromisso usa os tipos de Providência.
+  const alvo: EtiquetaVisual =
+    etiqueta === "PRAZO" ? "PRAZO" : etiqueta === "COMPROMISSO" ? "COMPROMISSO" : "PROVIDENCIA";
   const pasta: PastaDepara | undefined =
     pastaTipo === "Atendimento" ? "Atendimento" : pastaTipo ? "Processo" : undefined;
   const aceitos = nomesVios && nomesVios.length ? new Set(nomesVios.map(chaveNome)) : null;

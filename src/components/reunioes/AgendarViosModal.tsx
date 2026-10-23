@@ -792,8 +792,8 @@ export function AgendarViosModal({
                             <SelectMenu
                               label="Etiqueta"
                               value={
-                                linha.grupoEtiqueta === "PRAZO"
-                                  ? "PRAZO"
+                                ETIQUETAS_VISUAIS.some((e) => e.value === linha.grupoEtiqueta)
+                                  ? linha.grupoEtiqueta
                                   : "PROVIDENCIA"
                               }
                               onChange={(v) => {
