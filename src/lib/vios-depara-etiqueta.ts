@@ -1,8 +1,8 @@
 /**
- * Tipos de tarefa oferecidos no "Enviar para Agendamento" — gerado da planilha
- * supabase/Depara Tarefa x Etiqueta.xlsx (Planilha4), que é igual à lista do VIOS
- * (todas as áreas de Processo e de Atendimento). Não edite à mão: atualize a planilha
- * e gere de novo.
+ * Tipos de tarefa oferecidos no "Enviar para Agendamento". A fonte é a etiqueta de cada
+ * tipo no VIOS (tabela vios_tipos_tarefa, relida pelo robô todo domingo à noite; ver
+ * tarefasDaEtiqueta). DEPARA_TAREFAS abaixo, gerado da planilha
+ * supabase/Depara Tarefa x Etiqueta.xlsx (Planilha4), só é usado se a tabela não carregar.
  *
  * - etiqueta: PROVIDÊNCIA → "PROVIDENCIA" (VIOS: PROVIDÊNCIA); ENVIAR → "PRAZO"
  *   (VIOS: ENVIAR). Prazo não pode ser gravado como Providência.
@@ -30,6 +30,23 @@ export type ItemDepara = {
   nome: string;
   etiqueta: EtiquetaVisual;
   pastas: readonly PastaDepara[];
+};
+
+/** Tipo de tarefa do VIOS com a pasta e as etiquetas configuradas nele (vios_tipos_tarefa). */
+export type TipoTarefaVios = {
+  nome: string;
+  pastas: readonly string[];
+  etiquetas: readonly number[];
+};
+
+/**
+ * Etiquetas do VIOS que entram em cada escolha. COMPROMISSO (205: audiência, reunião,
+ * perícia…) entra na Providência, como já estava na planilha. As demais (2. REVISAR,
+ * 3. PROTOCOLAR…) o fluxo do VIOS cria sozinho.
+ */
+export const ETIQUETAS_VIOS_DA_ESCOLHA: Record<EtiquetaVisual, readonly number[]> = {
+  PRAZO: [1],
+  PROVIDENCIA: [204, 205],
 };
 
 export const DEPARA_TAREFAS: readonly ItemDepara[] = [
@@ -366,16 +383,39 @@ export function etiquetasViosDoEnvio(escolha: string): { nome: string; id: strin
   ];
 }
 
+/**
+ * Tipos de tarefa da escolha (Prazo/Providência) para o tipo de pasta. Com `tipos` (do
+ * VIOS), vale a etiqueta configurada em cada tipo; sem eles, a planilha (DEPARA_TAREFAS).
+ */
 export function tarefasDaEtiqueta(
   etiqueta: string,
   pastaTipo?: PastaDepara | string,
-  nomesVios?: readonly string[]
+  nomesVios?: readonly string[],
+  tipos?: readonly TipoTarefaVios[] | null
 ): string[] {
   // Qualquer escolha que não seja Prazo usa os tipos de Providência.
   const alvo: EtiquetaVisual = etiqueta === "PRAZO" ? "PRAZO" : "PROVIDENCIA";
   const pasta: PastaDepara | undefined =
     pastaTipo === "Atendimento" ? "Atendimento" : pastaTipo ? "Processo" : undefined;
   const aceitos = nomesVios && nomesVios.length ? new Set(nomesVios.map(chaveNome)) : null;
+  if (tipos?.length) {
+    const etiquetas = ETIQUETAS_VIOS_DA_ESCOLHA[alvo];
+    // o robô escolhe o tipo pelo nome: tipos com o mesmo nome aparecem uma vez
+    const vistos = new Set<string>();
+    return tipos
+      .filter((t) => {
+        const chave = chaveNome(t.nome);
+        if (vistos.has(chave)) return false;
+        const ok =
+          t.etiquetas.some((id) => etiquetas.includes(id)) &&
+          (!pasta || t.pastas.includes(pasta)) &&
+          (!aceitos || aceitos.has(chave));
+        if (ok) vistos.add(chave);
+        return ok;
+      })
+      .map((t) => t.nome)
+      .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+  }
   return DEPARA_TAREFAS.filter(
     (t) =>
       t.etiqueta === alvo &&

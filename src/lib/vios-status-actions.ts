@@ -4,6 +4,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { ehCompromissoDeReuniao } from "@/lib/vios-agendamento";
 import { pedirProrrogacaoVios } from "@/lib/vios-prorrogacao";
+import type { TipoTarefaVios } from "@/lib/vios-depara-etiqueta";
 
 type OpcaoVios = { id: string; nome: string };
 
@@ -146,19 +147,32 @@ export async function resolverOpcoesVios(
 
 /**
  * Responsáveis e etiquetas do VIOS (as mesmas em qualquer pasta), do catálogo salvo pelo
- * robô. Não consulta pasta nem processo nenhum.
+ * robô, e os tipos de tarefa com a etiqueta de cada um (vios_tipos_tarefa; null se não
+ * carregar, e a tela usa a planilha). Não consulta pasta nem processo nenhum.
  */
 export async function listarUsuariosVios(): Promise<
-  { ok: true; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[] } | { ok: false; erro: string }
+  | { ok: true; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[]; tipos: TipoTarefaVios[] | null }
+  | { ok: false; erro: string }
 > {
   const pessoa = await getPessoaAtual();
   if (!pessoa) return { ok: false, erro: "Não autenticado." };
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("vios_catalogo_tarefas")
-    .select("usuarios, etiquetas, atualizado_em")
-    .order("atualizado_em", { ascending: false });
+  const [{ data, error }, tiposVios] = await Promise.all([
+    admin
+      .from("vios_catalogo_tarefas")
+      .select("usuarios, etiquetas, atualizado_em")
+      .order("atualizado_em", { ascending: false }),
+    admin.from("vios_tipos_tarefa").select("nome, pasta_tipos, etiquetas").limit(5000),
+  ]);
   if (error) return { ok: false, erro: error.message };
+  const tipos: TipoTarefaVios[] | null =
+    !tiposVios.error && tiposVios.data?.length
+      ? tiposVios.data.map((t) => ({
+          nome: String(t.nome),
+          pastas: (t.pasta_tipos ?? []) as string[],
+          etiquetas: ((t.etiquetas ?? []) as number[]).map(Number),
+        }))
+      : null;
   const usuarios = new Map<string, OpcaoVios>();
   const etiquetas = new Map<string, OpcaoVios>();
   for (const r of data ?? []) {
@@ -174,6 +188,7 @@ export async function listarUsuariosVios(): Promise<
     ok: true,
     usuarios: [...usuarios.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
     etiquetas: [...etiquetas.values()],
+    tipos,
   };
 }
 
