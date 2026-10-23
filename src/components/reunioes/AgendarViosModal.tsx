@@ -26,6 +26,7 @@ import {
   etiquetasViosDoEnvio,
   tarefasDaEtiqueta,
   TAREFA_REVISAR,
+  type TipoTarefaVios,
 } from "@/lib/vios-depara-etiqueta";
 import { usuarioViosDoColaborador, type OpcaoVios } from "@/lib/vios-opcoes";
 import { listarPastasDoProcesso } from "@/lib/vios-processos";
@@ -75,7 +76,7 @@ type Linha = ViosPassoEnvio & {
 /** Responsáveis e etiquetas do VIOS: iguais para qualquer pasta, carregados uma vez. */
 type ListasVios =
   | { status: "carregando" }
-  | { status: "ok"; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[] }
+  | { status: "ok"; usuarios: OpcaoVios[]; etiquetas: OpcaoVios[]; tipos: TipoTarefaVios[] | null }
   | { status: "erro"; erro: string };
 
 function normalizarNome(s: string): string {
@@ -197,6 +198,8 @@ export function AgendarViosModal({
 
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [listas, setListas] = useState<ListasVios>({ status: "carregando" });
+  // tipos de tarefa com a etiqueta do VIOS; até carregar (ou se falhar), a planilha
+  const tiposVios = listas.status === "ok" ? listas.tipos : null;
   const [erro, setErro] = useState<string>();
   const [pending, start] = useTransition();
   const selecionadas = linhas.filter((l) => l.selecionado);
@@ -224,7 +227,7 @@ export function AgendarViosModal({
         if (!vivo) return;
         setListas(
           r.ok
-            ? { status: "ok", usuarios: r.usuarios, etiquetas: r.etiquetas }
+            ? { status: "ok", usuarios: r.usuarios, etiquetas: r.etiquetas, tipos: r.tipos }
             : { status: "erro", erro: r.erro }
         );
       })
@@ -359,7 +362,7 @@ export function AgendarViosModal({
         }
       }
       if (!l.tarefa?.trim()) return setErro(`Selecione o tipo de tarefa do passo ${n}.`);
-      if (!tarefasDaEtiqueta(l.grupoEtiqueta, l.pastaTipo).includes(l.tarefa)) {
+      if (!tarefasDaEtiqueta(l.grupoEtiqueta, l.pastaTipo, undefined, tiposVios).includes(l.tarefa)) {
         return setErro(
           `O tipo de tarefa "${l.tarefa}" não existe no VIOS para ${
             l.pastaTipo === "Atendimento" ? "pasta de atendimento" : "processo"
@@ -653,7 +656,7 @@ export function AgendarViosModal({
                                         pastas: [],
                                         pastasStatus: undefined,
                                         ...(linha.tarefa &&
-                                        tarefasDaEtiqueta(linha.grupoEtiqueta, t).includes(linha.tarefa)
+                                        tarefasDaEtiqueta(linha.grupoEtiqueta, t, undefined, tiposVios).includes(linha.tarefa)
                                           ? {}
                                           : { tarefa: "", tarefa_id: "" }),
                                       })
@@ -794,7 +797,7 @@ export function AgendarViosModal({
                                   : "PROVIDENCIA"
                               }
                               onChange={(v) => {
-                                const tarefas = tarefasDaEtiqueta(v, tipoPasta);
+                                const tarefas = tarefasDaEtiqueta(v, tipoPasta, undefined, tiposVios);
                                 patch(index, {
                                   grupoEtiqueta: v,
                                   ...(v === "PRAZO" ? { coparticipantes_vios: [] } : {}),
@@ -815,7 +818,7 @@ export function AgendarViosModal({
                               emptyOption="Selecione"
                               placeholder="Selecione"
                               searchable
-                              options={tarefasDaEtiqueta(linha.grupoEtiqueta, tipoPasta).map((nome) => ({
+                              options={tarefasDaEtiqueta(linha.grupoEtiqueta, tipoPasta, undefined, tiposVios).map((nome) => ({
                                 value: nome,
                                 label: nome,
                               }))}
