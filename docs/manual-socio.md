@@ -507,14 +507,17 @@ Antes de enviar, a reunião precisa estar salva. Em cada passo, escolha pasta, e
 
 #### Etiqueta na tela e no VIOS
 
-Na tela só existem **Providência** e **Prazo**. Providência de reunião não é uma terceira opção.
+Na tela existem três etiquetas: **Providência**, **Prazo** e **Compromisso**. Cada uma mostra só os tipos de tarefa que têm essa etiqueta no VIOS.
 
-| O que você escolhe | O que o VIOS marca |
-|--------------------|--------------------|
-| **Providência** | PROVIDÊNCIA e SAMA - ECOA - ATENDIMENTO. Dá para incluir mais de um responsável |
-| **Prazo** | ENVIAR e SAMA - ECOA - ATENDIMENTO. Um responsável e um revisor |
+| O que você escolhe | Tipos de tarefa | O que o VIOS marca |
+|--------------------|-----------------|--------------------|
+| **Providência** | Os que têm a etiqueta PROVIDÊNCIA no VIOS | PROVIDÊNCIA e SAMA - ECOA - ATENDIMENTO. Dá para incluir mais de um responsável |
+| **Prazo** | Os que têm a etiqueta ENVIAR no VIOS | ENVIAR e SAMA - ECOA - ATENDIMENTO. Um responsável e um revisor |
+| **Compromisso** | Audiência, perícia, leilão, sessão de julgamento, assembleia, reunião (etiqueta COMPROMISSO no VIOS) | COMPROMISSO e SAMA - ECOA - ATENDIMENTO. Dá para incluir mais de um responsável |
 
 Prazo não vira Providência. No VIOS, a etiqueta de prazo se chama **ENVIAR**.
+
+A lista de tipos de tarefa segue a etiqueta configurada em cada tipo no VIOS e é atualizada todo domingo à noite. Se um tipo aparecer na etiqueta errada, avise o Legal Ops para corrigir a etiqueta do tipo no VIOS.
 
 No prazo, escolha também o **revisor**. O VIOS cria o fluxo sozinho: Ciência dos agendamentos, **2. REVISAR** e Protocolar. O robô não abre outra tarefa. Ciência dos agendamentos fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A **2. REVISAR** fica com o revisor, como primeira pessoa.
 
@@ -524,8 +527,8 @@ Em pasta de **processo**, o número CNJ consulta as pastas com situação **Ativ
 
 | Situação | Responsáveis no VIOS |
 |----------|----------------------|
-| Etiqueta **Providência**, qualquer demanda | O responsável escolhido e quem estiver na lista ao lado dele (dá para incluir ou tirar pessoas) |
-| Etiqueta **Providência**, demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência** | Igual, mas Lavínia e Lígia já vêm marcadas na lista |
+| Etiqueta **Providência** ou **Compromisso**, qualquer demanda | O responsável escolhido e quem estiver na lista ao lado dele (dá para incluir ou tirar pessoas) |
+| Etiqueta **Providência** ou **Compromisso**, demanda **Insolvência**, **Cível-Insolvência** ou **Insolvência e Cível-Insolvência** | Igual, mas Lavínia e Lígia já vêm marcadas na lista |
 | Etiqueta **Prazo** (a tarefa ENVIAR) | Só o responsável escolhido, em qualquer demanda |
 | **2. REVISAR** do fluxo do prazo | Só o revisor escolhido |
 
