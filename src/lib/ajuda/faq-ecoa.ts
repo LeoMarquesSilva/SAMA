@@ -30,12 +30,12 @@ export const FAQ_ECOA: FaqItem[] = [
   {
     question: "Como envio próximos passos ao VIOS?",
     answer:
-      "Em qualquer reunião, use Enviar para Agendamento nos próximos passos. Na tela a etiqueta é só Providência ou Prazo. Providência grava no VIOS PROVIDÊNCIA e SAMA - ECOA - ATENDIMENTO. Prazo grava ENVIAR e SAMA - ECOA - ATENDIMENTO. Só a Providência permite incluir mais de um responsável. O VIOS cria o fluxo (Ciência dos agendamentos, 2. REVISAR e Protocolar). Ciência fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A 2. REVISAR fica com o revisor. Se o processo tiver mais de uma pasta ativa, escolha o CI antes de enviar. Com uma pasta ativa, o CI entra sozinho.",
+      "Em qualquer reunião, use Enviar para Agendamento nos próximos passos. Na tela a etiqueta é Providência, Prazo ou Compromisso, e cada uma mostra só os tipos de tarefa com essa etiqueta no VIOS (a lista é atualizada todo domingo à noite). Providência grava no VIOS PROVIDÊNCIA e SAMA - ECOA - ATENDIMENTO. Prazo grava ENVIAR e SAMA - ECOA - ATENDIMENTO. Compromisso (audiência, perícia, leilão, sessão de julgamento, reunião) grava COMPROMISSO e SAMA - ECOA - ATENDIMENTO. Providência e Compromisso permitem incluir mais de um responsável. No prazo, o VIOS cria o fluxo (Ciência dos agendamentos, 2. REVISAR e Protocolar). Ciência fica com o responsável. Protocolar fica com o responsável e com Samuel Willian Silva. A 2. REVISAR fica com o revisor. Se o processo tiver mais de uma pasta ativa, escolha o CI antes de enviar. Com uma pasta ativa, o CI entra sozinho.",
   },
   {
     question: "Quando Lavínia e Lígia entram na providência?",
     answer:
-      "Quando a demanda é Insolvência, Cível-Insolvência ou Insolvência e Cível-Insolvência, Lavínia e Lígia já vêm marcadas na providência. Dá para tirar uma das duas ou incluir outra pessoa antes de enviar. Em outra demanda a providência começa só com o responsável, e dá para incluir mais pessoas. No prazo, a tarefa ENVIAR fica só com o responsável e a 2. REVISAR só com o revisor.",
+      "Quando a demanda é Insolvência, Cível-Insolvência ou Insolvência e Cível-Insolvência, Lavínia e Lígia já vêm marcadas na providência e no compromisso. Dá para tirar uma das duas ou incluir outra pessoa antes de enviar. Em outra demanda a providência começa só com o responsável, e dá para incluir mais pessoas. No prazo, a tarefa ENVIAR fica só com o responsável e a 2. REVISAR só com o revisor.",
   },
   {
     question: "Como cancelo uma reunião que eu criei no SAMA?",
