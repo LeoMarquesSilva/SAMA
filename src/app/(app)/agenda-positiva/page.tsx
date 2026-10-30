@@ -7,7 +7,10 @@ import {
   CalendarClock,
   CheckCircle2,
   Settings,
+  Target,
+  Users,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { requireModulo } from "@/lib/auth";
 import { getModulosAtuais } from "@/lib/currentPessoa";
@@ -32,7 +35,6 @@ import {
   situacaoMeta,
   type ClusterAgenda,
 } from "@/lib/agenda-positiva";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { AgendaPositivaFiltros } from "@/components/agenda-positiva/AgendaPositivaFiltros";
 
 export const dynamic = "force-dynamic";
@@ -197,52 +199,54 @@ export default async function AgendaPositivaPage({
       )}
 
       {/* ─── Indicadores ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicador
           titulo="Clientes na agenda"
           valor={String(linhas.length)}
-          detalhe={
+          dica={
             cluster
               ? labelCluster(cluster)
               : CLUSTERS_AGENDA.map(
                   (c) => `${c.chave}: ${agenda.clientes.filter((x) => x.cluster === c.chave).length}`
                 ).join(" · ")
           }
+          icone={Users}
+          destaque="bg-slate-100 text-slate-700"
         />
         <Indicador
-          titulo={`Meta de ${labelMesCurto(mes)}`}
+          titulo="Meta do mês atingida"
           valor={metaTotal ? `${Math.round((metaCoberta / metaTotal) * 100)}%` : "—"}
-          detalhe={
+          dica={
             metaTotal
               ? `${metaCoberta} de ${metaTotal} ${metaTotal === 1 ? "reunião prevista" : "reuniões previstas"}`
               : "Nenhuma meta cadastrada"
           }
-        >
-          {metaTotal > 0 && (
-            <ProgressBar
-              value={(metaCoberta / metaTotal) * 100}
-              className="mt-2"
-              label="Meta do mês atingida"
-            />
-          )}
-        </Indicador>
-        <Indicador
-          titulo="Meta cumprida"
-          valor={linhas.length ? `${cumpridas} de ${linhas.length}` : "—"}
-          detalhe={linhas.length === 1 ? "cliente" : "clientes"}
-          icone={<CheckCircle2 size={16} className="text-emerald-600" />}
+          meta={metaTotal ? "100%" : undefined}
+          atingiuMeta={metaTotal ? metaCoberta >= metaTotal : null}
+          icone={Target}
+          destaque="bg-sky-100 text-sky-700"
         />
         <Indicador
-          titulo="Sem reunião no mês"
+          titulo="Clientes com meta cumprida"
+          valor={linhas.length ? `${cumpridas} de ${linhas.length}` : "—"}
+          dica={
+            linhas.length
+              ? `${Math.round((cumpridas / linhas.length) * 100)}% dos clientes da agenda`
+              : "Nenhum cliente na agenda"
+          }
+          icone={CheckCircle2}
+          destaque="bg-emerald-100 text-emerald-700"
+        />
+        <Indicador
+          titulo="Clientes sem reunião no mês"
           valor={String(semReuniao.length)}
-          detalhe={
+          dica={
             semReuniaoComAgenda > 0
               ? `${semReuniaoComAgenda} com reunião agendada`
-              : semReuniao.length === 1
-                ? "cliente"
-                : "clientes"
+              : `Nenhuma reunião realizada em ${labelMesCurto(mes)}`
           }
-          icone={<XCircle size={16} className="text-red-500" />}
+          icone={XCircle}
+          destaque="bg-rose-100 text-rose-700"
         />
       </div>
 
@@ -417,28 +421,61 @@ export default async function AgendaPositivaPage({
   );
 }
 
+/** Card de indicador no mesmo desenho dos indicadores do SIOE (Eficiência). */
 function Indicador({
   titulo,
   valor,
-  detalhe,
-  icone,
-  children,
+  dica,
+  meta,
+  atingiuMeta = null,
+  icone: Icone,
+  destaque,
 }: {
   titulo: string;
   valor: string;
-  detalhe: string;
-  icone?: React.ReactNode;
-  children?: React.ReactNode;
+  dica?: string;
+  meta?: string;
+  /** null: sem meta para comparar (texto cinza). */
+  atingiuMeta?: boolean | null;
+  icone: LucideIcon;
+  /** Fundo e cor do quadrado do ícone (ex.: "bg-emerald-100 text-emerald-700"). */
+  destaque: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-        {icone}
-        {titulo}
-      </p>
-      <p className="mt-1 text-2xl font-bold tabular-nums text-slate-800">{valor}</p>
-      <p className="text-xs text-slate-500">{detalhe}</p>
-      {children}
+    <div className="flex h-full flex-col rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className={clsx(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+            destaque
+          )}
+        >
+          <Icone size={16} aria-hidden />
+        </span>
+        <h3 className="min-w-0 truncate text-xs font-medium text-slate-500" title={titulo}>
+          {titulo}
+        </h3>
+      </div>
+      <p className="text-2xl font-bold tabular-nums text-slate-900">{valor}</p>
+      {(dica || meta) && (
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 pt-1.5 text-xs">
+          {dica && <span className="text-slate-400">{dica}</span>}
+          {meta && (
+            <span
+              className={clsx(
+                "font-medium",
+                atingiuMeta == null
+                  ? "text-slate-400"
+                  : atingiuMeta
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+              )}
+            >
+              meta: {meta}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
