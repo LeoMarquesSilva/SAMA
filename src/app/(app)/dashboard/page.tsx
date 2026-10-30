@@ -216,7 +216,7 @@ export default async function DashboardPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800 md:text-2xl">
-            Dashboard
+            Dashboard Comercial
           </h1>
           <p className="text-sm text-slate-500">
             Análise de reuniões e atividades

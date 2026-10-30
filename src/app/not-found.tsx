@@ -17,7 +17,7 @@ export default function NotFound() {
         href="/dashboard"
         className="mt-5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
       >
-        Ir para o Dashboard
+        Ir para o Dashboard Comercial
       </Link>
     </div>
   );

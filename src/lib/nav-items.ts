@@ -3,6 +3,7 @@ import {
   Users,
   Building2,
   CalendarDays,
+  CalendarCheck,
   BarChart3,
   Target,
   ListTodo,
@@ -13,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  canAccessAgendaPositiva,
   canAccessAjuda,
   canAccessCalendario,
   canAccessClientes,
@@ -38,9 +40,15 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   {
     href: "/dashboard",
-    label: "Dashboard",
+    label: "Dashboard Comercial",
     icon: LayoutDashboard,
     visible: canAccessDashboard,
+  },
+  {
+    href: "/agenda-positiva",
+    label: "Dashboard Agenda Positiva",
+    icon: CalendarCheck,
+    visible: canAccessAgendaPositiva,
   },
   {
     href: "/calendario",
