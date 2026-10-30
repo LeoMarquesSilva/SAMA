@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { clsx } from "clsx";
 import { requireConfiguracoesAccess } from "@/lib/auth";
-import { getPessoaAtual } from "@/lib/currentPessoa";
+import { getModulosAtuais } from "@/lib/currentPessoa";
+import { temModulo } from "@/lib/modulos";
 import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import { listarPastasAtendimento } from "@/lib/reuniao-pastas.server";
 import {
@@ -44,11 +45,16 @@ export default async function ConfiguracoesPage({
 }: {
   searchParams: Promise<{ aba?: string }>;
 }) {
-  await requireConfiguracoesAccess();
+  const pessoa = await requireConfiguracoesAccess();
   const { aba: abaParam } = await searchParams;
-  const aba: Aba = ABAS.some((a) => a.key === abaParam) ? (abaParam as Aba) : "tipos";
-  const pessoa = await getPessoaAtual();
-  const podeEditar = pessoa?.is_admin ?? false;
+  const podeEditar = pessoa.is_admin;
+  // A aba da Agenda Positiva segue o acesso ao dashboard dela (hoje, só admins).
+  const verAgenda = temModulo(
+    { isAdmin: pessoa.is_admin, modulos: await getModulosAtuais() },
+    "agenda-positiva"
+  );
+  const abas = ABAS.filter((a) => a.key !== "agenda" || verAgenda);
+  const aba: Aba = abas.some((a) => a.key === abaParam) ? (abaParam as Aba) : "tipos";
 
   const tipos = aba === "tipos" ? await listarTiposReuniao() : [];
   const uso = aba === "tipos" ? await contarUsoDosTipos(tipos) : {};
@@ -79,7 +85,7 @@ export default async function ConfiguracoesPage({
         role="tablist"
         aria-label="Configurações"
       >
-        {ABAS.map((a) => (
+        {abas.map((a) => (
           <Link
             key={a.key}
             href={a.href}
