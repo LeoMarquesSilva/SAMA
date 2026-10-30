@@ -1,6 +1,7 @@
 /** Módulos liberáveis por usuário (espelha o CHECK de public.usuario_modulos). */
 export const MODULOS = [
-  { key: "dashboard", label: "Dashboard", href: "/dashboard", descricao: "Visão geral de metas e atividades" },
+  { key: "dashboard", label: "Dashboard Comercial", href: "/dashboard", descricao: "Visão geral de metas e atividades" },
+  { key: "agenda-positiva", label: "Dashboard Agenda Positiva", href: "/agenda-positiva", descricao: "Reuniões por cliente contra a meta mensal de cada cluster" },
   { key: "calendario", label: "Calendário", href: "/calendario", descricao: "Agenda, reuniões e categorização do Outlook" },
   { key: "proximos-passos", label: "Próximos passos", href: "/proximos-passos", descricao: "Ações combinadas nas reuniões" },
   { key: "ajuda", label: "Ajuda", href: "/ajuda", descricao: "Manual e perguntas frequentes" },
@@ -9,7 +10,7 @@ export const MODULOS = [
   { key: "clientes", label: "Clientes", href: "/clientes", descricao: "Grupos, empresas e CIs" },
   { key: "relatorios", label: "Relatórios", href: "/relatorios", descricao: "Relatórios e exportações" },
   { key: "tarefas", label: "Tarefas VIOS", href: "/tarefas", descricao: "Tarefas sincronizadas do VIOS" },
-  { key: "configuracoes", label: "Configurações", href: "/configuracoes", descricao: "Tipos de reunião e pastas de atendimento" },
+  { key: "configuracoes", label: "Configurações", href: "/configuracoes", descricao: "Tipos de reunião, pastas de atendimento e Agenda Positiva" },
 ] as const;
 
 export type ModuloKey = (typeof MODULOS)[number]["key"];

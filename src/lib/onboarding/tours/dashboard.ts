@@ -3,7 +3,7 @@ import type { OnboardingStep } from "@/lib/onboarding/types";
 export const DASHBOARD_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "welcome",
-    title: "Bem-vindo ao Dashboard",
+    title: "Bem-vindo ao Dashboard Comercial",
     body: "Aqui você acompanha reuniões e atividades realizadas no período. Use os números para entender onde está investindo seu tempo.",
     placement: "center",
   },
@@ -38,13 +38,13 @@ export const DASHBOARD_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "nav-calendario",
     title: "Navegação rápida",
-    body: "Use o menu lateral (ou a barra inferior no celular) para alternar entre Dashboard, Calendário e Próximos passos.",
+    body: "Use o menu lateral (ou a barra inferior no celular) para alternar entre Dashboard Comercial, Calendário e Próximos passos.",
     target: "nav-calendario",
     placement: "right",
   },
   {
     id: "finish",
-    title: "Dashboard concluído!",
+    title: "Dashboard Comercial concluído!",
     body: "Agora conheça Próximos passos — onde você acompanha e marca como feitas as ações combinadas nas reuniões.",
     placement: "center",
     finishLabel: "Concluir tour",

@@ -52,7 +52,7 @@ export const CALENDARIO_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "demo-reuniao-tipo",
     title: "Tipo de reunião",
-    body: "Defina o tipo: captação, fidelização, relacionamento etc. Isso alimenta o Dashboard e os relatórios por categoria.",
+    body: "Defina o tipo: captação, fidelização, relacionamento etc. Isso alimenta o Dashboard Comercial e os relatórios por categoria.",
     demo: "reuniao-tipo",
     placement: "center",
   },
@@ -80,17 +80,17 @@ export const CALENDARIO_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "demo-reuniao-salvar",
     title: "Salvar categorização",
-    body: "Ao salvar, o evento deixa de ser \"Não categorizado\" e passa a contar como reunião realizada no Dashboard e no timesheet.",
+    body: "Ao salvar, o evento deixa de ser \"Não categorizado\" e passa a contar como reunião realizada no Dashboard Comercial e no timesheet.",
     demo: "reuniao-salvar",
     placement: "center",
   },
   {
     id: "finish",
     title: "Calendário concluído!",
-    body: "Repita esse fluxo sempre que aparecer um evento pendente. Agora conheça o Dashboard para acompanhar suas métricas.",
+    body: "Repita esse fluxo sempre que aparecer um evento pendente. Agora conheça o Dashboard Comercial para acompanhar suas métricas.",
     placement: "center",
     finishLabel: "Concluir tour",
     nextHref: "/dashboard",
-    nextHrefLabel: "Ir para o Dashboard",
+    nextHrefLabel: "Ir para o Dashboard Comercial",
   },
 ];

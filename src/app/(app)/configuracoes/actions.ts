@@ -5,6 +5,11 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CALENDARIO_PATH } from "@/lib/calendario";
 import { chaveDoTipo, type TipoReuniaoItem } from "@/lib/reuniao-tipos";
+import {
+  isClusterAgenda,
+  META_MENSAL_MAX,
+  type AgendaPositivaCliente,
+} from "@/lib/agenda-positiva";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -250,5 +255,70 @@ export async function salvarPastasAtendimento(
   }
 
   revalidar();
+  return { ok: true };
+}
+
+function erroAgendaPositiva(error: { message?: string; code?: string } | null): string {
+  const msg = error?.message ?? "";
+  if (error?.code === "42P01" || error?.code === "PGRST205") {
+    return "A tabela da Agenda Positiva ainda não existe. Aplique a migration 0057.";
+  }
+  if (msg.includes("row-level security")) {
+    return "Só administradores podem alterar a Agenda Positiva.";
+  }
+  return msg || "Não foi possível salvar a Agenda Positiva.";
+}
+
+/** Grava a lista inteira: quem saiu da lista sai da tabela, o resto é upsert. */
+export async function salvarAgendaPositiva(
+  linhas: AgendaPositivaCliente[]
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const vistos = new Set<string>();
+  const limpas: AgendaPositivaCliente[] = [];
+  for (const l of linhas) {
+    const grupo = (l.grupo_cliente ?? "").trim();
+    if (!grupo || grupo.length > 200) return { ok: false, error: "Cliente inválido." };
+    if (vistos.has(grupo)) return { ok: false, error: `${grupo} aparece duas vezes.` };
+    vistos.add(grupo);
+    if (!isClusterAgenda(l.cluster)) {
+      return { ok: false, error: `Escolha o cluster de ${grupo}.` };
+    }
+    const meta = Number(l.meta_mensal);
+    if (!Number.isInteger(meta) || meta < 1 || meta > META_MENSAL_MAX) {
+      return {
+        ok: false,
+        error: `A meta de ${grupo} deve ser de 1 a ${META_MENSAL_MAX} reuniões por mês.`,
+      };
+    }
+    limpas.push({ grupo_cliente: grupo, cluster: l.cluster, meta_mensal: meta });
+  }
+
+  const supabase = await createClient();
+  const { data: atuais, error: lerErr } = await supabase
+    .from("agenda_positiva_clientes")
+    .select("grupo_cliente");
+  if (lerErr) return { ok: false, error: erroAgendaPositiva(lerErr) };
+
+  const remover = (atuais ?? [])
+    .map((a) => a.grupo_cliente)
+    .filter((g) => !vistos.has(g));
+  if (remover.length) {
+    const { error } = await supabase
+      .from("agenda_positiva_clientes")
+      .delete()
+      .in("grupo_cliente", remover);
+    if (error) return { ok: false, error: erroAgendaPositiva(error) };
+  }
+  if (limpas.length) {
+    const { error } = await supabase
+      .from("agenda_positiva_clientes")
+      .upsert(limpas, { onConflict: "grupo_cliente" });
+    if (error) return { ok: false, error: erroAgendaPositiva(error) };
+  }
+
+  revalidatePath("/configuracoes");
+  revalidatePath("/agenda-positiva");
   return { ok: true };
 }

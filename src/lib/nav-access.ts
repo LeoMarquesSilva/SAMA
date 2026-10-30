@@ -12,6 +12,10 @@ export function canAccessDashboard(ctx: NavContext): boolean {
   return temModulo(ctx, "dashboard");
 }
 
+export function canAccessAgendaPositiva(ctx: NavContext): boolean {
+  return temModulo(ctx, "agenda-positiva");
+}
+
 export function canAccessCalendario(ctx: NavContext): boolean {
   return temModulo(ctx, "calendario");
 }

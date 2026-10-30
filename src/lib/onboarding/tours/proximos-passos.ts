@@ -52,7 +52,7 @@ export const PROXIMOS_PASSOS_TOUR_STEPS: OnboardingStep[] = [
   {
     id: "nav",
     title: "Fluxo completo",
-    body: "Calendário → categorizar eventos. Dashboard → ver métricas. Próximos passos → executar combinações. A aba Ajuda traz o manual detalhado.",
+    body: "Calendário → categorizar eventos. Dashboard Comercial → ver métricas. Próximos passos → executar combinações. A aba Ajuda traz o manual detalhado.",
     target: "nav-proximos-passos",
     placement: "right",
   },
