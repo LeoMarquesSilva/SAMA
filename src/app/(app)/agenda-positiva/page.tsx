@@ -14,7 +14,10 @@ import { temModulo } from "@/lib/modulos";
 import { formatDate } from "@/lib/format";
 import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import {
+  eventosOutlookDaAgenda,
   listarAgendaPositiva,
+  listarAreasDosGrupos,
+  listarAreasResponsaveis,
   listarGruposCliente,
   reunioesPorCliente,
 } from "@/lib/agenda-positiva.server";
@@ -22,6 +25,7 @@ import {
   CLUSTER_CLASSES,
   FILTRO_SEM_CLUSTER,
   isGrupoInternoAgenda,
+  juntarEncontros,
   labelCluster,
   labelMesCurto,
   labelMesLongo,
@@ -43,8 +47,11 @@ const MESES_NA_GRADE = 6;
 const TOP_NO_MES = 8;
 
 type Contagem = {
+  /** Reuniões que já aconteceram, por mês. */
   porMes: Record<string, number>;
-  /** Agendadas (ainda não realizadas) no mês escolhido. */
+  /** Quantas de porMes vieram do Outlook sem classificação. */
+  doOutlook: Record<string, number>;
+  /** Ainda por acontecer no mês escolhido. */
   agendadas: number;
   ultima: string | null;
 };
@@ -68,7 +75,13 @@ function pct(parte: number, total: number): string {
 export default async function AgendaPositivaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; cluster?: string; tipo?: string }>;
+  searchParams: Promise<{
+    mes?: string;
+    cluster?: string;
+    tipo?: string;
+    areaCliente?: string;
+    areaResp?: string;
+  }>;
 }) {
   const eu = await requireModulo("agenda-positiva");
   const sp = await searchParams;
@@ -80,39 +93,68 @@ export default async function AgendaPositivaPage({
   const meses = mesesAte(mes, MESES_NA_GRADE);
   const emCurso = mes === mesAtual;
 
-  const [agenda, grupos, reunioes, tiposReuniao, modulos] = await Promise.all([
+  // Com filtro de tipo, o Outlook fica fora (evento do Outlook não tem tipo).
+  const [
+    agenda,
+    grupos,
+    reunioes,
+    eventos,
+    tiposReuniao,
+    modulos,
+    areasDosGrupos,
+    areasResponsaveis,
+  ] = await Promise.all([
     listarAgendaPositiva(),
     listarGruposCliente(),
     reunioesPorCliente(meses[0], mes, { tipo }),
+    tipo ? Promise.resolve([]) : eventosOutlookDaAgenda(meses[0], mes),
     listarTiposReuniao(),
     getModulosAtuais(),
+    listarAreasDosGrupos(),
+    listarAreasResponsaveis(),
   ]);
   const podeConfigurar = temModulo({ isAdmin: eu.is_admin, modulos }, "configuracoes");
 
-  // ─── Contagem por cliente ──────────────────────────────────────────────────
+  // Área do cliente: dos processos do grupo. Área do responsável: departamento de
+  // quem estava na reunião (lançou, participou ou tem o evento no calendário).
+  const areasCliente = [...new Set(Object.values(areasDosGrupos).flat())].sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+  const areaCliente = areasCliente.includes(sp.areaCliente ?? "") ? sp.areaCliente! : "";
+  const areaResp = areasResponsaveis.includes(sp.areaResp ?? "") ? sp.areaResp! : "";
+
+  // ─── Contagem por grupo ────────────────────────────────────────────────────
+  // Conta o que está no calendário: reunião do SAMA com data passada vale como
+  // feita mesmo sem marcar "Realizada"; evento do Outlook sem classificação entra
+  // quando o título cita o grupo. O mesmo horário do mesmo grupo conta uma vez.
+  const encontros = juntarEncontros(reunioes, eventos);
+  const daAgenda = new Map(agenda.clientes.map((c) => [c.grupo_cliente, c]));
+  const gruposDaTabela = new Set(grupos);
+  const nomesDeGrupo = new Set([...grupos, ...daAgenda.keys()]);
+
   const contagem = new Map<string, Contagem>();
-  for (const r of reunioes) {
-    const c = contagem.get(r.cliente) ?? { porMes: {}, agendadas: 0, ultima: null };
-    if (r.status === "REALIZADA") {
-      c.porMes[r.mes] = (c.porMes[r.mes] ?? 0) + 1;
-      if (!c.ultima || r.inicio > c.ultima) c.ultima = r.inicio;
-    } else if (r.mes === mes && (r.status === "AGENDADA" || r.status === "REAGENDADA")) {
+  let foraSemGrupo = 0;
+  for (const e of encontros) {
+    if (isGrupoInternoAgenda(e.cliente)) continue;
+    if (areaResp && !e.areas.includes(areaResp)) continue;
+    // Só os grupos da tabela de clientes (e os cadastrados na agenda).
+    if (!nomesDeGrupo.has(e.cliente)) {
+      if (e.feita) foraSemGrupo += 1;
+      continue;
+    }
+    const c = contagem.get(e.cliente) ?? { porMes: {}, doOutlook: {}, agendadas: 0, ultima: null };
+    if (e.feita) {
+      c.porMes[e.mes] = (c.porMes[e.mes] ?? 0) + 1;
+      if (e.origem === "outlook") c.doOutlook[e.mes] = (c.doOutlook[e.mes] ?? 0) + 1;
+      if (!c.ultima || Date.parse(e.inicio) > Date.parse(c.ultima)) c.ultima = e.inicio;
+    } else if (e.mes === mes) {
       c.agendadas += 1;
     }
-    contagem.set(r.cliente, c);
+    contagem.set(e.cliente, c);
   }
 
   // ─── Todos os grupos do escritório, com ou sem cluster ─────────────────────
-  // Entram também os da agenda (mesmo que o grupo tenha sumido do VIOS) e os
-  // clientes sem grupo que tiveram reunião (a reunião fica no nome do cadastro).
-  const daAgenda = new Map(agenda.clientes.map((c) => [c.grupo_cliente, c]));
-  const nomesDeGrupo = new Set([...grupos, ...daAgenda.keys()]);
-  const universo = new Set(nomesDeGrupo);
-  for (const cliente of contagem.keys()) {
-    if (!isGrupoInternoAgenda(cliente)) universo.add(cliente);
-  }
-
-  const todas: LinhaGrupoAgenda[] = [...universo].map((grupo) => {
+  const todas: LinhaGrupoAgenda[] = [...nomesDeGrupo].filter((g) => !isGrupoInternoAgenda(g)).map((grupo) => {
     const cfg = daAgenda.get(grupo);
     const cont = contagem.get(grupo);
     const porMes = meses.map((m) => cont?.porMes[m] ?? 0);
@@ -125,18 +167,22 @@ export default async function AgendaPositivaPage({
       cluster: cfg?.cluster ?? null,
       meta,
       porMes,
+      outlookPorMes: meses.map((m) => cont?.doOutlook[m] ?? 0),
       realizadas,
       agendadas,
       total: porMes.reduce((s, n) => s + n, 0),
       ultima,
       ultimaLabel: ultima ? formatDate(ultima) : null,
       situacao: situacaoDoGrupo(realizadas, agendadas, meta),
-      semGrupo: !nomesDeGrupo.has(grupo),
+      semGrupo: !gruposDaTabela.has(grupo),
+      areasCliente: areasDosGrupos[grupo] ?? [],
     };
   });
 
-  const linhas = todas.filter((l) =>
-    !cluster ? true : cluster === FILTRO_SEM_CLUSTER ? !l.cluster : l.cluster === cluster
+  const linhas = todas.filter(
+    (l) =>
+      (!cluster || (cluster === FILTRO_SEM_CLUSTER ? !l.cluster : l.cluster === cluster)) &&
+      (!areaCliente || l.areasCliente.includes(areaCliente))
   );
 
   // ─── Indicadores ───────────────────────────────────────────────────────────
@@ -146,6 +192,8 @@ export default async function AgendaPositivaPage({
   const semReuniaoComAgenda = linhas.filter((l) => l.realizadas === 0 && l.agendadas > 0).length;
   const nadaNoPeriodo = linhas.filter((l) => l.total === 0).length;
   const reunioesNoMes = linhas.reduce((s, l) => s + l.realizadas, 0);
+  const iMes = meses.length - 1;
+  const doOutlookNoMes = linhas.reduce((s, l) => s + l.outlookPorMes[iMes], 0);
   const agendadasNoMes = linhas.reduce((s, l) => s + l.agendadas, 0);
   const mesAnterior = somarMeses(mes, -1);
   const iAnterior = meses.indexOf(mesAnterior);
@@ -175,8 +223,13 @@ export default async function AgendaPositivaPage({
     .slice(0, TOP_NO_MES);
   const maiorTop = Math.max(1, ...top.map((r) => r.realizadas + r.agendadas));
 
-  const recorte =
-    cluster === FILTRO_SEM_CLUSTER ? "sem cluster" : cluster ? labelCluster(cluster) : "";
+  const recorte = [
+    cluster === FILTRO_SEM_CLUSTER ? "sem cluster" : cluster ? labelCluster(cluster) : "",
+    areaCliente && `clientes de ${areaCliente}`,
+    areaResp && `reuniões de ${areaResp}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="space-y-5">
@@ -205,6 +258,10 @@ export default async function AgendaPositivaPage({
         cluster={cluster}
         tipo={tipo}
         tiposReuniao={tiposReuniao}
+        areaCliente={areaCliente}
+        areasCliente={areasCliente}
+        areaResp={areaResp}
+        areasResponsaveis={areasResponsaveis}
       />
 
       {agenda.semTabela && (
@@ -237,9 +294,10 @@ export default async function AgendaPositivaPage({
           destaque="bg-rose-100 text-rose-700"
         />
         <Indicador
-          titulo="Reuniões realizadas no mês"
+          titulo="Reuniões no mês"
           valor={String(reunioesNoMes)}
           dica={[
+            doOutlookNoMes > 0 && `${doOutlookNoMes} do Outlook sem classificação`,
             agendadasNoMes > 0 && `+${agendadasNoMes} agendadas`,
             `${reunioesMesAnterior} em ${labelMesCurto(mesAnterior)}`,
           ]
@@ -271,7 +329,7 @@ export default async function AgendaPositivaPage({
               Evolução · últimos {MESES_NA_GRADE} meses
             </h2>
             <p className="text-xs text-slate-500">
-              Reuniões realizadas e grupos atendidos em cada mês
+              Reuniões feitas e grupos atendidos em cada mês
             </p>
           </div>
           <div className="grid grid-cols-6 gap-1.5 sm:gap-3">
@@ -368,7 +426,24 @@ export default async function AgendaPositivaPage({
       </div>
 
       {/* ─── Todos os grupos ─────────────────────────────────────────────────── */}
-      <AgendaPositivaTabela linhas={linhas} meses={meses} mes={mes} mesAtual={mesAtual} />
+      <AgendaPositivaTabela
+        linhas={linhas}
+        meses={meses}
+        mes={mes}
+        mesAtual={mesAtual}
+        foraSemGrupo={cluster || areaCliente ? 0 : foraSemGrupo}
+      />
+
+      <p className="text-xs text-slate-500">
+        Contam as reuniões com cliente lançadas no SAMA (as de data passada valem como feitas,
+        mesmo sem marcar &quot;Realizada&quot;) e os eventos do Outlook ainda sem classificação
+        cujo título cita o grupo e que têm convidado de fora do escritório ou dizem
+        reunião, call, presencial, online etc. O mesmo grupo no mesmo horário conta uma vez.
+        Área do cliente: grupos com processo na área (&quot;Cível | Insolvência&quot; vale nas
+        duas). Área do responsável: reuniões com alguém do departamento — quem lançou, quem
+        participou ou quem tem o evento no calendário.
+        {tipo && " Com filtro de tipo, só entram as reuniões do SAMA."}
+      </p>
     </div>
   );
 }

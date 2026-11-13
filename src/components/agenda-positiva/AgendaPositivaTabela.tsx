@@ -86,12 +86,15 @@ export function AgendaPositivaTabela({
   meses,
   mes,
   mesAtual,
+  foraSemGrupo = 0,
 }: {
   linhas: LinhaGrupoAgenda[];
   /** Meses da grade, do mais antigo ao escolhido. */
   meses: string[];
   mes: string;
   mesAtual: string;
+  /** Reuniões feitas com cadastros sem grupo na tabela de clientes (não aparecem). */
+  foraSemGrupo?: number;
 }) {
   const [busca, setBusca] = useState("");
   const [vista, setVista] = useState<Vista>("todos");
@@ -137,10 +140,12 @@ export function AgendaPositivaTabela({
   function baixarCsv() {
     const cab = [
       "Grupo cliente",
+      "Áreas do cliente",
       "Cluster",
       "Meta/mês",
       ...meses.map(labelMesCurto),
       `Total ${n} meses`,
+      `Do Outlook em ${labelMesCurto(mes)}`,
       "Agendadas no mês",
       "Último contato",
       `Situação em ${labelMesCurto(mes)}`,
@@ -152,10 +157,12 @@ export function AgendaPositivaTabela({
     const corpo = visiveis.map((l) =>
       [
         l.grupo,
+        l.areasCliente.join(", "),
         l.cluster ?? "",
         l.meta ?? "",
         ...l.porMes,
         l.total,
+        l.outlookPorMes[n - 1],
         l.agendadas,
         l.ultimaLabel ?? "",
         labelSituacao(l),
@@ -294,6 +301,7 @@ export function AgendaPositivaTabela({
                       </td>
                       {meses.map((m, j) => {
                         const qtd = l.porMes[j];
+                        const doOutlook = l.outlookPorMes[j];
                         const base = situacaoMeta(qtd, meta);
                         const estilo = m === mesAtual && base !== "cumprida" ? "emCurso" : base;
                         return (
@@ -304,7 +312,7 @@ export function AgendaPositivaTabela({
                                 CELULA[estilo],
                                 m === mes && "ring-2 ring-slate-300 ring-offset-1"
                               )}
-                              title={`${labelMesLongo(m)}: ${qtd} ${qtd === 1 ? "reunião" : "reuniões"}${l.meta ? ` de ${l.meta}` : ""}${estilo === "emCurso" ? " (mês em curso)" : ""}`}
+                              title={`${labelMesLongo(m)}: ${qtd} ${qtd === 1 ? "reunião" : "reuniões"}${l.meta ? ` de ${l.meta}` : ""}${doOutlook ? ` (${doOutlook} do Outlook sem classificação)` : ""}${estilo === "emCurso" ? " · mês em curso" : ""}`}
                             >
                               {qtd}
                             </span>
@@ -334,6 +342,14 @@ export function AgendaPositivaTabela({
                             +{l.agendadas} {l.agendadas === 1 ? "agendada" : "agendadas"}
                           </p>
                         )}
+                        {l.outlookPorMes[n - 1] > 0 && (
+                          <p
+                            className="mt-0.5 text-[11px] text-slate-500"
+                            title="Eventos do Outlook que ninguém classificou no SAMA, achados pelo título"
+                          >
+                            {l.outlookPorMes[n - 1]} do Outlook
+                          </p>
+                        )}
                       </td>
                     </tr>
                   );
@@ -346,6 +362,8 @@ export function AgendaPositivaTabela({
             <span>
               {Math.min(limite, visiveis.length)} de {visiveis.length}{" "}
               {visiveis.length === 1 ? "grupo" : "grupos"}
+              {foraSemGrupo > 0 &&
+                ` · ${foraSemGrupo} ${foraSemGrupo === 1 ? "reunião" : "reuniões"} com cadastro sem grupo na tabela de clientes ficaram fora`}
             </span>
             {visiveis.length > limite && (
               <div className="flex gap-3">

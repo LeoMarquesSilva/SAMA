@@ -20,25 +20,43 @@ export function AgendaPositivaFiltros({
   cluster,
   tipo,
   tiposReuniao,
+  areaCliente,
+  areasCliente,
+  areaResp,
+  areasResponsaveis,
 }: {
   mes: string;
   cluster: string;
   tipo: string;
   tiposReuniao: TipoReuniaoItem[];
+  areaCliente: string;
+  areasCliente: string[];
+  areaResp: string;
+  areasResponsaveis: string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [, startTransition] = useTransition();
   const mesAtual = mesAtualKey();
 
-  function update(patch: { mes?: string; cluster?: string; tipo?: string }) {
+  function update(patch: {
+    mes?: string;
+    cluster?: string;
+    tipo?: string;
+    areaCliente?: string;
+    areaResp?: string;
+  }) {
     const params = new URLSearchParams();
     const nextMes = patch.mes ?? mes;
     const nextCluster = patch.cluster ?? cluster;
     const nextTipo = patch.tipo ?? tipo;
+    const nextAreaCliente = patch.areaCliente ?? areaCliente;
+    const nextAreaResp = patch.areaResp ?? areaResp;
     if (nextMes !== mesAtual) params.set("mes", nextMes);
     if (nextCluster) params.set("cluster", nextCluster);
     if (nextTipo) params.set("tipo", nextTipo);
+    if (nextAreaCliente) params.set("areaCliente", nextAreaCliente);
+    if (nextAreaResp) params.set("areaResp", nextAreaResp);
     const url = params.size ? `${pathname}?${params.toString()}` : pathname;
     iniciarNavegacao(url);
     startTransition(() => router.push(url));
@@ -106,6 +124,24 @@ export function AgendaPositivaFiltros({
         placeholder="Todos os tipos"
         options={tiposReuniao.map((t) => ({ value: t.chave, label: t.label }))}
         className="w-full sm:w-56"
+      />
+
+      <SelectMenu
+        value={areaCliente}
+        onChange={(v) => update({ areaCliente: v })}
+        emptyOption="Área do cliente: todas"
+        placeholder="Área do cliente: todas"
+        options={areasCliente.map((a) => ({ value: a, label: `Cliente: ${a}` }))}
+        className="w-full sm:w-60"
+      />
+
+      <SelectMenu
+        value={areaResp}
+        onChange={(v) => update({ areaResp: v })}
+        emptyOption="Área do responsável: todas"
+        placeholder="Área do responsável: todas"
+        options={areasResponsaveis.map((a) => ({ value: a, label: `Responsável: ${a}` }))}
+        className="w-full sm:w-64"
       />
     </div>
   );
