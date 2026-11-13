@@ -33,6 +33,41 @@ export type AgendaPositivaCliente = {
   meta_mensal: number;
 };
 
+/** Valor do filtro de cluster para os grupos que ainda não têm cluster nem meta. */
+export const FILTRO_SEM_CLUSTER = "sem";
+
+export type FiltroCluster = ClusterAgenda | typeof FILTRO_SEM_CLUSTER | "";
+
+export function parseFiltroCluster(raw?: string): FiltroCluster {
+  if (!raw) return "";
+  if (raw === FILTRO_SEM_CLUSTER || isClusterAgenda(raw)) return raw;
+  return "";
+}
+
+/**
+ * Situação do grupo no mês escolhido. "agendada" só vale no mês em curso;
+ * "realizada" é a de quem não tem meta e teve reunião.
+ */
+export type SituacaoGrupo = "zerada" | "parcial" | "agendada" | "realizada" | "cumprida";
+
+/** Uma linha do dashboard: um grupo cliente e suas reuniões nos meses da grade. */
+export type LinhaGrupoAgenda = {
+  grupo: string;
+  cluster: ClusterAgenda | null;
+  meta: number | null;
+  /** Reuniões realizadas em cada mês da grade, na ordem dos meses. */
+  porMes: number[];
+  realizadas: number;
+  agendadas: number;
+  total: number;
+  /** Última reunião realizada na grade (ISO) e a mesma data já formatada. */
+  ultima: string | null;
+  ultimaLabel: string | null;
+  situacao: SituacaoGrupo;
+  /** Cliente sem grupo no VIOS: a reunião ficou no nome do cadastro. */
+  semGrupo: boolean;
+};
+
 /**
  * Grupos do próprio escritório (Gestão de Equipe e "Grupo Área …"): reunião com
  * eles é interna, não entra no ranking de clientes nem nas sugestões.
@@ -79,6 +114,12 @@ export function labelMesCurto(mes: string): string {
 export function labelMesLongo(mes: string): string {
   const [y, m] = mes.split("-").map(Number);
   return `${MESES_LONGOS[m - 1]} de ${y}`;
+}
+
+/** "Novembro de 2026" — para título; o CSS capitalize deixaria "De". */
+export function labelMesTitulo(mes: string): string {
+  const s = labelMesLongo(mes);
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** cumprida: atingiu a meta · parcial: teve reunião, abaixo da meta · zerada: nenhuma. */

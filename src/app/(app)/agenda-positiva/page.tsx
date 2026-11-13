@@ -1,11 +1,7 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import {
-  AlertTriangle,
   CalendarCheck,
-  CalendarClock,
-  CheckCircle2,
   Settings,
   Target,
   Users,
@@ -19,49 +15,32 @@ import { formatDate } from "@/lib/format";
 import { listarTiposReuniao } from "@/lib/reuniao-tipos.server";
 import {
   listarAgendaPositiva,
+  listarGruposCliente,
   reunioesPorCliente,
 } from "@/lib/agenda-positiva.server";
 import {
-  CLUSTERS_AGENDA,
   CLUSTER_CLASSES,
-  isClusterAgenda,
+  FILTRO_SEM_CLUSTER,
   isGrupoInternoAgenda,
   labelCluster,
   labelMesCurto,
   labelMesLongo,
+  labelMesTitulo,
   mesAtualKey,
   mesesAte,
+  parseFiltroCluster,
   parseMesKey,
-  situacaoMeta,
-  type ClusterAgenda,
+  somarMeses,
+  type LinhaGrupoAgenda,
+  type SituacaoGrupo,
 } from "@/lib/agenda-positiva";
 import { AgendaPositivaFiltros } from "@/components/agenda-positiva/AgendaPositivaFiltros";
+import { AgendaPositivaTabela } from "@/components/agenda-positiva/AgendaPositivaTabela";
 
 export const dynamic = "force-dynamic";
 
 const MESES_NA_GRADE = 6;
-const RANKING_VISIVEL = 15;
-
-/** Situação do cliente no mês escolhido; "agendada" só vale para o mês em curso. */
-type Situacao = "cumprida" | "agendada" | "parcial" | "zerada";
-
-const SITUACAO: Record<
-  Situacao,
-  { label: string; icon: typeof CheckCircle2; classes: string; ordem: number }
-> = {
-  zerada: { label: "Sem reunião", icon: XCircle, classes: "bg-red-50 text-red-700", ordem: 0 },
-  parcial: { label: "Abaixo da meta", icon: AlertTriangle, classes: "bg-amber-50 text-amber-800", ordem: 1 },
-  agendada: { label: "Meta agendada", icon: CalendarClock, classes: "bg-brand-50 text-brand-700", ordem: 2 },
-  cumprida: { label: "Meta cumprida", icon: CheckCircle2, classes: "bg-emerald-50 text-emerald-700", ordem: 3 },
-};
-
-/** Fundo de cada mês da grade, pela relação reuniões × meta. */
-const CELULA: Record<"cumprida" | "parcial" | "zerada" | "emCurso", string> = {
-  cumprida: "bg-emerald-100 text-emerald-800",
-  parcial: "bg-amber-100 text-amber-900",
-  zerada: "bg-red-50 text-red-600",
-  emCurso: "border border-dashed border-slate-300 bg-white text-slate-600",
-};
+const TOP_NO_MES = 8;
 
 type Contagem = {
   porMes: Record<string, number>;
@@ -69,6 +48,22 @@ type Contagem = {
   agendadas: number;
   ultima: string | null;
 };
+
+/** Sem meta, uma reunião no mês já basta. */
+function situacaoDoGrupo(
+  realizadas: number,
+  agendadas: number,
+  meta: number | null
+): SituacaoGrupo {
+  const alvo = meta ?? 1;
+  if (realizadas >= alvo) return meta ? "cumprida" : "realizada";
+  if (realizadas + agendadas >= alvo) return "agendada";
+  return realizadas > 0 ? "parcial" : "zerada";
+}
+
+function pct(parte: number, total: number): string {
+  return total ? `${Math.round((parte / total) * 100)}%` : "—";
+}
 
 export default async function AgendaPositivaPage({
   searchParams,
@@ -80,15 +75,14 @@ export default async function AgendaPositivaPage({
   const mesAtual = mesAtualKey();
   const mesPedido = parseMesKey(sp.mes);
   const mes = mesPedido > mesAtual ? mesAtual : mesPedido;
-  const cluster: ClusterAgenda | "" = isClusterAgenda(sp.cluster ?? "")
-    ? (sp.cluster as ClusterAgenda)
-    : "";
+  const cluster = parseFiltroCluster(sp.cluster);
   const tipo = sp.tipo || "";
   const meses = mesesAte(mes, MESES_NA_GRADE);
   const emCurso = mes === mesAtual;
 
-  const [agenda, reunioes, tiposReuniao, modulos] = await Promise.all([
+  const [agenda, grupos, reunioes, tiposReuniao, modulos] = await Promise.all([
     listarAgendaPositiva(),
+    listarGruposCliente(),
     reunioesPorCliente(meses[0], mes, { tipo }),
     listarTiposReuniao(),
     getModulosAtuais(),
@@ -108,59 +102,81 @@ export default async function AgendaPositivaPage({
     contagem.set(r.cliente, c);
   }
 
-  // ─── Clientes da agenda ────────────────────────────────────────────────────
-  const clusterDe = new Map(agenda.clientes.map((c) => [c.grupo_cliente, c.cluster]));
-  const linhas = agenda.clientes
-    .filter((c) => !cluster || c.cluster === cluster)
-    .map((c) => {
-      const cont = contagem.get(c.grupo_cliente);
-      const realizadas = cont?.porMes[mes] ?? 0;
-      const agendadas = emCurso ? cont?.agendadas ?? 0 : 0;
-      let situacao: Situacao = situacaoMeta(realizadas, c.meta_mensal);
-      if (situacao !== "cumprida" && realizadas + agendadas >= c.meta_mensal) {
-        situacao = "agendada";
-      }
-      return {
-        ...c,
-        porMes: meses.map((m) => cont?.porMes[m] ?? 0),
-        realizadas,
-        agendadas,
-        ultima: cont?.ultima ?? null,
-        situacao,
-      };
-    })
+  // ─── Todos os grupos do escritório, com ou sem cluster ─────────────────────
+  // Entram também os da agenda (mesmo que o grupo tenha sumido do VIOS) e os
+  // clientes sem grupo que tiveram reunião (a reunião fica no nome do cadastro).
+  const daAgenda = new Map(agenda.clientes.map((c) => [c.grupo_cliente, c]));
+  const nomesDeGrupo = new Set([...grupos, ...daAgenda.keys()]);
+  const universo = new Set(nomesDeGrupo);
+  for (const cliente of contagem.keys()) {
+    if (!isGrupoInternoAgenda(cliente)) universo.add(cliente);
+  }
+
+  const todas: LinhaGrupoAgenda[] = [...universo].map((grupo) => {
+    const cfg = daAgenda.get(grupo);
+    const cont = contagem.get(grupo);
+    const porMes = meses.map((m) => cont?.porMes[m] ?? 0);
+    const realizadas = cont?.porMes[mes] ?? 0;
+    const agendadas = emCurso ? cont?.agendadas ?? 0 : 0;
+    const meta = cfg?.meta_mensal ?? null;
+    const ultima = cont?.ultima ?? null;
+    return {
+      grupo,
+      cluster: cfg?.cluster ?? null,
+      meta,
+      porMes,
+      realizadas,
+      agendadas,
+      total: porMes.reduce((s, n) => s + n, 0),
+      ultima,
+      ultimaLabel: ultima ? formatDate(ultima) : null,
+      situacao: situacaoDoGrupo(realizadas, agendadas, meta),
+      semGrupo: !nomesDeGrupo.has(grupo),
+    };
+  });
+
+  const linhas = todas.filter((l) =>
+    !cluster ? true : cluster === FILTRO_SEM_CLUSTER ? !l.cluster : l.cluster === cluster
+  );
+
+  // ─── Indicadores ───────────────────────────────────────────────────────────
+  const total = linhas.length;
+  const comReuniao = linhas.filter((l) => l.realizadas > 0).length;
+  const semReuniao = total - comReuniao;
+  const semReuniaoComAgenda = linhas.filter((l) => l.realizadas === 0 && l.agendadas > 0).length;
+  const nadaNoPeriodo = linhas.filter((l) => l.total === 0).length;
+  const reunioesNoMes = linhas.reduce((s, l) => s + l.realizadas, 0);
+  const agendadasNoMes = linhas.reduce((s, l) => s + l.agendadas, 0);
+  const mesAnterior = somarMeses(mes, -1);
+  const iAnterior = meses.indexOf(mesAnterior);
+  const reunioesMesAnterior = linhas.reduce((s, l) => s + (l.porMes[iAnterior] ?? 0), 0);
+  const comMeta = linhas.filter((l) => l.meta);
+  const metaTotal = comMeta.reduce((s, l) => s + (l.meta ?? 0), 0);
+  const metaCoberta = comMeta.reduce((s, l) => s + Math.min(l.realizadas, l.meta ?? 0), 0);
+  const cumpridas = comMeta.filter((l) => l.situacao === "cumprida").length;
+
+  // ─── Evolução e destaques ──────────────────────────────────────────────────
+  const evolucao = meses.map((m, j) => ({
+    mes: m,
+    reunioes: linhas.reduce((s, l) => s + l.porMes[j], 0),
+    grupos: linhas.filter((l) => l.porMes[j] > 0).length,
+  }));
+  const maiorMes = Math.max(1, ...evolucao.map((e) => e.reunioes));
+
+  const top = linhas
+    .filter((l) => l.realizadas > 0 || l.agendadas > 0)
     .sort(
       (a, b) =>
-        a.cluster.localeCompare(b.cluster) ||
-        SITUACAO[a.situacao].ordem - SITUACAO[b.situacao].ordem ||
-        a.realizadas / a.meta_mensal - b.realizadas / b.meta_mensal ||
-        a.grupo_cliente.localeCompare(b.grupo_cliente)
-    );
+        b.realizadas - a.realizadas ||
+        b.agendadas - a.agendadas ||
+        b.total - a.total ||
+        a.grupo.localeCompare(b.grupo, "pt-BR")
+    )
+    .slice(0, TOP_NO_MES);
+  const maiorTop = Math.max(1, ...top.map((r) => r.realizadas + r.agendadas));
 
-  const metaTotal = linhas.reduce((s, l) => s + l.meta_mensal, 0);
-  const metaCoberta = linhas.reduce((s, l) => s + Math.min(l.realizadas, l.meta_mensal), 0);
-  const cumpridas = linhas.filter((l) => l.situacao === "cumprida").length;
-  const semReuniao = linhas.filter((l) => l.realizadas === 0);
-  const semReuniaoComAgenda = semReuniao.filter((l) => l.agendadas > 0).length;
-
-  // ─── Ranking: reuniões por cliente no mês (com e sem agenda) ───────────────
-  const ranking = [...contagem.entries()]
-    .filter(([cliente]) => !isGrupoInternoAgenda(cliente))
-    .filter(([cliente]) => !cluster || clusterDe.get(cliente) === cluster)
-    .map(([cliente, c]) => ({
-      cliente,
-      cluster: clusterDe.get(cliente) ?? null,
-      noMes: c.porMes[mes] ?? 0,
-      agendadas: emCurso ? c.agendadas : 0,
-      em6m: meses.reduce((s, m) => s + (c.porMes[m] ?? 0), 0),
-    }))
-    .filter((r) => r.noMes > 0 || r.agendadas > 0)
-    .sort(
-      (a, b) =>
-        b.noMes - a.noMes || b.em6m - a.em6m || a.cliente.localeCompare(b.cliente)
-    );
-  const maiorNoMes = Math.max(1, ...ranking.map((r) => r.noMes + r.agendadas));
-  const foraDaAgenda = ranking.filter((r) => !r.cluster).length;
+  const recorte =
+    cluster === FILTRO_SEM_CLUSTER ? "sem cluster" : cluster ? labelCluster(cluster) : "";
 
   return (
     <div className="space-y-5">
@@ -170,7 +186,7 @@ export default async function AgendaPositivaPage({
             Dashboard Agenda Positiva
           </h1>
           <p className="text-sm text-slate-500">
-            Reuniões com cada cliente contra a meta mensal do cluster
+            Reuniões com cada grupo cliente do escritório, com ou sem meta de cluster
           </p>
         </div>
         {podeConfigurar && (
@@ -201,222 +217,158 @@ export default async function AgendaPositivaPage({
       {/* ─── Indicadores ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicador
-          titulo="Clientes na agenda"
-          valor={String(linhas.length)}
-          dica={
-            cluster
-              ? labelCluster(cluster)
-              : CLUSTERS_AGENDA.map(
-                  (c) => `${c.chave}: ${agenda.clientes.filter((x) => x.cluster === c.chave).length}`
-                ).join(" · ")
-          }
+          titulo="Grupos com reunião no mês"
+          valor={total ? `${comReuniao} de ${total}` : "—"}
+          dica={`${pct(comReuniao, total)} dos grupos${recorte ? ` · ${recorte}` : ""}`}
           icone={Users}
+          destaque="bg-emerald-100 text-emerald-700"
+        />
+        <Indicador
+          titulo="Grupos sem reunião no mês"
+          valor={String(semReuniao)}
+          dica={[
+            semReuniaoComAgenda > 0 &&
+              `${semReuniaoComAgenda} com reunião agendada`,
+            `${nadaNoPeriodo} sem nenhuma em ${MESES_NA_GRADE} meses`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          icone={XCircle}
+          destaque="bg-rose-100 text-rose-700"
+        />
+        <Indicador
+          titulo="Reuniões realizadas no mês"
+          valor={String(reunioesNoMes)}
+          dica={[
+            agendadasNoMes > 0 && `+${agendadasNoMes} agendadas`,
+            `${reunioesMesAnterior} em ${labelMesCurto(mesAnterior)}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          icone={CalendarCheck}
           destaque="bg-slate-100 text-slate-700"
         />
         <Indicador
           titulo="Meta do mês atingida"
-          valor={metaTotal ? `${Math.round((metaCoberta / metaTotal) * 100)}%` : "—"}
+          valor={metaTotal ? pct(metaCoberta, metaTotal) : "—"}
           dica={
             metaTotal
-              ? `${metaCoberta} de ${metaTotal} ${metaTotal === 1 ? "reunião prevista" : "reuniões previstas"}`
-              : "Nenhuma meta cadastrada"
+              ? `${cumpridas} de ${comMeta.length} grupos com meta · ${metaCoberta} de ${metaTotal} reuniões`
+              : "Nenhum grupo com meta neste recorte"
           }
           meta={metaTotal ? "100%" : undefined}
           atingiuMeta={metaTotal ? metaCoberta >= metaTotal : null}
           icone={Target}
           destaque="bg-sky-100 text-sky-700"
         />
-        <Indicador
-          titulo="Clientes com meta cumprida"
-          valor={linhas.length ? `${cumpridas} de ${linhas.length}` : "—"}
-          dica={
-            linhas.length
-              ? `${Math.round((cumpridas / linhas.length) * 100)}% dos clientes da agenda`
-              : "Nenhum cliente na agenda"
-          }
-          icone={CheckCircle2}
-          destaque="bg-emerald-100 text-emerald-700"
-        />
-        <Indicador
-          titulo="Clientes sem reunião no mês"
-          valor={String(semReuniao.length)}
-          dica={
-            semReuniaoComAgenda > 0
-              ? `${semReuniaoComAgenda} com reunião agendada`
-              : `Nenhuma reunião realizada em ${labelMesCurto(mes)}`
-          }
-          icone={XCircle}
-          destaque="bg-rose-100 text-rose-700"
-        />
       </div>
 
-      {/* ─── Clientes da agenda ─────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Clientes da agenda · últimos {MESES_NA_GRADE} meses
-          </h2>
-          <Legenda />
-        </div>
-
-        {linhas.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center">
-            <CalendarCheck size={22} className="mx-auto text-slate-300" />
-            <p className="mt-2 text-sm font-medium text-slate-700">
-              {agenda.clientes.length === 0
-                ? "Nenhum cliente com cluster e meta ainda"
-                : "Nenhum cliente neste cluster"}
+      {/* ─── Evolução e destaques ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 lg:col-span-3">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Evolução · últimos {MESES_NA_GRADE} meses
+            </h2>
+            <p className="text-xs text-slate-500">
+              Reuniões realizadas e grupos atendidos em cada mês
             </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {agenda.clientes.length === 0
-                ? "Cadastre os clientes da Agenda Positiva em Configurações."
-                : "Escolha outro cluster no filtro acima."}
-            </p>
-            {podeConfigurar && agenda.clientes.length === 0 && (
-              <Link
-                href="/configuracoes?aba=agenda"
-                className="mt-4 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          </div>
+          <div className="grid grid-cols-6 gap-1.5 sm:gap-3">
+            {evolucao.map((e) => (
+              <div
+                key={e.mes}
+                className="flex min-w-0 flex-col items-center"
+                title={`${labelMesLongo(e.mes)}: ${e.reunioes} ${e.reunioes === 1 ? "reunião" : "reuniões"}, ${e.grupos} de ${total} grupos${e.mes === mesAtual ? " (mês em curso)" : ""}`}
               >
-                Cadastrar clientes
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="-mx-4 overflow-x-auto px-4 md:-mx-5 md:px-5">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead>
-                <tr className="text-left text-xs text-slate-500">
-                  <th className="pb-2 pr-3 font-medium">Cliente</th>
-                  <th className="pb-2 pr-3 text-center font-medium">Meta/mês</th>
-                  {meses.map((m) => (
-                    <th
-                      key={m}
-                      className={clsx(
-                        "pb-2 text-center font-medium",
-                        m === mes && "text-slate-800"
-                      )}
-                    >
-                      {labelMesCurto(m)}
-                    </th>
-                  ))}
-                  <th className="pb-2 pl-3 font-medium">Último contato</th>
-                  <th className="pb-2 pl-3 font-medium">{labelMesCurto(mes)}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((l, i) => {
-                  const novoCluster = i === 0 || linhas[i - 1].cluster !== l.cluster;
-                  const s = SITUACAO[l.situacao];
-                  const Icone = s.icon;
-                  return (
-                    <Fragment key={l.grupo_cliente}>
-                    {novoCluster && !cluster && (
-                      <tr>
-                        <td colSpan={MESES_NA_GRADE + 4} className="pb-1 pt-3">
-                          <span
-                            className={clsx(
-                              "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                              CLUSTER_CLASSES[l.cluster]
-                            )}
-                          >
-                            {CLUSTERS_AGENDA.find((c) => c.chave === l.cluster)?.label}
-                          </span>
-                        </td>
-                      </tr>
+                <span className="text-sm font-semibold tabular-nums text-slate-800">
+                  {e.reunioes}
+                </span>
+                <div className="mt-1 flex h-28 w-full items-end justify-center border-b border-slate-200">
+                  <div
+                    className={clsx(
+                      "w-full max-w-[2.75rem] rounded-t-md",
+                      e.mes === mes ? "bg-brand-600" : "bg-brand-200",
+                      e.mes === mesAtual && e.mes !== mes && "opacity-60"
                     )}
-                    <tr className="border-t border-slate-100">
-                      <td className="max-w-[16rem] py-2 pr-3">
-                        <p className="truncate font-medium text-slate-800" title={l.grupo_cliente}>
-                          {l.grupo_cliente}
-                        </p>
-                      </td>
-                      <td className="py-2 pr-3 text-center tabular-nums text-slate-600">
-                        {l.meta_mensal}
-                      </td>
-                      {meses.map((m, j) => {
-                        const n = l.porMes[j];
-                        const base = situacaoMeta(n, l.meta_mensal);
-                        const estilo =
-                          m === mesAtual && base !== "cumprida" ? "emCurso" : base;
-                        return (
-                          <td key={m} className="px-0.5 py-1.5">
-                            <span
-                              className={clsx(
-                                "mx-auto flex h-8 w-12 items-center justify-center rounded-md text-sm font-semibold tabular-nums",
-                                CELULA[estilo],
-                                m === mes && "ring-2 ring-slate-300 ring-offset-1"
-                              )}
-                              title={`${labelMesLongo(m)}: ${n} de ${l.meta_mensal} ${l.meta_mensal === 1 ? "reunião" : "reuniões"}${estilo === "emCurso" ? " (mês em curso)" : ""}`}
-                            >
-                              {n}
-                            </span>
-                          </td>
-                        );
-                      })}
-                      <td className="whitespace-nowrap py-2 pl-3 text-slate-600">
-                        {l.ultima ? formatDate(l.ultima) : (
-                          <span className="text-slate-400">Nada em {MESES_NA_GRADE} meses</span>
-                        )}
-                      </td>
-                      <td className="py-2 pl-3">
-                        <span
-                          className={clsx(
-                            "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
-                            s.classes
-                          )}
-                        >
-                          <Icone size={13} />
-                          {s.label}
-                        </span>
-                        {l.agendadas > 0 && (
-                          <p className="mt-0.5 text-[11px] text-slate-500">
-                            +{l.agendadas} {l.agendadas === 1 ? "agendada" : "agendadas"}
-                          </p>
-                        )}
-                      </td>
-                    </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                    style={{ height: `${Math.max(2, (e.reunioes / maiorMes) * 100)}%` }}
+                  />
+                </div>
+                <span
+                  className={clsx(
+                    "mt-1.5 text-xs font-medium",
+                    e.mes === mes ? "text-slate-800" : "text-slate-500"
+                  )}
+                >
+                  {labelMesCurto(e.mes)}
+                </span>
+                <span className="text-[11px] tabular-nums text-slate-500">
+                  {e.grupos} {e.grupos === 1 ? "grupo" : "grupos"}
+                </span>
+                <span className="text-[11px] tabular-nums text-slate-400">
+                  {pct(e.grupos, total)}
+                </span>
+              </div>
+            ))}
           </div>
-        )}
-      </section>
+        </section>
 
-      {/* ─── Reuniões por cliente ───────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Reuniões por cliente · <span className="capitalize">{labelMesLongo(mes)}</span>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 lg:col-span-2">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">
+            Mais reuniões em {labelMesTitulo(mes)}
           </h2>
-          <p className="text-xs text-slate-500">
-            {ranking.length} {ranking.length === 1 ? "cliente" : "clientes"}
-            {!cluster && foraDaAgenda > 0 && ` · ${foraDaAgenda} fora da agenda`}
-            {" · "}sem reuniões internas do escritório
-          </p>
-        </div>
-        {ranking.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            Nenhuma reunião com cliente neste mês.
-          </p>
-        ) : (
-          <>
-            <RankingLista itens={ranking.slice(0, RANKING_VISIVEL)} maior={maiorNoMes} />
-            {ranking.length > RANKING_VISIVEL && (
-              <details className="group mt-1">
-                <summary className="cursor-pointer list-none py-2 text-xs font-medium text-brand-700 hover:underline">
-                  <span className="group-open:hidden">
-                    Ver todos os {ranking.length} clientes
+          {top.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
+              Nenhuma reunião com cliente neste mês.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {top.map((r) => (
+                <li
+                  key={r.grupo}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1"
+                  title={`${r.grupo}: ${r.realizadas} ${r.realizadas === 1 ? "realizada" : "realizadas"}${r.agendadas ? `, ${r.agendadas} ${r.agendadas === 1 ? "agendada" : "agendadas"}` : ""} · ${r.total} nos últimos ${MESES_NA_GRADE} meses`}
+                >
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    {r.cluster && (
+                      <span
+                        className={clsx(
+                          "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                          CLUSTER_CLASSES[r.cluster]
+                        )}
+                      >
+                        {r.cluster}
+                      </span>
+                    )}
+                    <span className="truncate text-sm text-slate-800">{r.grupo}</span>
+                  </div>
+                  <span className="whitespace-nowrap text-right text-sm tabular-nums text-slate-700">
+                    <strong className="font-semibold">{r.realizadas}</strong>
+                    {r.agendadas > 0 && (
+                      <span className="text-xs text-slate-400"> +{r.agendadas}</span>
+                    )}
                   </span>
-                  <span className="hidden group-open:inline">Mostrar menos</span>
-                </summary>
-                <RankingLista itens={ranking.slice(RANKING_VISIVEL)} maior={maiorNoMes} />
-              </details>
-            )}
-          </>
-        )}
-      </section>
+                  <div className="col-span-2 flex h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-l-full bg-brand-600"
+                      style={{ width: `${(r.realizadas / maiorTop) * 100}%` }}
+                    />
+                    {r.agendadas > 0 && (
+                      <div
+                        className="ml-0.5 h-full bg-brand-200"
+                        style={{ width: `${(r.agendadas / maiorTop) * 100}%` }}
+                      />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {/* ─── Todos os grupos ─────────────────────────────────────────────────── */}
+      <AgendaPositivaTabela linhas={linhas} meses={meses} mes={mes} mesAtual={mesAtual} />
     </div>
   );
 }
@@ -477,87 +429,5 @@ function Indicador({
         </div>
       )}
     </div>
-  );
-}
-
-function Legenda() {
-  const itens = [
-    { label: "Meta cumprida", classes: CELULA.cumprida },
-    { label: "Abaixo da meta", classes: CELULA.parcial },
-    { label: "Sem reunião", classes: CELULA.zerada },
-    { label: "Mês em curso", classes: CELULA.emCurso },
-  ];
-  return (
-    <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
-      {itens.map((i) => (
-        <li key={i.label} className="flex items-center gap-1.5">
-          <span className={clsx("h-3 w-3 rounded-sm", i.classes)} />
-          {i.label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function RankingLista({
-  itens,
-  maior,
-}: {
-  itens: {
-    cliente: string;
-    cluster: ClusterAgenda | null;
-    noMes: number;
-    agendadas: number;
-    em6m: number;
-  }[];
-  maior: number;
-}) {
-  return (
-    <ul className="space-y-1.5">
-      {itens.map((r) => (
-        <li
-          key={r.cliente}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto]"
-          title={`${r.cliente}: ${r.noMes} ${r.noMes === 1 ? "realizada" : "realizadas"}${r.agendadas ? `, ${r.agendadas} ${r.agendadas === 1 ? "agendada" : "agendadas"}` : ""} · ${r.em6m} nos últimos ${MESES_NA_GRADE} meses`}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm text-slate-800">{r.cliente}</span>
-            {r.cluster ? (
-              <span
-                className={clsx(
-                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                  CLUSTER_CLASSES[r.cluster]
-                )}
-              >
-                {r.cluster}
-              </span>
-            ) : (
-              <span className="shrink-0 rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500">
-                Fora da agenda
-              </span>
-            )}
-          </div>
-          <div className="order-last col-span-2 flex h-2.5 overflow-hidden rounded-full bg-slate-100 sm:order-none sm:col-span-1">
-            <div
-              className="h-full rounded-l-full bg-brand-600"
-              style={{ width: `${(r.noMes / maior) * 100}%` }}
-            />
-            {r.agendadas > 0 && (
-              <div
-                className="ml-0.5 h-full bg-brand-200"
-                style={{ width: `${(r.agendadas / maior) * 100}%` }}
-              />
-            )}
-          </div>
-          <span className="whitespace-nowrap text-right text-sm tabular-nums text-slate-700">
-            <strong className="font-semibold">{r.noMes}</strong>
-            {r.agendadas > 0 && (
-              <span className="text-xs text-slate-400"> +{r.agendadas}</span>
-            )}
-            <span className="ml-2 text-xs text-slate-400">{r.em6m} em 6m</span>
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }

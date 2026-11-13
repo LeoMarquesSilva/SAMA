@@ -4,10 +4,13 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { startOfDayInstantInTz } from "@/lib/timezone";
 import {
   isClusterAgenda,
+  isGrupoInternoAgenda,
   mesKeyInTz,
   somarMeses,
   type AgendaPositivaCliente,
 } from "@/lib/agenda-positiva";
+
+const PAGINA = 1000;
 
 /** Clientes com cluster e meta. semTabela: a migration 0057 ainda não foi aplicada. */
 export async function listarAgendaPositiva(): Promise<{
@@ -34,6 +37,30 @@ export async function listarAgendaPositiva(): Promise<{
   return { clientes, semTabela: false };
 }
 
+/**
+ * Todos os grupos cliente do escritório (os mesmos da tela Clientes), com ou sem
+ * cluster na agenda. Fora: cadastros sem grupo e os grupos internos do escritório.
+ * Service role pelo mesmo motivo de reunioesPorCliente: a lista é do escritório.
+ */
+export async function listarGruposCliente(): Promise<string[]> {
+  const admin = createAdminClient();
+  const grupos: string[] = [];
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data, error } = await admin
+      .from("escritorio_grupos_resumo")
+      .select("grupo_cliente")
+      .order("grupo_cliente")
+      .range(desde, desde + PAGINA - 1);
+    if (error) throw new Error(error.message);
+    for (const r of data ?? []) {
+      const g = (r.grupo_cliente ?? "").trim();
+      if (g && !isGrupoInternoAgenda(g)) grupos.push(g);
+    }
+    if ((data?.length ?? 0) < PAGINA) break;
+  }
+  return [...new Set(grupos)];
+}
+
 export type ReuniaoDoCliente = {
   /** grupo_cliente do cliente; sem grupo, o nome do cliente. */
   cliente: string;
@@ -42,8 +69,6 @@ export type ReuniaoDoCliente = {
   status: string;
   tipo: string;
 };
-
-const PAGINA = 1000;
 
 /**
  * Reuniões não canceladas entre o 1º dia de `mesDe` e o último de `mesAte`, de

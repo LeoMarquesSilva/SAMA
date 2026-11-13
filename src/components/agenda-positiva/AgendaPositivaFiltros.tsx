@@ -8,7 +8,8 @@ import { SelectMenu } from "@/components/ui/SelectMenu";
 import { iniciarNavegacao } from "@/components/layout/Navegacao";
 import {
   CLUSTERS_AGENDA,
-  labelMesLongo,
+  FILTRO_SEM_CLUSTER,
+  labelMesTitulo,
   mesAtualKey,
   somarMeses,
 } from "@/lib/agenda-positiva";
@@ -54,8 +55,8 @@ export function AgendaPositivaFiltros({
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="min-w-[9.5rem] text-center text-sm font-medium capitalize text-slate-700">
-          {labelMesLongo(mes)}
+        <span className="min-w-[9.5rem] text-center text-sm font-medium text-slate-700">
+          {labelMesTitulo(mes)}
         </span>
         <button
           type="button"
@@ -78,8 +79,12 @@ export function AgendaPositivaFiltros({
         </button>
       )}
 
-      <div className="flex gap-1 rounded-full bg-slate-100 p-1">
-        {[{ chave: "", curto: "Todos os clusters" }, ...CLUSTERS_AGENDA].map((c) => (
+      <div className="flex flex-wrap gap-1 rounded-2xl bg-slate-100 p-1 sm:rounded-full">
+        {[
+          { chave: "", curto: "Todos" },
+          ...CLUSTERS_AGENDA,
+          { chave: FILTRO_SEM_CLUSTER, curto: "Sem cluster" },
+        ].map((c) => (
           <button
             key={c.chave || "todos"}
             type="button"
