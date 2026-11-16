@@ -26,6 +26,14 @@ type FellowRecap = {
   sections: FellowRecapSection[];
 };
 
+/** Uma fala da transcrição: start/end em segundos desde o início da gravação. */
+export type FellowSegmento = {
+  start: number;
+  end: number;
+  speaker: string;
+  text: string;
+};
+
 export type FellowRecording = {
   id: string;
   title: string | null;
@@ -35,6 +43,18 @@ export type FellowRecording = {
   media_url: string | null;
   note_id: string | null;
   ai_notes?: FellowRecap[] | null;
+  transcript?: {
+    speech_segments?: FellowSegmento[] | null;
+    language_code?: string | null;
+  } | null;
+};
+
+export type FellowTranscricao = {
+  recordingId: string;
+  idioma: string | null;
+  inicio: string | null;
+  fim: string | null;
+  segmentos: FellowSegmento[];
 };
 
 type FellowListResponse = {
@@ -109,12 +129,15 @@ async function fellowPost<T>(path: string, body: Record<string, unknown>): Promi
   return res.json() as Promise<T>;
 }
 
+type FellowInclude = { transcript: boolean; ai_notes: boolean };
+
 async function listRecordings(
-  filters: Record<string, string>
+  filters: Record<string, string>,
+  include: FellowInclude = { transcript: false, ai_notes: true }
 ): Promise<FellowRecording[]> {
   const data = await fellowPost<FellowListResponse>("/api/v1/recordings", {
     filters,
-    include: { transcript: false, ai_notes: true },
+    include,
     pagination: { page_size: 10 },
   });
   return data.recordings?.data ?? [];
@@ -284,19 +307,23 @@ function pickClosest(
   });
 }
 
-export async function buscarGravacaoFellow(input: {
+type BuscaGravacaoInput = {
   outlook_event_id?: string | null;
   titulo?: string | null;
   data_hora_inicio?: string | null;
-}): Promise<FellowBuscaResult | null> {
-  if (!fellowConfigurado()) return null;
+};
 
+async function encontrarGravacao(
+  input: BuscaGravacaoInput,
+  include?: FellowInclude
+): Promise<FellowRecording | null> {
   let recording: FellowRecording | null = null;
 
   if (input.outlook_event_id?.trim()) {
-    const porEvento = await listRecordings({
-      event_guid: input.outlook_event_id.trim(),
-    });
+    const porEvento = await listRecordings(
+      { event_guid: input.outlook_event_id.trim() },
+      include
+    );
     recording = pickClosest(porEvento, input.data_hora_inicio);
   }
 
@@ -308,14 +335,73 @@ export async function buscarGravacaoFellow(input: {
       const depois = new Date(inicio);
       depois.setDate(depois.getDate() + 2);
 
-      const porTitulo = await listRecordings({
-        title: input.titulo.trim().slice(0, 255),
-        created_at_start: isoDateOnly(antes),
-        created_at_end: isoDateOnly(depois),
-      });
+      const porTitulo = await listRecordings(
+        {
+          title: input.titulo.trim().slice(0, 255),
+          created_at_start: isoDateOnly(antes),
+          created_at_end: isoDateOnly(depois),
+        },
+        include
+      );
       recording = pickClosest(porTitulo, input.data_hora_inicio);
     }
   }
+
+  return recording;
+}
+
+/** Gravação com início a mais de 6 h do horário da reunião é de outro encontro com o mesmo título. */
+const TOLERANCIA_TRANSCRICAO_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Transcrição da gravação da reunião no Fellow. Null quando não há gravação,
+ * quando ela ainda não tem falas ou quando a gravação achada pelo título é de
+ * outro dia/horário (reuniões recorrentes com o mesmo nome).
+ */
+export async function buscarTranscricaoFellow(
+  input: BuscaGravacaoInput
+): Promise<FellowTranscricao | null> {
+  if (!fellowConfigurado()) return null;
+
+  const recording = await encontrarGravacao(input, {
+    transcript: true,
+    ai_notes: false,
+  });
+  if (!recording) return null;
+
+  if (input.data_hora_inicio && recording.started_at) {
+    const diff = Math.abs(
+      new Date(recording.started_at).getTime() -
+        new Date(input.data_hora_inicio).getTime()
+    );
+    if (!Number.isNaN(diff) && diff > TOLERANCIA_TRANSCRICAO_MS) return null;
+  }
+
+  const segmentos = (recording.transcript?.speech_segments ?? []).filter(
+    (s) => s && typeof s.text === "string" && s.text.trim()
+  );
+  if (!segmentos.length) return null;
+
+  return {
+    recordingId: recording.id,
+    idioma: recording.transcript?.language_code ?? null,
+    inicio: recording.started_at ?? null,
+    fim: recording.ended_at ?? null,
+    segmentos: segmentos.map((s) => ({
+      start: Number(s.start) || 0,
+      end: Number(s.end) || 0,
+      speaker: s.speaker?.trim() || "Sem identificação",
+      text: s.text.trim(),
+    })),
+  };
+}
+
+export async function buscarGravacaoFellow(
+  input: BuscaGravacaoInput
+): Promise<FellowBuscaResult | null> {
+  if (!fellowConfigurado()) return null;
+
+  const recording = await encontrarGravacao(input);
 
   if (!recording) return { status: "sem_gravacao" };
 

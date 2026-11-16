@@ -168,6 +168,18 @@ export type Reuniao = {
   atualizado_em: string;
 };
 
+/** Transcrição da reunião gravada pelo Fellow (tabela reuniao_transcricoes). */
+export type ReuniaoTranscricao = {
+  reuniao_id: string;
+  fellow_recording_id: string | null;
+  idioma: string | null;
+  gravacao_inicio: string | null;
+  gravacao_fim: string | null;
+  /** start/end em segundos desde o início da gravação. */
+  segmentos: { start: number; end: number; speaker: string; text: string }[];
+  importado_em: string;
+};
+
 // Reunião com dados agregados para listagem.
 export type ReuniaoComRelacoes = Reuniao & {
   cliente?: {

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getPessoaAtual } from "@/lib/currentPessoa";
 import { reuniaoSchema, type ReuniaoFormValues } from "@/lib/validations";
@@ -27,6 +28,8 @@ import { compactChecklist, parseChecklist } from "@/lib/proximos-passos-checklis
 import { cancelarCompromissosDaReuniao } from "@/lib/vios-cancelamento";
 import { prorrogarCompromissosDaReuniao } from "@/lib/vios-prorrogacao";
 import { compartilharDemandaDaReuniao } from "@/lib/reunioes/demanda-compartilhada";
+import { guardarTranscricaoFellow } from "@/lib/reunioes/transcricao";
+import type { ReuniaoTranscricao } from "@/types/database";
 
 export type ActionResult = {
   ok: boolean;
@@ -56,6 +59,17 @@ function revalidateReunioes() {
   revalidatePath("/relatorios");
   revalidatePath("/tarefas");
   revalidatePath("/proximos-passos");
+}
+
+/** Depois de responder, guarda a transcrição do Fellow (se houver e ainda não estiver no SAMA). */
+function guardarTranscricaoDepois(reuniaoId: string) {
+  after(async () => {
+    try {
+      await guardarTranscricaoFellow(reuniaoId);
+    } catch (err) {
+      console.error("[transcricao Fellow]", reuniaoId, err);
+    }
+  });
 }
 
 function buildRow(values: ReuniaoFormValues) {
@@ -254,6 +268,8 @@ export async function createReuniao(values: unknown): Promise<ActionResult> {
     return { ok: false, error: partErr };
   }
 
+  if (parsed.data.status === "REALIZADA") guardarTranscricaoDepois(data.id);
+
   revalidateReunioes();
   return { ok: true, id: data.id };
 }
@@ -289,9 +305,15 @@ export async function updateReuniao(
     .eq("id", id)
     .maybeSingle();
 
+  // A Ata só aparece (e só é editada) em reunião Realizada. Salvar em outro
+  // status não pode apagar o que já foi escrito ou importado do Fellow.
+  const { resultado, ata_texto, ...semAta } = buildRow(parsed.data);
+  const row =
+    parsed.data.status === "REALIZADA" ? { ...semAta, resultado, ata_texto } : semAta;
+
   const { error } = await adminOrErr
     .from("reunioes")
-    .update(buildRow(parsed.data))
+    .update(row)
     .eq("id", id);
 
   if (error) return { ok: false, error: mapReuniaoDbError(error) };
@@ -336,6 +358,8 @@ export async function updateReuniao(
   } catch (err) {
     console.error("[updateReuniao] alterar compromissos no VIOS:", err);
   }
+
+  if (parsed.data.status === "REALIZADA") guardarTranscricaoDepois(id);
 
   revalidateReunioes();
   return { ok: true, id };
@@ -520,8 +544,47 @@ export async function importarFellowReuniao(id: string): Promise<FellowImportRes
     .eq("id", id);
   if (upErr) return { ok: false, error: "Erro ao salvar conteúdo importado." };
 
+  guardarTranscricaoDepois(id);
   revalidateReunioes();
   return resultado;
+}
+
+export type TranscricaoResult =
+  | { ok: true; transcricao: ReuniaoTranscricao | null }
+  | { ok: false; error: string };
+
+/**
+ * Transcrição da reunião para a tela da ata. Lê a guardada no SAMA; se ainda
+ * não houver, busca no Fellow e guarda (só para quem pode ver a reunião).
+ */
+export async function carregarTranscricaoReuniao(
+  id: string
+): Promise<TranscricaoResult> {
+  const supabase = await createClient();
+  const { data: reuniao } = await supabase
+    .from("reunioes")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!reuniao) return { ok: false, error: "Reunião não encontrada." };
+
+  const { data: salva } = await supabase
+    .from("reuniao_transcricoes")
+    .select(
+      "reuniao_id, fellow_recording_id, idioma, gravacao_inicio, gravacao_fim, segmentos, importado_em"
+    )
+    .eq("reuniao_id", id)
+    .maybeSingle();
+  if (salva) return { ok: true, transcricao: salva as ReuniaoTranscricao };
+
+  try {
+    return { ok: true, transcricao: await guardarTranscricaoFellow(id) };
+  } catch (e) {
+    if (e instanceof FellowApiError) {
+      return { ok: false, error: `Fellow: ${e.message}` };
+    }
+    return { ok: false, error: "Erro ao buscar a transcrição no Fellow." };
+  }
 }
 
 export async function listarReunioesAnterioresCliente(

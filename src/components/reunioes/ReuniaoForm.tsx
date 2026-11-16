@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useFellowFetchProgress } from "@/components/reunioes/useFellowFetchProgress";
+import { TranscricaoFellow } from "@/components/reunioes/TranscricaoFellow";
 import { ProximosPassosChecklist } from "@/components/reunioes/ProximosPassosChecklist";
 import { AgendarViosModal } from "@/components/reunioes/AgendarViosModal";
 import {
@@ -636,8 +637,9 @@ export function ReuniaoForm({
       link_online: src?.link_online ?? "",
       local: String(fd.get("local") ?? ""),
       objetivos: String(fd.get("objetivos") ?? ""),
-      resultado:
-        status === "REALIZADA" ? resultadoTexto : String(fd.get("resultado") ?? ""),
+      // A Ata só aparece em reunião Realizada; nos outros status o campo some da
+      // tela, mas o texto já salvo (ou importado do Fellow) continua valendo.
+      resultado: resultadoTexto,
       proximos_passos: agendarNovo ? "" : proximosPassos,
       motivo_cancelamento: String(fd.get("motivo_cancelamento") ?? ""),
       participantes: fd.getAll("participantes").map(String),
@@ -1088,6 +1090,9 @@ export function ReuniaoForm({
         onChange={setResultadoTexto}
         error={fieldErrors.resultado}
       />
+      {fellowAtivo && reuniao?.id ? (
+        <TranscricaoFellow reuniaoId={reuniao.id} />
+      ) : null}
       {pautaMsg && (
         <p
           className={clsx(
